@@ -32,21 +32,34 @@ without a gate check. The full text lives in [`.isekai/isekai.md`](.isekai/iseka
 ├── instruments/    # raw signals the world watches itself with
 └── elf/ orc/ slime/ tmp/   # where creatures and scratch work live as the world grows
 
-.claude/commands/   # /isekai, /don, /mint — the Claude Code slash commands that operate on this convention
-.opencode/commands/ # /isekai — the OpenCode port of the same command
+.claude/commands/   # /isekai, /don, /mint, /genesis — the Claude Code slash commands that operate on this convention
+.opencode/commands/ # /isekai, /genesis — the OpenCode port of the same commands (/don and /mint have no OpenCode equivalent)
 ```
 
 - **`/isekai [target-dir]`** reincarnates a directory: it writes `.isekai/isekai.md`,
-  `.isekai/log.md`, the portrait set, and the empty creature directories. Safe to re-run —
-  it never overwrites what's already there.
+  `.isekai/log.md`, the portrait set, and the empty creature directories, then — on a *fresh*
+  reincarnation only — runs `/genesis`'s survey-and-populate flow in the same pass (offer-first:
+  it shows the proposed Elf/Orc/Slime population before writing any creature). Re-running it on
+  a world that already exists never overwrites what's there and never auto-populates again.
 - **`/don`** (Claude Code only) brings a *Mind* (a skill) in from `.opencode/skill(s)/` into
   `.claude/skills/`.
 - **`/mint`** (Claude Code only) brings a *Body* (an agent) in from `.opencode/agents/` into
   `.claude/agents/`.
+- **`/genesis`** (both Claude Code and OpenCode) scans a world's code and decides on its own
+  which Elves, Orcs and Slimes it needs, then births them — Nature 4 (Genesis) invoked
+  directly, offer-first. `/isekai` already runs it automatically the first time a directory is
+  reincarnated; call `/genesis` directly later to re-survey a living world or fill in what's
+  missing. Two depth levels: `--depth code` (default) reads each zone's current source before
+  classifying it; `--depth deep` additionally mines that zone's git history (`git log`/`git
+  show`) for the fixes, reversals and incidents that explain *why* it looks the way it does,
+  not just what it looks like now. Simpler and narrower than the unmerged canon "Phase 2b"
+  populate logic described in
+  [`.isekai/canon/isekai-phases.md`](.isekai/canon/isekai-phases.md) (no `AGENTS.md`, no
+  Bodies offer, no instruments); kept as its own command rather than folded fully into `/isekai`.
 
-Both Claude Code and OpenCode can run `/isekai`; the world document it produces is the same
-either way, since `.isekai/isekai.md` already treats `.opencode/` and `.claude/` as two
-coexisting homes for the same Minds and Bodies.
+Both Claude Code and OpenCode can run `/isekai` and `/genesis`; the world document and
+population they produce are the same either way, since `.isekai/isekai.md` already treats
+`.opencode/` and `.claude/` as two coexisting homes for the same Minds and Bodies.
 
 ## Using it elsewhere
 

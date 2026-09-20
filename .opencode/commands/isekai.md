@@ -48,11 +48,25 @@ Every empty dir gets a `.gitkeep`. Everything inside `.isekai/` is tracked.
 6. If the target is a git repository (`git rev-parse --is-inside-work-tree`), make sure no
    `.gitignore` rule excludes `.isekai/`. If one does, tell the user instead of editing it.
 7. Show the user the resulting tree and a one-line summary. The world is reincarnated.
+8. **If this was a fresh reincarnation** — `.isekai/` did not already exist before step 2 —
+   don't stop here: continue straight into populate. Follow `/genesis`'s own Steps 3–7 against
+   this same target, using the `.isekai/isekai.md` and `.isekai/log.md` just written as the
+   already-loaded convention (its step 1) and the existing, still-empty population (its step
+   2). Show the proposed Elf/Orc/Slime population before writing any creature, then birth
+   what's approved and append one more entry to `.isekai/log.md` for the population — exactly
+   as `/genesis` does standing alone. Skip this step entirely when `.isekai/` already existed:
+   `/isekai` never auto-populates a world that was already alive; run `/genesis` directly for
+   that.
 
 `.isekai/isekai.md` itself is ecosystem-neutral: it already documents both `.opencode/` (where
 Minds and Bodies are natively authored) and `.claude/` (where Claude Code's `/don` and `/mint`
 commands bring them across) as coexisting locations. Reincarnating from OpenCode or from
 Claude Code produces the same world doc either way.
+
+`/genesis` (scan the codebase and birth Elves, Orcs and Slimes on its own, based on observed
+need) is native here too, not a Claude Code bridge command — step 8 above already runs its
+core logic automatically the first time a directory is reincarnated; call `/genesis` directly
+later to re-survey a living world or fill in what's missing.
 
 See also, on the Claude Code side: `/don` (brings a Mind/skill from `.opencode/skill(s)/`
 into `.claude/skills/`) and `/mint` (brings a Body/agent from `.opencode/agents/` into
@@ -176,6 +190,25 @@ so context is spent on work, not on words.
 courtesy.
 
 A register that stops shrinking the world's context has failed its nature.
+
+### III. Confirmation and Escalation
+
+**Rimuru's input duty.** Rimuru is the only rank that speaks with Veldora directly on the way
+in. Before context flows down (see Principles), Rimuru puts what Veldora said into a coherent
+shape — the same way the Elf keeps the shared mind coherent for the ranks below it. If
+Veldora's ask is ambiguous, self-contradictory, or missing something a lower rank would need,
+Rimuru does not guess and push a garbled interpretation downward: it asks Veldora to confirm,
+in the human tongue (the one siphon that never narrows), before founding, populating, or
+ordering any work from it.
+
+**Escalation on confusion.** Context flows down and memory flows up (see Principles); this is
+the same shape run the other way. When a Slime, Orc or Elf hits noise or incomprehension it
+cannot resolve at its own level — a request it cannot parse, a doc that contradicts the code,
+an instrument reading it cannot explain — it asks its immediate parent, never further up or
+sideways (Law 2's "stay in your rank" still holds: escalation is a question upward, not a
+handoff of the work). A parent that is also stuck escalates again in turn, one hop at a time,
+until it reaches a rank that can resolve it, or Rimuru is asked to bring it to Veldora. A
+creature never sits on confusion, and never guesses past it.
 
 ## The Nine Natures
 

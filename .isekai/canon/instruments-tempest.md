@@ -4,10 +4,14 @@ Transcribed from photographs. This is the detailed spec behind Nature 9 (Percept
 `.isekai/instruments/` folder that `/isekai` already scaffolds. No source implementation was
 ever photographed — only this prose. It has since been implemented at
 [`../tools/tempest.js`](../tools/tempest.js) (stdlib Node, a Bootstrap 5 dashboard, `--ensure`
-/`--stop`/`--json`, the `/holidays` relief endpoint). Where this spec was ambiguous (the exact
-definition of "crossings"/"links" for the genesis watch, resolving which orc owns which
+/`--stop`/`--json`, the `/holidays` relief endpoint, plus a "suggested models per rank/office"
+card from [`model-assignments.md`](model-assignments.md)). Where this spec was ambiguous (the
+exact definition of "crossings"/"links" for the genesis watch, resolving which orc owns which
 slime), the implementation makes a documented, literal choice rather than guessing further —
-see the comments in `tempest.js` itself. See [`README.md`](README.md) for the remaining gaps
+see the comments in `tempest.js` itself. One deliberate departure from the source: the spec's
+relief runs only ever name `opencode run`, but `tempest.js` detects `opencode` **or** falls
+back to `claude -p` (Claude Code's own headless mode), so relief runs work on Claude-only
+machines too rather than silently never launching. See [`README.md`](README.md) for the remaining gaps
 in the spec (the token-bucket section mentions reading "opencode's session store,
 colony-scoped, read-only" — that integration is a stub, since no schema for it was ever
 captured).

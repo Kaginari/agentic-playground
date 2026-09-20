@@ -6,7 +6,10 @@
  * Built from the spec in .isekai/canon/instruments-tempest.md and
  * .isekai/canon/rimuru-throne-body.md — no source implementation was ever photographed,
  * only the prose description of what it does. stdlib only, zero dependencies, so the shape
- * travels with the world.
+ * travels with the world. Ecosystem-neutral throughout: the board itself doesn't care whether
+ * Claude Code or OpenCode is driving, and /holidays relief runs use whichever CLI (`opencode`
+ * or `claude`) is actually on PATH — the source spec only ever named `opencode run`, but that
+ * would silently strand Claude-only machines, so this adds the `claude -p` fallback.
  *
  * Usage:
  *   node tempest.js <target-dir> --ensure     idempotent heartbeat; starts the board if it
@@ -100,6 +103,19 @@ const DEFAULT_THOUGHTS_LIMIT = 5;
 const RACE_LIMITS = { dark_elf: 10 }; // breath law: ground races 5, dark elf 10 (rule 14)
 const DIET_BYTES = 6 * 1024; // rule 14's ~6KB diet
 const RACES = ['elf', 'orc', 'slime', 'kijin', 'high_elf', 'high_orc', 'dark_elf'];
+
+// from .isekai/canon/model-assignments.md — not transcribed canon, reasoned guidance mapping
+// each office's actual job (as the canon itself defines it) onto model cost/capability tiers.
+// Rimuru is deliberately excluded: "the mount is whatever model the human picked" (throne body).
+const MODEL_GUIDE = [
+  { group: 'Court triad', rank: 'Great Sage', job: 'Perceive only — read wide, report thin, no judgment', model: 'Haiku 4.5', why: 'Bulk retrieval/extraction, high dispatch volume, its own office laws forbid anything heavier.' },
+  { group: 'Court triad', rank: 'Raphael', job: 'Judge — verdicts need file:line evidence, BLOCK beats a lazy PASS', model: 'Sonnet 5', why: 'Correctness-critical. Opus 5 for high-stakes domains (security, payments, migrations).' },
+  { group: 'Court triad', rank: 'Ciel', job: 'Speak — durable, journal-ready, human-facing prose', model: 'Sonnet 5', why: 'Prose quality and voice consistency over raw reasoning. Fable 5.1 worth trialing, unconfirmed.' },
+  { group: 'Base ranks', rank: 'Elf', job: 'Shared mind and voice — cross-domain, drafts outward messages', model: 'Sonnet 5', why: 'Closest to Rimuru in reasoning load. Opus 5 for large worlds with real cross-domain conflict.' },
+  { group: 'Base ranks', rank: 'Orc', job: 'Domain ruler and the actual landing gate', model: 'Sonnet 5', why: 'Same reasoning-critical profile as Raphael, with real teeth. Opus 5 for high-stakes domains.' },
+  { group: 'Base ranks', rank: 'Slime', job: 'One narrow zone, deep but narrow, frequently reloaded', model: 'Haiku 4.5', why: 'Cost efficiency at volume. Sonnet 5 per-slime when a zone’s own logic is intrinsically complex.' },
+  { group: 'Ascended', rank: 'Kijin / High Orc / Dark Elf', job: 'Rare, human-declared, long-lived, archival memory', model: 'Opus 5', why: 'Scarcity makes cost moot — default to the ceiling until there’s a reason not to.' },
+];
 
 function safeRead(p) {
   try { return fs.readFileSync(p, 'utf8'); } catch { return ''; }
@@ -256,6 +272,7 @@ function snapshot() {
     domainTree: domainTree(),
     evolution: evolutionSeries(),
     tokens: tokenBucket(),
+    modelGuide: MODEL_GUIDE,
   };
 }
 
@@ -274,23 +291,34 @@ function runHolidays({ dry, only }) {
   fs.writeFileSync(path.join(dayDir, 'holidays.md'), `# Relief worklist — ${day}\n\n${lines.join('\n') || '(nothing over the diet)'}\n`);
 
   fs.mkdirSync(metricsDir, { recursive: true });
-  const which = process.platform === 'win32' ? 'where' : 'which';
-  const hasOpencode = spawnSync(which, ['opencode']).status === 0;
-  plan.launched = hasOpencode;
-  if (!hasOpencode) plan.note = 'opencode not found on PATH — worklist written, relief runs not launched';
+  const cli = detectReliefCli(); // { bin: 'opencode'|'claude', args: (prompt) => [...] } or null
+  plan.launched = !!cli;
+  plan.cli = cli ? cli.bin : null;
+  if (!cli) plan.note = 'neither opencode nor claude found on PATH — worklist written, relief runs not launched';
 
   for (const row of worklist) {
-    const entry = { ts: new Date().toISOString(), creature: `${row.race}-${row.name}`, launched: hasOpencode };
+    const entry = { ts: new Date().toISOString(), creature: `${row.race}-${row.name}`, launched: !!cli, cli: cli ? cli.bin : null };
     fs.appendFileSync(reliefFile, JSON.stringify(entry) + '\n');
-    if (hasOpencode) {
+    if (cli) {
+      const prompt = `relief for ${row.race}-${row.name}: distil its Thoughts, split by diet, review under genesis-watch`;
       // sequential, one 10-minute cap per step, matching the shed's own budget (rule 17)
-      spawnSync('opencode', ['run', `relief for ${row.race}-${row.name}: distil its Thoughts, split by diet, review under genesis-watch`], {
-        cwd: root,
-        timeout: 10 * 60 * 1000,
-      });
+      spawnSync(cli.bin, cli.args(prompt), { cwd: root, timeout: 10 * 60 * 1000 });
     }
   }
   return plan;
+}
+
+// prefer opencode (the CLI the source spec was written against: "opencode run"); fall back to
+// Claude Code's own headless mode (`claude -p`) so relief runs work on Claude-only machines too
+function detectReliefCli() {
+  const which = process.platform === 'win32' ? 'where' : 'which';
+  if (spawnSync(which, ['opencode']).status === 0) {
+    return { bin: 'opencode', args: (prompt) => ['run', prompt] };
+  }
+  if (spawnSync(which, ['claude']).status === 0) {
+    return { bin: 'claude', args: (prompt) => ['-p', prompt] };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- dashboard (Bootstrap 5)
@@ -350,6 +378,22 @@ function renderHtml(data) {
   const overDietCount = data.deskStress.filter((r) => r.overDiet).length;
   const overDietClass = overDietCount ? 'text-danger' : '';
   const flaggedClass = data.genesisWatch.flagged.length ? 'text-danger' : '';
+
+  const modelBadge = (m) => {
+    const cls = m.startsWith('Opus') ? 'text-bg-danger' : m.startsWith('Sonnet') ? 'text-bg-primary' : m.startsWith('Fable') ? 'text-bg-info' : 'text-bg-success';
+    return `<span class="badge ${cls}">${esc(m)}</span>`;
+  };
+  const modelRows = data.modelGuide
+    .map(
+      (m, i) => `<tr>
+        ${i === 0 || data.modelGuide[i - 1].group !== m.group ? `<td rowspan="${data.modelGuide.filter((x) => x.group === m.group).length}" class="text-muted small text-uppercase align-middle">${esc(m.group)}</td>` : ''}
+        <td><strong>${esc(m.rank)}</strong></td>
+        <td class="small">${esc(m.job)}</td>
+        <td>${modelBadge(m.model)}</td>
+        <td class="small text-muted">${esc(m.why)}</td>
+      </tr>`
+    )
+    .join('\n');
 
   return `<!doctype html>
 <html lang="en">
@@ -445,6 +489,21 @@ function renderHtml(data) {
           ${unassigned.length ? `<hr><div class="text-muted mb-1">unassigned slimes</div><ul class="list-unstyled mb-0">${unassigned.map((s) => `<li>🟡 <code>${esc(s)}</code></li>`).join('')}</ul>` : ''}
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mt-3">
+    <div class="card-header fw-semibold">Suggested models per rank/office</div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead><tr><th>Group</th><th>Rank</th><th>Job</th><th>Model</th><th>Why</th></tr></thead>
+        <tbody>${modelRows}</tbody>
+      </table>
+    </div>
+    <div class="card-body small text-muted py-2">
+      Rimuru excluded on purpose — the throne's mount is whatever model the human picked, never
+      hardcoded. Reasoned guidance, not transcribed canon — see
+      <code>.isekai/canon/model-assignments.md</code>.
     </div>
   </div>
 
