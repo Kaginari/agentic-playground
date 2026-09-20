@@ -1,20 +1,31 @@
 # 8. Instruments — the world measures itself
 
 Transcribed from photographs. This is the detailed spec behind Nature 9 (Perception) and the
-`.isekai/instruments/` folder that `/isekai` already scaffolds. No source implementation was
-ever photographed — only this prose. It has since been implemented at
-[`../tools/tempest.js`](../tools/tempest.js) (stdlib Node, a Bootstrap 5 dashboard, `--ensure`
-/`--stop`/`--json`, the `/holidays` relief endpoint, plus a "suggested models per rank/office"
-card from [`model-assignments.md`](model-assignments.md)). Where this spec was ambiguous (the
-exact definition of "crossings"/"links" for the genesis watch, resolving which orc owns which
-slime), the implementation makes a documented, literal choice rather than guessing further —
-see the comments in `tempest.js` itself. One deliberate departure from the source: the spec's
-relief runs only ever name `opencode run`, but `tempest.js` detects `opencode` **or** falls
-back to `claude -p` (Claude Code's own headless mode), so relief runs work on Claude-only
-machines too rather than silently never launching. See [`README.md`](README.md) for the remaining gaps
-in the spec (the token-bucket section mentions reading "opencode's session store,
-colony-scoped, read-only" — that integration is a stub, since no schema for it was ever
-captured).
+`.isekai/instruments/` folder that `/isekai` already scaffolds.
+
+`.isekai/tools/tempest.js` started as an implementation of this prose spec, with no source
+code ever seen. It is now, instead, a **faithful port of the actual source** — photographed
+across 20 images on 2026-09-20 (see `.isekai/canon/README.md`'s note on that session), roughly
+lines 2–747 of it continuous, missing only the HTTP route table at the very end (which this
+session wrote itself, built to satisfy exactly what the fully-visible client-side script
+calls). The port includes things this prose spec never even hinted at: the real creature
+source is `.opencode/skills/*/SKILL.md` (not a separate `.isekai/<race>/<name>/` tree), an
+elder `.convention-zero`/`CONVENTION-ZERO.md`/`SLIME.md` fallback for older worlds, real
+per-model/per-agent token stats read live from OpenCode's own `~/.local/share/opencode/
+opencode.db` SQLite store, a canon-vs-`.drawio`-chart version-debt check, an interactive SVG
+"neural-layer" colony graph (slimes → orcs → elf, radius ∝ doc weight, glow = stress), and a
+harm-fenced relief system: snapshot a creature's skill dir before a relief run, hard-restore
+its frontmatter and re-verify desk stress after. One resolved mystery from the earlier,
+partial transcription below: the line that looked like garbled "# perty" was the 🎉 **party**
+button — an action that logs Nature 4's second naming for genesis-watch births, distinct from
+🎒 **holidays** (the relief dispatcher).
+
+One deliberate departure kept from this session's earlier, spec-only implementation: the real
+source hardcodes `opencode run` for relief dispatch; the port instead detects `opencode` first,
+falling back to `claude -p` (Claude Code's own headless mode), so relief runs work on
+Claude-only machines too rather than silently never launching. See the comments in
+`tempest.js` itself for where else the port made a documented, literal choice instead of
+guessing at what a handful of remaining gaps might have said (see `README.md`).
 
 ---
 
