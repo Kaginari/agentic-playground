@@ -71,6 +71,28 @@ population they produce are the same either way, since `.isekai/isekai.md` alrea
   `/don` cross-ecosystem mechanism: authored natively for OpenCode, ported byte-identical into
   `.claude/skills/` — proof this convention actually runs Minds in parallel across both.
 
+Five more Minds imported from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT —
+upstream `LICENSE` kept alongside each as `LICENSE-upstream`), in both `.opencode/skills/` and
+`.claude/skills/`. Two tie directly into this convention's own concerns:
+
+- **`git-guardrails-claude-code`** — sets up a hook blocking dangerous git commands (`push`,
+  `reset --hard`, `clean -f`, `branch -D`) before they execute. Reinforces Law 5's care around
+  irreversible actions mechanically instead of relying on a session remembering to ask first.
+  Not wired in automatically — the skill itself asks project-vs-global scope when invoked.
+- **`writing-for-agents`** — reference on writing any document an agent consumes (a skill, a
+  creature's `README.md`, `AGENTS.md`/`CLAUDE.md`): context pointers, the information
+  hierarchy, when to split a document. Directly useful for keeping creature docs and
+  `isekai.md` itself economical, in the same spirit as Absolute Rule II.
+
+Three more are just genuinely useful, kept as ordinary skills rather than wired into the
+convention's own lore or creature system:
+
+- **`wizard`** — generates an interactive bash wizard for steps only a human can perform
+  (credentials, unfamiliar dashboards, one-off migrations).
+- **`code-review`** — reviews a diff since a fixed point along two axes (repo standards, and
+  spec-match) via parallel sub-agents.
+- **`tdd`** — red-green-refactor loop with seam discipline and anti-pattern checks.
+
 ## Presentations
 
 - **`presentations/isekai-opencode-overview.pptx`** — a 12-slide overview of the convention
