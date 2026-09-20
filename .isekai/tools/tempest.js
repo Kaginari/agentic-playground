@@ -166,6 +166,74 @@ function harvestClaudeUsage(root) {
   }
   return out;
 }
+// ------------ machine-wide activity (for the global / index — not scoped to one world) ------------
+// Human order 2026-09-20: "how much consumption in total if opencode session ... maybe
+// information if session is active or not". Unlike harvestClaudeUsage(root)/the opencode.db
+// query in harvest(root), these are NOT filtered to one colony — every session on this
+// machine, whether or not its directory is a reincarnated world.
+const ACTIVE_WINDOW_MS = 5 * 60000; // "active" = touched in the last 5 minutes
+function harvestClaudeGlobal() {
+  const out = { sessions: 0, active: 0, totalIn: 0, totalOut: 0, perModel: {} };
+  const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+  if (!fs.existsSync(projectsDir)) return out;
+  const now = Date.now();
+  let slugDirs;
+  try { slugDirs = fs.readdirSync(projectsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); }
+  catch { return out; }
+  for (const slug of slugDirs) {
+    let files;
+    try { files = fs.readdirSync(path.join(projectsDir, slug)).filter(f => f.endsWith('.jsonl')); }
+    catch { continue; }
+    for (const f of files) {
+      const fp = path.join(projectsDir, slug, f);
+      let stat; try { stat = fs.statSync(fp); } catch { continue; }
+      out.sessions++;
+      if (now - stat.mtimeMs <= ACTIVE_WINDOW_MS) out.active++;
+      let text; try { text = fs.readFileSync(fp, 'utf8'); } catch { continue; }
+      for (const line of text.split('\n')) {
+        if (!line) continue;
+        let d; try { d = JSON.parse(line); } catch { continue; }
+        if (d.type !== 'assistant') continue;
+        const usage = (d.message || {}).usage || {};
+        const mid = (d.message || {}).model || 'unknown';
+        const tin = usage.input_tokens || 0, tout = usage.output_tokens || 0;
+        out.totalIn += tin; out.totalOut += tout;
+        const pm = out.perModel[mid] ||= { in: 0, out: 0 };
+        pm.in += tin; pm.out += tout;
+      }
+    }
+  }
+  return out;
+}
+// OpenCode: only the columns already proven against a real store elsewhere in this file
+// (model, tokens_input, tokens_output, time_created) — no session-id column is used
+// anywhere else here, so "sessions" isn't claimed, only rows and recent-row activity.
+function harvestOpencodeGlobal() {
+  const out = { rows: 0, activeRows: 0, totalIn: 0, totalOut: 0, perModel: {}, available: false };
+  try {
+    const dbp = path.join(os.homedir(), '.local', 'share', 'opencode', 'opencode.db');
+    if (!fs.existsSync(dbp)) return out;
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(dbp, { readOnly: true });
+    out.available = true;
+    try {
+      const sinceMs = Date.now() - ACTIVE_WINDOW_MS;
+      for (const r of db.prepare(
+        `SELECT COALESCE(model,'') m, COUNT(*) runs, COALESCE(SUM(tokens_input),0) tin,
+                COALESCE(SUM(tokens_output),0) tout,
+                SUM(CASE WHEN time_created >= ? THEN 1 ELSE 0 END) recent
+         FROM session GROUP BY m`).all(sinceMs)) {
+        let mid = 'unknown';
+        try { mid = JSON.parse(r.m).id || 'unknown'; } catch { mid = String(r.m) || 'unknown'; }
+        out.rows += r.runs; out.activeRows += r.recent || 0;
+        out.totalIn += r.tin; out.totalOut += r.tout;
+        const pm = out.perModel[mid] ||= { in: 0, out: 0 };
+        pm.in += r.tin; pm.out += r.tout;
+      }
+    } finally { db.close(); }
+  } catch { /* unreadable store — reported as unavailable, not a crash */ }
+  return out;
+}
 function mergeLive(into, from) {
   into.rows += from.rows; into.totalIn += from.totalIn; into.totalOut += from.totalOut;
   for (const [day, v] of Object.entries(from.perDay)) {
@@ -202,19 +270,27 @@ function harvest(root) {
   const dirs = fs.existsSync(skillsDir)
     ? fs.readdirSync(skillsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name).sort()
     : [];
-  const creatures = dirs.map(name => {
+  // A .opencode/skills/<name>/ entry is a creature only if its name carries a race
+  // prefix (orc-, slime-, ...) — the "real source" shape where creatures live here.
+  // Anything else is a genuine Mind (reusable know-how, not a creature): e.g.
+  // palette-audit. Harmony rule (human order 2026-09-20): a Mind links to whichever
+  // creatures its own doc names, or whose doc names it back — never assigned by hand.
+  const creatures = [];
+  const minds = [];
+  for (const name of dirs) {
     const doc = rd(docOf(name));
-    const race = RACES.find(r => name.startsWith(r + '-')) || 'plain';
+    const race = RACES.find(r => name.startsWith(r + '-'));
     const bytes = Buffer.byteLength(doc);
+    const desc = (doc.match(/^description:\s*(.+)$/m) || [])[1] || '';
+    if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), desc, doc, links: [] }); continue; }
     // thoughts: section-scoped dated bullets (>- ## Thoughts until next ## or EOF)
     const m = doc.match(/##\s*Thoughts([\s\S]*?)(?=\n##\s|\n#\s|$)/i);
     const tBody = m ? m[1] : '';
     const thoughtLines = tBody.split('\n').filter(l => /^\s*(-|###)/.test(l) && /\d{4}-\d{2}-\d{2}/.test(l));
     const thoughtDates = thoughtLines.map(l => (l.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
-    const desc = (doc.match(/^description:\s*(.+)$/m) || [])[1] || '';
-    return { name, race, kb: +(bytes / 1024).toFixed(1), thoughts: thoughtLines.length,
-      thoughtDates, limit: DESK_LIMIT(name), desc, doc };
-  });
+    creatures.push({ name, race, kb: +(bytes / 1024).toFixed(1), thoughts: thoughtLines.length,
+      thoughtDates, limit: DESK_LIMIT(name), desc, doc });
+  }
 
   // operative /isekai + /genesis shape: .isekai/{elf,orc,slime}/<name>/*.md — no
   // .opencode/skills/ or AGENTS.md required. Merged in alongside any skills-shaped
@@ -256,6 +332,12 @@ function harvest(root) {
     const bare = hit[1];
     for (const c of creatures)
       if (bare.endsWith(c.name) && bare !== c.name) (aliases[c.name] ||= []).push(bare); // ui-design ↔ benchforge-ui-design
+  }
+  // Mind ↔ creature harmony links, computed here while c.doc/mind.doc still exist:
+  // bidirectional name-mention, exactly the same "does the text actually say so"
+  // rule crosslinks use between creatures — never a hand-assigned pairing.
+  for (const mind of minds) {
+    mind.links = creatures.filter(c => mind.doc.includes(c.name) || c.doc.includes(mind.name)).map(c => c.name);
   }
   for (const c of creatures) {
     c.crosslinks = creatures.filter(o => o.name !== c.name)
@@ -441,12 +523,14 @@ function harvest(root) {
     if (rd(fp) !== ledgerMd) fs.writeFileSync(fp, ledgerMd);
   } catch { /* metrics unwritable — the panel still renders */ }
 
+  for (const m of minds) delete m.doc;
+
   const census = {};
   for (const c of creatures) census[c.race] = (census[c.race] || 0) + 1;
   const stressed = creatures.filter(c => c.thoughts > c.limit || c.dietPct > 100)
     .map(c => `${c.name} (thoughts ${c.thoughts}/${c.limit}, ${c.kb}KB/${DIET_KB}KB)`);
   return { root, world: worldName, home, canonFile, port: PORT, bodies, agentUse, when: new Date().toISOString(), canonV, chartV: chartV ? +chartV : null,
-    chartDebt: chartV !== null && +chartV !== +canonV, census, orcs, creatures, days, models, tokens, live,
+    chartDebt: chartV !== null && +chartV !== +canonV, census, orcs, creatures, minds, days, models, tokens, live,
     genesisWatch: creatures.filter(c => c.genesisSignal).map(c => c.name),
     health: stressed.length ? stressed.join(' · ') : 'all minds within budget' };
 }
@@ -460,12 +544,12 @@ function harvest(root) {
 // CSS custom properties, not raw hex — lets light/dark carry their own validated
 // steps (see the :root / body.light palette comment) instead of one hex per race
 // baked into server-rendered SVG regardless of theme.
-const RCOL = { slime: 'var(--r-slime)', orc: 'var(--r-orc)', elf: 'var(--r-elf)', darkelf: 'var(--r-darkelf)', highorc: 'var(--r-highorc)', kijin: 'var(--r-kijin)', plain: 'var(--r-plain)' };
+const RCOL = { slime: 'var(--r-slime)', orc: 'var(--r-orc)', elf: 'var(--r-elf)', darkelf: 'var(--r-darkelf)', highorc: 'var(--r-highorc)', kijin: 'var(--r-kijin)', plain: 'var(--r-plain)', mind: 'var(--r-mind)' };
 const aura = c => c.stressPct >= 100 ? 'hot' : c.stressPct >= 60 || c.dietPct >= 100 ? 'warn' : 'cool';
 
 const PAGE_STYLE = `<style>
 :root{--bg:#03060c;--ink:#c9d4e3;--dim:#616b79;--cy:#2695bd;--vi:#7c5cd6;--em:#d6402a;--gd:#bd8c24;--nodefill:#05070d;
---r-slime:#2695bd;--r-orc:#7c5cd6;--r-elf:#bd8c24;--r-darkelf:#d6402a;--r-highorc:#8a7300;--r-kijin:#c53d34;--r-plain:#616b79}
+--r-slime:#2695bd;--r-orc:#7c5cd6;--r-elf:#bd8c24;--r-darkelf:#d6402a;--r-highorc:#8a7300;--r-kijin:#c53d34;--r-plain:#616b79;--r-mind:#9fb0c3}
 /* Palette re-tuned 2026-09-20 against the dataviz skill's validate_palette.js (OKLCH
    lightness band, CVD/normal-vision Delta E, WCAG contrast) — see .isekai/tmp/palette-check/.
    Was: identical hex reused for both themes, several near the lightness ceiling for a
@@ -514,6 +598,7 @@ padding:12px 16px;border-radius:0 8px 8px 0;letter-spacing:.02em}
 .node.hot .core{fill:var(--em)}
 .node.gs{filter:drop-shadow(0 0 6px rgba(242,214,117,.8))}
 .node:hover .halo{opacity:.5}line{stroke:#22304a;stroke-width:.7}line.elfedge{stroke:#3a3a2a;stroke-dasharray:2 5}
+line.mindedge{stroke:var(--r-mind);stroke-width:.9;stroke-dasharray:1 4;opacity:.55}
 g.node{cursor:pointer;transition:transform .25s ease,opacity .25s ease;transform-box:fill-box;transform-origin:center}
 body.focused g.node{opacity:.16}body.focused g.node.focus{opacity:1;transform:scale(1.6)}
 body.focused line{opacity:.1}line.lit{opacity:1;stroke:var(--cy);stroke-width:1.4}
@@ -530,7 +615,7 @@ body.stressmode .node.hot{animation:blink 1.05s ease-in-out infinite}
 body.stressmode .node.warn{animation:blink 1.9s ease-in-out infinite}
 body.light{--bg:#edf1f7;--ink:#1c2634;--dim:#4b5568;--nodefill:#ffffff;
 --cy:#1a7fa3;--vi:#5c3fc9;--em:#b8341f;--gd:#8a6600;
---r-slime:#1a7fa3;--r-orc:#5c3fc9;--r-elf:#8a6600;--r-darkelf:#b8341f;--r-highorc:#6b7400;--r-kijin:#a12e26;--r-plain:#4b5568}
+--r-slime:#1a7fa3;--r-orc:#5c3fc9;--r-elf:#8a6600;--r-darkelf:#b8341f;--r-highorc:#6b7400;--r-kijin:#a12e26;--r-plain:#4b5568;--r-mind:#546578}
 /* Light steps are their own re-stepped values, not the dark hexes with the background
    flipped — the same ramps, validated separately against the light surface. */
 body.light::before{background:radial-gradient(900px 480px at 78% -8%,rgba(30,140,200,.10),transparent 62%),
@@ -605,17 +690,39 @@ function render(d) {
     return { name: c.name, c, x: X.elf, y, r, anch: 'middle', lx: X.elf, ly: y - r - 10 };
   });
   nodes.push(...darkelfNodes);
+  // Minds (skills) — not a layer, not raced: a shelf worn by the whole colony. Linked
+  // to whichever creature nodes the harmony pass above actually found a textual
+  // reason to connect (see harvest()'s "Mind ↔ creature harmony links") — never
+  // hand-assigned, and drawn with zero edges when nothing in the world actually
+  // names it yet, which is itself an honest reading, not a bug.
+  const nodeByName = {}; for (const n of nodes) nodeByName[n.name] = n;
+  const mindNodes = (d.minds || []).map((m, i, arr) => {
+    const mc = { race: 'mind', kb: m.kb, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1, crosslinks: m.links.length, genesisSignal: false, desc: m.desc };
+    const r = Math.max(9, Math.min(15, rad(mc) * 0.55));
+    const x = X.slime + (X.elf - X.slime) * (i + 1) / (arr.length + 1);
+    const y = H - 30;
+    return { name: m.name, c: mc, x, y, r, anch: 'middle', lx: x, ly: y + r + 14, links: m.links };
+  });
+  nodes.push(...mindNodes);
+  for (const mn of mindNodes) for (const linkName of mn.links) {
+    const t = nodeByName[linkName];
+    if (t) edges.push(`<line class="mindedge e-${mn.name} e-${linkName}" x1="${mn.x.toFixed(1)}" y1="${mn.y.toFixed(1)}" x2="${t.x.toFixed(1)}" y2="${t.y.toFixed(1)}"/>`);
+  }
   const layerTags = `<text class="ax" x="${X.slime}" y="36" text-anchor="middle">INPUT — SLIMES</text>` +
     `<text class="ax" x="${X.orc}" y="36" text-anchor="middle">HIDDEN — ORCS</text>` +
-    `<text class="ax" x="${X.elf}" y="36" text-anchor="middle">OUTPUT — ELF ⋄ AWAKENED ABOVE</text>`;
+    `<text class="ax" x="${X.elf}" y="36" text-anchor="middle">OUTPUT — ELF ⋄ AWAKENED ABOVE</text>` +
+    (mindNodes.length ? `<text class="ax" x="${W / 2}" y="${H - 8}" text-anchor="middle">⋄ MINDS — WORN, NOT RACED</text>` : '');
   const nodeSvg = layerTags + nodes.map(({ name, c, x, y, r, lx, ly, anch }) => {
     const col = RCOL[c.race] || RCOL.plain, au = aura(c);
-    return `<g id="n-${esc(name)}" data-name="${esc(name)}" class="node ${au}${c.genesisSignal ? ' gs' : ''}">
+    const tip = c.race === 'mind'
+      ? `${esc(name)} — Mind · ${c.kb}KB · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`
+      : `${esc(name)} — ${esc(c.race)} · ${c.kb}KB · desk ${c.thoughts}/${c.limit} · links ${c.crosslinks ?? '–'}${c.genesisSignal ? ' · ⋄ genesis watch' : ''}`;
+    return `<g id="n-${esc(name)}" data-name="${esc(name)}" class="node ${au}${c.race === 'mind' ? ' mind' : ''}${c.genesisSignal ? ' gs' : ''}">
       <circle class="halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 1.7).toFixed(1)}" fill="${col}"/>
-      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="var(--nodefill)" stroke="${col}" stroke-width="1.6"/>
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="var(--nodefill)" stroke="${col}" stroke-width="1.6" stroke-dasharray="${c.race === 'mind' ? '3 2' : 'none'}"/>
       <circle class="core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 0.45).toFixed(1)}" fill="${col}"/>
       <text text-anchor="${anch}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${esc(name.replace(/^(slime|orc|elf|darkelf|highorc|kijin)-/, ''))}</text>
-      <title>${esc(name)} — ${esc(c.race)} · ${c.kb}KB · desk ${c.thoughts}/${c.limit} · links ${c.crosslinks ?? '–'}${c.genesisSignal ? ' · ⋄ genesis watch' : ''}</title></g>`;
+      <title>${tip}</title></g>`;
   }).join('');
 
   // --- breath timeline: unified scale, real axes (human 2026-09-15 —
@@ -646,16 +753,16 @@ function render(d) {
     return `<svg viewBox="0 0 ${W} ${H2}" class="panel">${s}</svg>`;
   })();
 
-  const rows = d.creatures.map(c => `<tr data-name="${esc(c.name)}" style="cursor:pointer">
-      <td><b>${esc(c.name)}</b>${c.genesisSignal ? ' <span class="gs">⋄</span>' : ''}</td><td class="dim">${esc(c.race)}</td>
-      <td class="num">${c.kb}</td><td class="num">${c.thoughts}/${c.limit}</td><td class="num">${c.crosslinks}</td>
-      <td><span class="pill ${aura(c)}">${aura(c)}</span></td></tr>`).join('');
-
+  // Cast and manifest used to be two separate tables (same creatures, split columns) —
+  // merged into one at the human's request, with an explicit numeric stress score
+  // (not just the color pill) alongside the description.
   const brief = s => { let b = (s || '').split(/ [—-] /)[0].trim();
     if (b.length > 118) b = b.slice(0, 115).replace(/\s\S*$/, '') + '…'; return b; };
   const castRows = d.creatures.map(c => `<tr data-name="${esc(c.name)}" style="cursor:pointer">
       <td><span style="color:${RCOL[c.race] || RCOL.plain}">●</span> <b>${esc(c.name)}</b>${c.genesisSignal ? ' <span class="gs">⋄</span>' : ''}</td>
       <td class="dim">${esc(c.race)}</td>
+      <td class="num">${c.kb}</td><td class="num">${c.thoughts}/${c.limit}</td><td class="num">${c.crosslinks}</td>
+      <td><span class="pill ${aura(c)}">${c.stressPct}%</span></td>
       <td class="desc" title="${esc(c.desc || '')}">${c.desc ? esc(brief(c.desc)) : '–'}</td></tr>`).join('');
   const modelRows = Object.entries(d.models || {})
     .sort((a, b) => b[1].mentions - a[1].mentions)
@@ -678,7 +785,7 @@ ${PAGE_STYLE}
 <span class="chip">genesis watch: ${d.genesisWatch.length ? esc(d.genesisWatch.join(' · ')) : '<span class="ok">none</span>'}</span></div>
 
 <h2>⋄ cast — who holds what</h2>
-<table><tr><th>creature</th><th>race</th><th>expertise (brief — full text on hover)</th></tr>${castRows}</table>
+<table><tr><th>creature</th><th>race</th><th>KB</th><th>desk</th><th>links</th><th>stress</th><th>expertise (brief — full text on hover)</th></tr>${castRows}</table>
 
 <h2>⋄ models — mounted &amp; mentioned</h2>
 <table><tr><th>model</th><th>mounted on (colony genomes)</th><th>ledger sightings</th></tr>${modelRows || '<tr><td class="dim">no model pins found</td></tr>'}</table>
@@ -724,22 +831,24 @@ ${Object.entries(U.perDay).sort().map(([k, v]) => `<tr><td>${esc(k)}</td><td cla
 <h2>⋄ the colony — size is weight, glow is stress</h2>
 <svg viewBox="0 0 ${W} ${H}" class="panel">${edges.join('')}${nodeSvg}</svg>
 <div id="focusPanel" class="panel" style="margin-top:10px"></div>
-<script type="application/json" id="zdata">${esc(JSON.stringify({ creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null }])), orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))) }))}</script>
+<script type="application/json" id="zdata">${esc(JSON.stringify({ creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null, desc: c.desc || '' }])), orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))) }))}</script>
 <script>
 (function(){
 var Z=JSON.parse(document.getElementById('zdata').textContent);
 var P=document.getElementById('focusPanel');
+function esc2(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function clearAll(){document.body.classList.remove('focused');
   document.querySelectorAll('.node.focus,.lit').forEach(function(e){e.classList.remove('focus','lit');});
-  P.innerHTML='<span class="dim">click a creature — node or manifest row — and it steps forward; click again (or the void) to release. Nothing moves on its own: calm is ambient, attention is yours.</span>';}
+  P.innerHTML='<span class="dim">click a creature — node or cast row — and it steps forward; click again (or the void) to release. Nothing moves on its own: calm is ambient, attention is yours.</span>';}
 function focus(name){var c=Z.creatures[name];if(!c)return;clearAll();
   var g=document.getElementById('n-'+name);if(g){document.body.classList.add('focused');g.classList.add('focus');}
   document.querySelectorAll('.e-'+CSS.escape(name)).forEach(function(e){e.classList.add('lit');});
-  P.innerHTML='<b>'+name+'</b> <span class="dim">'+c.race+(Z.orcOf[name]?' under '+Z.orcOf[name]:'')+'</span><br>'
+  P.innerHTML='<b>'+esc2(name)+'</b> <span class="dim">'+esc2(c.race)+(Z.orcOf[name]?' under '+esc2(Z.orcOf[name]):'')+'</span><br>'
+   +(c.desc?'<span class="focusdesc">'+esc2(c.desc)+'</span><br>':'')
    +'doc '+c.kb+'KB <span class="dim">(diet '+c.dietPct+'% of the 6KB law)</span> · desk '+c.thoughts+'/'+c.limit
    +' <span class="dim">(stress '+c.stressPct+'%)</span> · crosslinks '+c.links
    +(c.g?' · <span class="gs">⋄ genesis watch</span>':'')
-   +'<br><span class="dim">last thought written: '+(c.last||'none yet')+'</span>';}
+   +'<br><span class="dim">last thought written: '+esc2(c.last||'none yet')+'</span>';}
 document.querySelectorAll('g.node,tr[data-name]').forEach(function(el){
   el.addEventListener('click',function(ev){ev.stopPropagation();var n=el.getAttribute('data-name');
    var g=document.getElementById('n-'+n);
@@ -787,9 +896,6 @@ setInterval(function(){fetch('pulse').catch(function(){});},60000);
 (stress ≥80% ∧ crosslinks ≥1.5× median — heuristic; a birth still needs its need named twice).</div>
 
 <h2>⋄ evolution — the breath of days</h2><div id="breathBox">${breath}</div><script type="application/json" id="breathData">${esc(JSON.stringify(d.days))}</script>
-
-<h2>⋄ manifest</h2>
-<table><tr><th>creature</th><th>race</th><th>KB</th><th>desk</th><th>links</th><th>state</th></tr>${rows}</table>
 
 <h2>⋄ provenance</h2><div class="meta">harvested live at request time from .opencode/skills/* · ${d.canonFile} stamps · AGENTS.md routing table · the ${d.home} journal · git log — nothing stored. stdlib node, zero scripts, zero CDN; the tooling law (nature law 8). <span class="dim">port ${PORT}</span></div>
 <script>
@@ -890,25 +996,66 @@ setInterval(function(){fetch('pulse').catch(function(){});},60000);
 // each request (same "nothing stored, harvested live" law as a single world's page)
 // and renders a card per world, linking to /<name>/.
 function renderIndex(worlds) {
-  const cards = worlds.length ? worlds.map(w => {
+  const fmtN = v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'k' : String(v);
+  const worldData = worlds.map(w => {
     let d, err = null;
     try { d = harvest(w.path); } catch (e) { err = e.message; }
+    return { w, d, err };
+  });
+
+  // ---- machine-wide activity: every session on this machine, not filtered to a
+  // registered world (human order 2026-09-20: "how much consumption in total if
+  // opencode session etc ... information if session is active or not") ----
+  const claudeG = harvestClaudeGlobal();
+  const openG = harvestOpencodeGlobal();
+  const claudeModelRows = Object.entries(claudeG.perModel).sort((a, b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
+    .map(([m, v]) => `<tr><td><b>${esc(m)}</b></td><td class="num">${fmtN(v.in)}</td><td class="num">${fmtN(v.out)}</td></tr>`).join('');
+  const openModelRows = Object.entries(openG.perModel).sort((a, b) => (b[1].in + b[1].out) - (a[1].in + a[1].out))
+    .map(([m, v]) => `<tr><td><b>${esc(m)}</b></td><td class="num">${fmtN(v.in)}</td><td class="num">${fmtN(v.out)}</td></tr>`).join('');
+
+  const claudePanel = `<div class="panel actpanel">
+    <h3>⋄ Claude Code <span class="pill ${claudeG.active ? 'hot' : 'cool'}">${claudeG.active ? claudeG.active + ' active now' : 'idle'}</span></h3>
+    <div class="wstat">${claudeG.sessions} session${claudeG.sessions === 1 ? '' : 's'} on this machine (any directory, not just registered worlds)</div>
+    <div class="wstat">${fmtN(claudeG.totalIn)} in / ${fmtN(claudeG.totalOut)} out — all-time, every transcript under <span style="font-family:inherit">~/.claude/projects/</span></div>
+    ${claudeModelRows ? `<table><tr><th>model</th><th>in</th><th>out</th></tr>${claudeModelRows}</table>` : '<div class="dim">no usage recorded yet</div>'}
+  </div>`;
+  const openPanel = !openG.available ? `<div class="panel actpanel">
+    <h3>⋄ OpenCode</h3><div class="dim">no <span style="font-family:inherit">~/.local/share/opencode/opencode.db</span> on this machine — OpenCode not in use here, or never run.</div>
+  </div>` : `<div class="panel actpanel">
+    <h3>⋄ OpenCode <span class="pill ${openG.activeRows ? 'hot' : 'cool'}">${openG.activeRows ? openG.activeRows + ' recent run' + (openG.activeRows === 1 ? '' : 's') : 'idle'}</span></h3>
+    <div class="wstat">${openG.rows} run${openG.rows === 1 ? '' : 's'} recorded, all-time, machine-wide</div>
+    <div class="wstat">${fmtN(openG.totalIn)} in / ${fmtN(openG.totalOut)} out</div>
+    ${openModelRows ? `<table><tr><th>model</th><th>in</th><th>out</th></tr>${openModelRows}</table>` : '<div class="dim">no usage recorded yet</div>'}
+    <div class="wstat dim">"recent" = a row touched in the last 5 minutes — opencode's schema carries no session-id here, so this is a run count, not a precise open-session count.</div>
+  </div>`;
+
+  const cards = worldData.length ? worldData.map(({ w, d, err }) => {
     const censusLine = d ? Object.entries(d.census).map(([race, n]) => `<span>${esc(race)} ${n}</span>`).join('') : '';
     const health = d ? esc(d.health) : `unreadable: ${esc(err || 'unknown error')}`;
+    const stressedN = d ? d.creatures.filter(c => c.stressPct >= 60).length : 0;
     return `<a class="wcard" href="/${esc(w.name)}/">
-      <h3>⋄ ${esc(w.name)}</h3>
+      <h3>⋄ ${esc(w.name)}${stressedN ? ` <span class="pill warn">${stressedN} stressed</span>` : ''}</h3>
       <div class="wstat wcensus">${censusLine || '<span class="dim">no population yet</span>'}</div>
       <div class="wstat">${health}</div>
       <div class="wstat">last seen ${esc((w.lastSeen || '').slice(0, 10) || '–')} · ${esc(w.path)}</div>
     </a>`;
   }).join('') : `<div class="dim panel" style="padding:14px 16px;grid-column:1/-1">
       no worlds registered yet. Run <b>/isekai</b> or <b>node tempest.js &lt;dir&gt; --ensure</b> in a world to add it here.</div>`;
+
+  const totalCreatures = worldData.reduce((n, { d }) => n + (d ? d.creatures.length : 0), 0);
+
   return `<!doctype html><meta charset="utf-8"><title>tempest ⋄ all worlds</title>
 ${PAGE_STYLE}
+<style>.actpanel{padding:16px 18px}.actpanel h3{margin:0 0 8px;font-size:13px;letter-spacing:.06em}
+.actgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-top:14px}</style>
 <main>
 <h1><span class="sigil">⋄</span> TEMPEST <span style="letter-spacing:.1em;color:var(--dim);font-size:11px"> ALL WORLDS, OBSERVED · :${PORT}</span></h1>
-<div class="meta">${worlds.length} world${worlds.length === 1 ? '' : 's'} registered on this machine · one app, one process, one port —
-each world lives at its own <span style="font-family:inherit">/&lt;name&gt;/</span> sub-path.</div>
+<div class="meta">${worlds.length} world${worlds.length === 1 ? '' : 's'} registered · ${totalCreatures} creature${totalCreatures === 1 ? '' : 's'} total ·
+one app, one process, one port — each world lives at its own <span style="font-family:inherit">/&lt;name&gt;/</span> sub-path.</div>
+
+<h2>⋄ machine — total breath across every session, every world</h2>
+<div class="actgrid">${claudePanel}${openPanel}</div>
+
 <h2>⋄ worlds</h2>
 <div class="wcards">${cards}</div>
 </main>`;
