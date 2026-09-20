@@ -1,0 +1,6 @@
+# tempest.js runtime state — machine-local and disposable (Nature 9: Perception;
+# Absolute Rule I: living memory stays per machine). .isekai/name is NOT ignored — it
+# travels with the world.
+.isekai/instruments/board.pid
+.isekai/instruments/board.json
+.isekai/metrics/
