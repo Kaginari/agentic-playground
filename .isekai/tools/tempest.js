@@ -32,20 +32,23 @@ const { execSync, spawn, spawnSync } = require('child_process');
 const args = process.argv.slice(2);
 const JSON_MODE = args.includes('--json');
 const COLONY = path.resolve(args.find(a => !a.startsWith('--') && isNaN(+a)) || '.');
-const hash = s => { let h = 5381; for (const ch of s) h = ((h << 5) + h + ch.charCodeAt(0)) >>> 0; return h; };
+// One app for the whole machine (human order 2026-09-20: "should be 1 app in whole
+// machine not multiple"), not one process + one hash-derived port per world. A fixed
+// default port; --port still overrides for the rare clash.
 const portIdx = args.indexOf('--port');
-const PORT = portIdx > -1 ? parseInt(args[portIdx + 1], 10) : 7777 + (hash(COLONY) % 101);
+const PORT = portIdx > -1 ? parseInt(args[portIdx + 1], 10) : 7799;
 
 // World home + canon resolution (the reincarnation law): the world's living
 // memory rides .isekai/; an elder world's shelf may still be .convention-zero/.
 // The canon doc is ISEKAI.md, else the elder CONVENTION-ZERO.md / SLIME.md.
-// harvest(root) is only ever called with COLONY, so module-level is truthful.
-const HOME = fs.existsSync(path.join(COLONY, '.isekai')) ? '.isekai' : '.convention-zero';
-const CANON = ['ISEKAI.md', 'CONVENTION-ZERO.md', 'SLIME.md']
-  .find(f => fs.existsSync(path.join(COLONY, f))) || 'ISEKAI.md';
-const journalPath = root =>
-  ['log.md', 'log-git.md'].map(f => path.join(root, HOME, f)).find(fs.existsSync)
-  || path.join(root, HOME, 'log.md');
+// Computed per-root, not module-level — one process now serves every registered
+// world, never just the COLONY it happened to be launched with.
+const homeOf = root => fs.existsSync(path.join(root, '.isekai')) ? '.isekai' : '.convention-zero';
+const canonOf = root => ['ISEKAI.md', 'CONVENTION-ZERO.md', 'SLIME.md']
+  .find(f => fs.existsSync(path.join(root, f))) || 'ISEKAI.md';
+const journalPath = (root, home) =>
+  ['log.md', 'log-git.md'].map(f => path.join(root, home, f)).find(fs.existsSync)
+  || path.join(root, home, 'log.md');
 
 const RACES = ['slime', 'orc', 'elf', 'highorc', 'darkelf', 'kijin'];
 const DIET_KB = 6;                    // rule 14 breath law
@@ -55,12 +58,49 @@ const rd = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; 
 
 // The world name (nature law 8 naming): the home's `name` file holds one line —
 // jura-style names lawful, chosen at birth/populate; it travels (rule 12 re-include).
-const NAME = (() => {
-  const raw = rd(path.join(COLONY, HOME, 'name')) || path.basename(COLONY);
+// Also per-root now, for the same reason home/canon are.
+const nameOf = (root, home) => {
+  const raw = rd(path.join(root, home, 'name')) || path.basename(root);
   return String(raw).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'world';
-})();
-// Lifecycle law: the board sleeps when the world rests. Any request renews the
-// lease (--ensure pulses it); --ttl minutes of silence → sleep. --immortal opts out.
+};
+
+// ------------ the registry: which worlds this one app knows about ------------
+// Machine-global, like opencode's own session store — not any one world's .isekai/,
+// since the whole point is one app spanning every world. { path, name, lastSeen }[].
+const REGISTRY_DIR = path.join(os.homedir(), '.local', 'share', 'tempest');
+const REGISTRY_FILE = path.join(REGISTRY_DIR, 'registry.json');
+function readRegistry() {
+  try { return JSON.parse(rd(REGISTRY_FILE) || '[]'); } catch { return []; }
+}
+function writeRegistry(list) {
+  fs.mkdirSync(REGISTRY_DIR, { recursive: true });
+  fs.writeFileSync(REGISTRY_FILE, JSON.stringify(list, null, 2));
+}
+// Upsert root into the registry (by path) and prune any entry whose .isekai/ (or
+// .convention-zero/) is gone — self-healing when a world is moved or deleted.
+function registerWorld(root) {
+  const home = homeOf(root);
+  const name = nameOf(root, home);
+  const list = readRegistry().filter(w => fs.existsSync(path.join(w.path, w.home || '.isekai')) || fs.existsSync(path.join(w.path, '.convention-zero')));
+  const i = list.findIndex(w => w.path === root);
+  const entry = { path: root, name, home, lastSeen: new Date().toISOString() };
+  if (i > -1) list[i] = entry; else list.push(entry);
+  writeRegistry(list);
+  return entry;
+}
+function prunedRegistry() {
+  const list = readRegistry().filter(w => fs.existsSync(path.join(w.path, w.home || homeOf(w.path))));
+  writeRegistry(list);
+  return list;
+}
+function worldRootForName(name) {
+  const w = prunedRegistry().find(w => w.name === name);
+  return w ? w.path : null;
+}
+
+// Lifecycle law: the board sleeps when the world rests. Any request (for any
+// registered world) renews the one shared lease; --ttl minutes of silence → sleep.
+// --immortal opts out.
 const ttlIdx = args.indexOf('--ttl');
 const TTL_MIN = ttlIdx > -1 ? parseFloat(args[ttlIdx + 1]) : 30;
 const TTL_MS = TTL_MIN * 60000;
@@ -156,6 +196,7 @@ function mergeAgentUse(into, from) {
 
 // ------------ harvest ------------
 function harvest(root) {
+  const home = homeOf(root), canonFile = canonOf(root), worldName = nameOf(root, home);
   const skillsDir = path.join(root, '.opencode', 'skills');
   const docOf = d => path.join(skillsDir, d, 'SKILL.md');
   const dirs = fs.existsSync(skillsDir)
@@ -180,7 +221,7 @@ function harvest(root) {
   // creatures above (not a replacement), so either shape, or both at once, renders.
   const isekaiOrcCommands = {}; // orc name -> [slime names], read off its own "Commands:" line
   for (const race of ['elf', 'orc', 'slime']) {
-    const raceDir = path.join(root, HOME, race);
+    const raceDir = path.join(root, home, race);
     if (!fs.existsSync(raceDir)) continue;
     for (const zone of fs.readdirSync(raceDir, { withFileTypes: true })
       .filter(e => e.isDirectory()).map(e => e.name).sort()) {
@@ -208,7 +249,7 @@ function harvest(root) {
   }
   // crosslink index: mentions of other creature names (dir name or map alias) inside a doc
   const aliases = {}; // dir -> [names it answers to]
-  const cz = rd(path.join(root, CANON));
+  const cz = rd(path.join(root, canonFile));
   const ag = rd(path.join(root, 'AGENTS.md'));
   for (const c of creatures) aliases[c.name] = [c.name];
   for (const hit of (cz + ag).matchAll(/`([a-z0-9][a-z0-9-]+)`/g)) {
@@ -243,14 +284,14 @@ function harvest(root) {
   }
   // canon stamps
   const canonV = (cz.match(/canon v(\d+)/) || [])[1] || '?';
-  const chartDebt = rd(path.join(root, HOME, 'assets', CANON.replace(/\.md$/, '.drawio')))
+  const chartDebt = rd(path.join(root, home, 'assets', canonFile.replace(/\.md$/, '.drawio')))
     .match(/canon v(\d+)/);
   const chartV = chartDebt ? chartDebt[1] : null;
 
   // evolution series per day
   const days = {};
   const bump = (d, k) => { if (d) (days[d] ||= { journal: 0, commits: 0, thoughts: 0 })[k]++; };
-  for (const l of rd(journalPath(root)).split('\n')) {
+  for (const l of rd(journalPath(root, home)).split('\n')) {
     // entry headers: isekai `### [YYYY-MM-DD HH:MM] being - title` and elder `# Log — date`
     const m = l.match(/^#{1,3}\s+(?:\[?(\d{4}-\d{2}-\d{2})|Log\s.*?\[?(\d{4}-\d{2}-\d{2}))/);
     if (m) bump(m[1] || m[2], 'journal');
@@ -273,7 +314,7 @@ function harvest(root) {
     const mm = rd(f).match(/^model:\s*(\S+)/m);
     if (mm) (models[mm[1]] ||= { mounted: [], mentions: 0 }).mounted.push(path.basename(f, '.md'));
   }
-  const ledger = rd(journalPath(root)) + '\n' + ag + '\n' + cz;
+  const ledger = rd(journalPath(root, home)) + '\n' + ag + '\n' + cz;
   for (const id of Object.keys(models)) models[id].mentions = ledger.split(id).length - 1;
 
   // session token ledger (rule: sessions append JSONL lines; the board reads).
@@ -282,7 +323,7 @@ function harvest(root) {
   const agentModel = {};
   for (const [mid, mo] of Object.entries(models)) for (const a of mo.mounted) agentModel[a] = mid;
   const tokens = { rows: 0, totalIn: 0, totalOut: 0, perDay: {}, perModel: {} };
-  for (const l of rd(path.join(root, HOME, 'metrics', 'tokens.jsonl')).split('\n').filter(Boolean)) {
+  for (const l of rd(path.join(root, home, 'metrics', 'tokens.jsonl')).split('\n').filter(Boolean)) {
     try {
       const j = JSON.parse(l); tokens.rows++;
       tokens.totalIn += +j.in || 0; tokens.totalOut += +j.out || 0;
@@ -378,7 +419,7 @@ function harvest(root) {
   try {
     const fmtN = v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'k' : String(v);
     const ledgerMd = [
-      `# Agents ledger — ${NAME} (${path.basename(root)})`,
+      `# Agents ledger — ${worldName} (${path.basename(root)})`,
       `Regenerated live by the instruments when reality moves. Bodies live on disk; breath lives in opencode's session store.`,
       ``,
       `## Minted bodies (.opencode/agents/)`,
@@ -395,7 +436,7 @@ function harvest(root) {
           .map(([a, u]) => `| ${a} | ${u.sessions} | ${fmtN(u.avgCtx)} | ${fmtN(u.totIn)} | ${fmtN(u.totOut)} | ${u.models.join(', ') || '–'} | ${u.lastDay || '–'} |`)
         : ['| – | 0 | – | – | – | no sessions recorded in this world yet | – |']),
     ].join('\n');
-    const mdir = path.join(root, HOME, 'metrics'); fs.mkdirSync(mdir, { recursive: true });
+    const mdir = path.join(root, home, 'metrics'); fs.mkdirSync(mdir, { recursive: true });
     const fp = path.join(mdir, 'agents-usage.md');
     if (rd(fp) !== ledgerMd) fs.writeFileSync(fp, ledgerMd);
   } catch { /* metrics unwritable — the panel still renders */ }
@@ -404,7 +445,7 @@ function harvest(root) {
   for (const c of creatures) census[c.race] = (census[c.race] || 0) + 1;
   const stressed = creatures.filter(c => c.thoughts > c.limit || c.dietPct > 100)
     .map(c => `${c.name} (thoughts ${c.thoughts}/${c.limit}, ${c.kb}KB/${DIET_KB}KB)`);
-  return { root, world: NAME, port: PORT, bodies, agentUse, when: new Date().toISOString(), canonV, chartV: chartV ? +chartV : null,
+  return { root, world: worldName, home, canonFile, port: PORT, bodies, agentUse, when: new Date().toISOString(), canonV, chartV: chartV ? +chartV : null,
     chartDebt: chartV !== null && +chartV !== +canonV, census, orcs, creatures, days, models, tokens, live,
     genesisWatch: creatures.filter(c => c.genesisSignal).map(c => c.name),
     health: stressed.length ? stressed.join(' · ') : 'all minds within budget' };
@@ -416,8 +457,106 @@ function harvest(root) {
 // Layout deterministic: elf at the heart, orcs in orbit, slimes outer ring
 // clustered by their orc, the dark elf burns apart. Node size = doc weight,
 // aura = stress; a hot node breathes. Colors honor the colony's night themes.
-const RCOL = { slime: '#59d6ff', orc: '#a78bfa', elf: '#f2d675', darkelf: '#ff7a59', highorc: '#ff9e64', kijin: '#f47067', plain: '#8b949e' };
+// CSS custom properties, not raw hex — lets light/dark carry their own validated
+// steps (see the :root / body.light palette comment) instead of one hex per race
+// baked into server-rendered SVG regardless of theme.
+const RCOL = { slime: 'var(--r-slime)', orc: 'var(--r-orc)', elf: 'var(--r-elf)', darkelf: 'var(--r-darkelf)', highorc: 'var(--r-highorc)', kijin: 'var(--r-kijin)', plain: 'var(--r-plain)' };
 const aura = c => c.stressPct >= 100 ? 'hot' : c.stressPct >= 60 || c.dietPct >= 100 ? 'warn' : 'cool';
+
+const PAGE_STYLE = `<style>
+:root{--bg:#03060c;--ink:#c9d4e3;--dim:#616b79;--cy:#2695bd;--vi:#7c5cd6;--em:#d6402a;--gd:#bd8c24;--nodefill:#05070d;
+--r-slime:#2695bd;--r-orc:#7c5cd6;--r-elf:#bd8c24;--r-darkelf:#d6402a;--r-highorc:#8a7300;--r-kijin:#c53d34;--r-plain:#616b79}
+/* Palette re-tuned 2026-09-20 against the dataviz skill's validate_palette.js (OKLCH
+   lightness band, CVD/normal-vision Delta E, WCAG contrast) — see .isekai/tmp/palette-check/.
+   Was: identical hex reused for both themes, several near the lightness ceiling for a
+   dark surface, and the core slime/orc/elf trio sat below the CVD normal-vision floor
+   (worst pair Delta E 7.8, need >=15). Now: core trio passes every hard gate in both
+   modes; darkelf/highorc/kijin (rare "born in time" races) keep a softer separation —
+   a known-hard 3-way warm-hue constraint the skill's own reference palette hits past
+   3-4 slots too — mitigated by the mandatory node label + tooltip every creature
+   already carries (the skill's required secondary encoding for a WARN-band pair). */
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
+font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden;padding:34px 28px 60px}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+background:radial-gradient(900px 480px at 78% -8%,rgba(89,214,255,.09),transparent 62%),
+           radial-gradient(760px 420px at 6% 10%,rgba(167,139,250,.08),transparent 60%),
+           radial-gradient(1100px 700px at 50% 118%,rgba(255,122,89,.06),transparent 62%)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
+background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.14) 3px 4px)}
+main{position:relative;z-index:1;max-width:1220px;margin:0 auto}
+h1{font-size:15px;letter-spacing:.34em;text-transform:uppercase;margin:0;font-weight:600;color:#eaf2ff;
+text-shadow:0 0 18px rgba(89,214,255,.5)}
+h1 .sigil{color:var(--cy)}
+.allworlds{display:inline-block;color:var(--dim);text-decoration:none;font-size:11px;letter-spacing:.14em;
+text-transform:uppercase;margin-bottom:14px;border:1px solid #1a2436;border-radius:999px;padding:4px 14px;
+background:rgba(13,20,32,.6)}
+.allworlds:hover{color:var(--cy);border-color:var(--cy)}
+body.light .allworlds{background:rgba(255,255,255,.8);border-color:#cfdae9}
+.wcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:14px}
+.wcard{display:block;text-decoration:none;color:inherit;border:1px solid #121c2e;border-radius:12px;
+background:rgba(10,16,27,.5);padding:16px 18px;transition:border-color .2s,transform .2s}
+.wcard:hover{border-color:var(--cy);transform:translateY(-2px)}
+.wcard h3{margin:0 0 8px;font-size:13px;letter-spacing:.08em;color:#eaf2ff}
+.wcard .wstat{font-size:11px;color:var(--dim);margin-top:4px}
+.wcard .wcensus span{margin-right:10px}
+body.light .wcard{background:rgba(255,255,255,.74);border-color:#dbe2ee}
+body.light .wcard h3{color:#0b1424}
+h2{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);margin:42px 0 10px;
+border-bottom:1px solid #101826;padding-bottom:6px}
+.meta{color:var(--dim);margin-top:8px}.chip{display:inline-block;border:1px solid #1a2436;border-radius:999px;
+padding:2px 12px;margin-right:8px;background:rgba(13,20,32,.6)}
+.ok{color:#3fb950}.debt{color:var(--em);text-shadow:0 0 10px rgba(255,122,89,.6)}
+.mood{border:1px solid #1a2436;border-left:3px solid var(--em);background:rgba(16,24,38,.55);
+padding:12px 16px;border-radius:0 8px 8px 0;letter-spacing:.02em}
+.panel{display:block;width:100%;background:rgba(10,16,27,.5);border:1px solid #121c2e;border-radius:12px}
+.node text{fill:var(--dim);font-size:10px;text-anchor:middle;letter-spacing:.06em}
+.node .halo{opacity:.12}.node.warn .halo{opacity:.22}.node.hot .halo{opacity:.45}
+.node.hot .core{fill:var(--em)}
+.node.gs{filter:drop-shadow(0 0 6px rgba(242,214,117,.8))}
+.node:hover .halo{opacity:.5}line{stroke:#22304a;stroke-width:.7}line.elfedge{stroke:#3a3a2a;stroke-dasharray:2 5}
+g.node{cursor:pointer;transition:transform .25s ease,opacity .25s ease;transform-box:fill-box;transform-origin:center}
+body.focused g.node{opacity:.16}body.focused g.node.focus{opacity:1;transform:scale(1.6)}
+body.focused line{opacity:.1}line.lit{opacity:1;stroke:var(--cy);stroke-width:1.4}
+#focusPanel{padding:12px 16px;min-height:64px;letter-spacing:.02em}
+#focusPanel b{color:#eaf2ff}#focusPanel .dim{color:var(--dim)}
+tr[data-name]:hover{background:rgba(89,214,255,.06)}
+.tbtns{float:right}.tbtns button{background:rgba(13,20,32,.6);border:1px solid #1a2436;color:var(--ink);
+font:inherit;font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:6px 14px;border-radius:999px;
+cursor:pointer;margin-left:8px}
+.tbtns button.active{border-color:var(--em);color:var(--em);box-shadow:0 0 10px rgba(255,122,89,.35)}
+.tbtns button.rng.active{border-color:var(--cy);color:var(--cy);box-shadow:0 0 10px rgba(89,214,255,.35)}
+@keyframes blink{50%{opacity:.12}}
+body.stressmode .node.hot{animation:blink 1.05s ease-in-out infinite}
+body.stressmode .node.warn{animation:blink 1.9s ease-in-out infinite}
+body.light{--bg:#edf1f7;--ink:#1c2634;--dim:#4b5568;--nodefill:#ffffff;
+--cy:#1a7fa3;--vi:#5c3fc9;--em:#b8341f;--gd:#8a6600;
+--r-slime:#1a7fa3;--r-orc:#5c3fc9;--r-elf:#8a6600;--r-darkelf:#b8341f;--r-highorc:#6b7400;--r-kijin:#a12e26;--r-plain:#4b5568}
+/* Light steps are their own re-stepped values, not the dark hexes with the background
+   flipped — the same ramps, validated separately against the light surface. */
+body.light::before{background:radial-gradient(900px 480px at 78% -8%,rgba(30,140,200,.10),transparent 62%),
+    radial-gradient(760px 420px at 6% 10%,rgba(120,90,220,.09),transparent 60%),
+    radial-gradient(1100px 700px at 50% 118%,rgba(230,110,70,.08),transparent 62%)}
+body.light::after{background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(28,38,52,.045) 3px 4px);opacity:.5}
+body.light .panel{background:rgba(255,255,255,.74);border-color:#dbe2ee}
+body.light h1{color:#0b1424;text-shadow:none}
+body.light line{stroke:#c6cfe0}body.light line.elfedge{stroke:#c9c39a}
+body.light .mood{background:rgba(255,255,255,.74);border-color:#dbe2ee}
+body.light .chip{background:rgba(255,255,255,.74);border-color:#dbe2ee}
+body.light td,body.light th{border-color:#e6ebf4}
+body.light .tbtns button{background:rgba(255,255,255,.8);border-color:#cfdae9;color:#1c2634}
+.rib{filter:drop-shadow(0 0 5px currentColor)}.ax{fill:var(--dim);font-size:10px;letter-spacing:.12em}
+table{border-collapse:collapse;width:100%}td,th{padding:5px 12px;border-bottom:1px solid #0e1624;text-align:left;
+font-size:12px}th{color:var(--dim);font-weight:400;letter-spacing:.18em;font-size:10px;text-transform:uppercase}
+.num{text-align:right;font-variant-numeric:tabular-nums}.dim{color:var(--dim)}.gs{color:var(--gd)}
+.pill{border:1px solid;border-radius:999px;padding:1px 10px;font-size:10px;letter-spacing:.14em}
+.pill.cool{color:var(--cy);border-color:#17384a}.pill.warn{color:var(--gd);border-color:#3a3016}
+.pill.hot{color:var(--em);border-color:#4a2117;text-shadow:0 0 8px rgba(255,122,89,.7)}
+td.desc{color:var(--dim);font-size:11px}td.desc b{color:var(--ink)}
+body.calm .halo{transition:opacity 1.2s;opacity:.04!important}
+@keyframes fest{30%{filter:saturate(1.9) hue-rotate(30deg) brightness(1.3)}}
+body.fest main{animation:fest 2.6s ease}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>`;
 
 function render(d) {
   // --- neural-layer geometry ---
@@ -527,75 +666,11 @@ function render(d) {
   const uRows = Object.entries(d.agentUse || {}).sort((a, b) => (b[1].totIn + b[1].totOut) - (a[1].totIn + a[1].totOut))
     .map(([a, u]) => `<tr><td><b>${esc(a)}</b></td><td class="dim">${esc(u.models.join(' · ') || '–')}</td><td class="num">${u.sessions}</td><td class="num">${fmtN(u.avgCtx)}</td><td class="num">${fmtN(u.totIn)} / ${fmtN(u.totOut)}</td><td class="dim">${u.lastDay || '–'}</td></tr>`).join('');
 
-  return `<!doctype html><meta charset="utf-8"><title>tempest ⋄ ${esc(NAME)} — ${esc(path.basename(d.root))}</title>
-<style>
-:root{--bg:#03060c;--ink:#c9d4e3;--dim:#5b6472;--cy:#59d6ff;--vi:#a78bfa;--em:#ff7a59;--gd:#f2d675;--nodefill:#05070d}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
-font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden;padding:34px 28px 60px}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
-background:radial-gradient(900px 480px at 78% -8%,rgba(89,214,255,.09),transparent 62%),
-           radial-gradient(760px 420px at 6% 10%,rgba(167,139,250,.08),transparent 60%),
-           radial-gradient(1100px 700px at 50% 118%,rgba(255,122,89,.06),transparent 62%)}
-body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
-background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.14) 3px 4px)}
-main{position:relative;z-index:1;max-width:1220px;margin:0 auto}
-h1{font-size:15px;letter-spacing:.34em;text-transform:uppercase;margin:0;font-weight:600;color:#eaf2ff;
-text-shadow:0 0 18px rgba(89,214,255,.5)}
-h1 .sigil{color:var(--cy)}
-h2{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);margin:42px 0 10px;
-border-bottom:1px solid #101826;padding-bottom:6px}
-.meta{color:var(--dim);margin-top:8px}.chip{display:inline-block;border:1px solid #1a2436;border-radius:999px;
-padding:2px 12px;margin-right:8px;background:rgba(13,20,32,.6)}
-.ok{color:#3fb950}.debt{color:var(--em);text-shadow:0 0 10px rgba(255,122,89,.6)}
-.mood{border:1px solid #1a2436;border-left:3px solid var(--em);background:rgba(16,24,38,.55);
-padding:12px 16px;border-radius:0 8px 8px 0;letter-spacing:.02em}
-.panel{display:block;width:100%;background:rgba(10,16,27,.5);border:1px solid #121c2e;border-radius:12px}
-.node text{fill:var(--dim);font-size:10px;text-anchor:middle;letter-spacing:.06em}
-.node .halo{opacity:.12}.node.warn .halo{opacity:.22}.node.hot .halo{opacity:.45}
-.node.hot .core{fill:var(--em)}
-.node.gs{filter:drop-shadow(0 0 6px rgba(242,214,117,.8))}
-.node:hover .halo{opacity:.5}line{stroke:#22304a;stroke-width:.7}line.elfedge{stroke:#3a3a2a;stroke-dasharray:2 5}
-g.node{cursor:pointer;transition:transform .25s ease,opacity .25s ease;transform-box:fill-box;transform-origin:center}
-body.focused g.node{opacity:.16}body.focused g.node.focus{opacity:1;transform:scale(1.6)}
-body.focused line{opacity:.1}line.lit{opacity:1;stroke:var(--cy);stroke-width:1.4}
-#focusPanel{padding:12px 16px;min-height:64px;letter-spacing:.02em}
-#focusPanel b{color:#eaf2ff}#focusPanel .dim{color:var(--dim)}
-tr[data-name]:hover{background:rgba(89,214,255,.06)}
-.tbtns{float:right}.tbtns button{background:rgba(13,20,32,.6);border:1px solid #1a2436;color:var(--ink);
-font:inherit;font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:6px 14px;border-radius:999px;
-cursor:pointer;margin-left:8px}
-.tbtns button.active{border-color:var(--em);color:var(--em);box-shadow:0 0 10px rgba(255,122,89,.35)}
-.tbtns button.rng.active{border-color:var(--cy);color:var(--cy);box-shadow:0 0 10px rgba(89,214,255,.35)}
-@keyframes blink{50%{opacity:.12}}
-body.stressmode .node.hot{animation:blink 1.05s ease-in-out infinite}
-body.stressmode .node.warn{animation:blink 1.9s ease-in-out infinite}
-body.light{--bg:#edf1f7;--ink:#1c2634;--dim:#606a78;--nodefill:#ffffff}
-body.light::before{background:radial-gradient(900px 480px at 78% -8%,rgba(30,140,200,.10),transparent 62%),
-    radial-gradient(760px 420px at 6% 10%,rgba(120,90,220,.09),transparent 60%),
-    radial-gradient(1100px 700px at 50% 118%,rgba(230,110,70,.08),transparent 62%)}
-body.light::after{background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(28,38,52,.045) 3px 4px);opacity:.5}
-body.light .panel{background:rgba(255,255,255,.74);border-color:#dbe2ee}
-body.light h1{color:#0b1424;text-shadow:none}
-body.light line{stroke:#c6cfe0}body.light line.elfedge{stroke:#c9c39a}
-body.light .mood{background:rgba(255,255,255,.74);border-color:#dbe2ee}
-body.light .chip{background:rgba(255,255,255,.74);border-color:#dbe2ee}
-body.light td,body.light th{border-color:#e6ebf4}
-body.light .tbtns button{background:rgba(255,255,255,.8);border-color:#cfdae9;color:#1c2634}
-.rib{filter:drop-shadow(0 0 5px currentColor)}.ax{fill:var(--dim);font-size:10px;letter-spacing:.12em}
-table{border-collapse:collapse;width:100%}td,th{padding:5px 12px;border-bottom:1px solid #0e1624;text-align:left;
-font-size:12px}th{color:var(--dim);font-weight:400;letter-spacing:.18em;font-size:10px;text-transform:uppercase}
-.num{text-align:right;font-variant-numeric:tabular-nums}.dim{color:var(--dim)}.gs{color:var(--gd)}
-.pill{border:1px solid;border-radius:999px;padding:1px 10px;font-size:10px;letter-spacing:.14em}
-.pill.cool{color:var(--cy);border-color:#17384a}.pill.warn{color:var(--gd);border-color:#3a3016}
-.pill.hot{color:var(--em);border-color:#4a2117;text-shadow:0 0 8px rgba(255,122,89,.7)}
-td.desc{color:var(--dim);font-size:11px}td.desc b{color:var(--ink)}
-body.calm .halo{transition:opacity 1.2s;opacity:.04!important}
-@keyframes fest{30%{filter:saturate(1.9) hue-rotate(30deg) brightness(1.3)}}
-body.fest main{animation:fest 2.6s ease}
-@media (prefers-reduced-motion:reduce){*{animation:none!important}}
-</style>
+  return `<!doctype html><meta charset="utf-8"><title>tempest ⋄ ${esc(d.world)} — ${esc(path.basename(d.root))}</title>
+${PAGE_STYLE}
 <main>
-<h1><span class="sigil">⋄</span> TEMPEST <span style="letter-spacing:.1em;color:var(--dim);font-size:11px"> ${NAME.toUpperCase()} — THE WORLD, OBSERVED · /${NAME}/ · :${PORT}</span></h1>
+<a href="/" class="allworlds">← all worlds</a>
+<h1><span class="sigil">⋄</span> TEMPEST <span style="letter-spacing:.1em;color:var(--dim);font-size:11px"> ${d.world.toUpperCase()} — THE WORLD, OBSERVED · /${d.world}/ · :${PORT}</span></h1>
 <div class="meta"><span class="tbtns"><button id="themeBtn" title="light/dark">◐ light</button><button id="stressBtn" title="the suffering blink, while you watch">⚡ stress detect</button>
 <button class="rng" data-r="1" title="last 24h — today (day-bucket)">24h</button><button class="rng" data-r="7" title="last 7 days">7d</button><button class="rng active" data-r="30" title="last 30 days">30d</button><button class="rng" data-r="0" title="all time">all</button></span><span class="chip">${esc(path.basename(d.root))}</span><span class="chip">canon v${d.canonV}</span>
 <span class="chip">${d.chartV === null ? 'chart: none' : d.chartDebt ? `<span class="debt">chart v${d.chartV} × debt 22/22a</span>` : `<span class="ok">chart v${d.chartV} ✓</span>`}</span>
@@ -612,7 +687,7 @@ body.fest main{animation:fest 2.6s ease}
 <h2>⋄ agents — minted bodies &amp; session breath</h2>
 ${(() => {
     return `<table><tr><th>minted body</th><th>mode</th><th>mount</th><th>born</th><th>KB</th></tr>${bRows || '<tr><td colspan="5" class="dim">minds-only world — no bodies minted (embodiment E2)</td></tr>'}</table>
-<div class="dim" style="margin:10px 0 4px">per-session breath — avg context = mean tokens (in+out) per session answering as that agent; the living ledger: <b>${HOME}/metrics/agents-usage.md</b> (rewritten when reality moves)</div>
+<div class="dim" style="margin:10px 0 4px">per-session breath — avg context = mean tokens (in+out) per session answering as that agent; the living ledger: <b>${d.home}/metrics/agents-usage.md</b> (rewritten when reality moves)</div>
 <table><tr><th>agent</th><th>mounts seen</th><th>sessions</th><th>avg ctx</th><th>in / out</th><th>last day</th></tr>${uRows || '<tr><td colspan="6" class="dim">no sessions recorded for this world yet — the table fills itself as sessions work</td></tr>'}</table>`;
   })()}
 
@@ -622,12 +697,12 @@ ${(() => {
 <div class="panel" style="padding:14px 16px">
   <span class="tbtns" style="float:none"><button id="holiBtn" title="write the dated relief worklist from live metrics AND launch sequential creature-hat relief runs">🎒 holidays</button><button id="partyBtn" title="celebrate + name the genesis-watch births (naming #1)">🎉 party</button></span>
   <span id="actOut" class="dim"></span>
-  <div class="dim" style="margin-top:8px">the board prescribes, records, dispatches (law 2026-09-15): <b>🎒 holidays</b> writes the relief worklist into the day's scratch <b>and launches sequential relief</b> — one creature-hat <span style="font-family:inherit">opencode run</span> per stressed mind (distil the desk · diet split · ⋄ review the SPLIT — every creature snapshotted into the day's scratch <b>before</b> its run, frontmatter byte-restored if drifted <b>after</b>), progress streamed above, steps logged to <span style="font-family:inherit">${HOME}/metrics/relief.jsonl</span>; the tool itself never writes a mind.
-  <b>🎉 party</b> logs a celebration to <span style="font-family:inherit">${HOME}/metrics/celebrations.jsonl</span> — and any ⋄ names it carries become naming #1 of the genesis law (a birth still needs its need named twice, by a mind that means it).</div>
+  <div class="dim" style="margin-top:8px">the board prescribes, records, dispatches (law 2026-09-15): <b>🎒 holidays</b> writes the relief worklist into the day's scratch <b>and launches sequential relief</b> — one creature-hat <span style="font-family:inherit">opencode run</span> per stressed mind (distil the desk · diet split · ⋄ review the SPLIT — every creature snapshotted into the day's scratch <b>before</b> its run, frontmatter byte-restored if drifted <b>after</b>), progress streamed above, steps logged to <span style="font-family:inherit">${d.home}/metrics/relief.jsonl</span>; the tool itself never writes a mind.
+  <b>🎉 party</b> logs a celebration to <span style="font-family:inherit">${d.home}/metrics/celebrations.jsonl</span> — and any ⋄ names it carries become naming #1 of the genesis law (a birth still needs its need named twice, by a mind that means it).</div>
 </div>
 
 <h2>⋄ tokens — session breath</h2>${(() => { const U = d.live.rows ? d.live : d.tokens;
-    if (!U.rows) return `<div class="dim">no usage yet — the board reads opencode's session store (<span style="font-family:inherit">~/.local/share/opencode/opencode.db</span>) live, and the manual law stands beside it: a session may append one JSONL line to <b>${HOME}/metrics/tokens.jsonl</b> (<span style="font-family:inherit">{"ts","agent","model","in","out"}</span>). USD truth lives in the gateway's telemetry, not here.</div>`;
+    if (!U.rows) return `<div class="dim">no usage yet — the board reads opencode's session store (<span style="font-family:inherit">~/.local/share/opencode/opencode.db</span>) live, and the manual law stands beside it: a session may append one JSONL line to <b>${d.home}/metrics/tokens.jsonl</b> (<span style="font-family:inherit">{"ts","agent","model","in","out"}</span>). USD truth lives in the gateway's telemetry, not here.</div>`;
     const withSrc = d.live.rows ? 'opencode session store (read-only, colony-scoped by directory)' : 'manual ledger';
     return `<div class="cards">
   <div class="card"><b>${(U.totalIn / 1e6).toFixed(1)}M</b> tokens in</div>
@@ -716,7 +791,7 @@ setInterval(function(){fetch('pulse').catch(function(){});},60000);
 <h2>⋄ manifest</h2>
 <table><tr><th>creature</th><th>race</th><th>KB</th><th>desk</th><th>links</th><th>state</th></tr>${rows}</table>
 
-<h2>⋄ provenance</h2><div class="meta">harvested live at request time from .opencode/skills/* · ${CANON} stamps · AGENTS.md routing table · the ${HOME} journal · git log — nothing stored. stdlib node, zero scripts, zero CDN; the tooling law (nature law 8). <span class="dim">port ${PORT}</span></div>
+<h2>⋄ provenance</h2><div class="meta">harvested live at request time from .opencode/skills/* · ${d.canonFile} stamps · AGENTS.md routing table · the ${d.home} journal · git log — nothing stored. stdlib node, zero scripts, zero CDN; the tooling law (nature law 8). <span class="dim">port ${PORT}</span></div>
 <script>
 // consolidated client runtime: range filter drives BOTH charts + token tables
 // (human order 2026-09-15). No backticks or interpolation markers allowed in
@@ -809,21 +884,53 @@ setInterval(function(){fetch('pulse').catch(function(){});},60000);
 </main>`;
 }
 
+// ------------ global index — every world this one app knows about ------------
+// Human order 2026-09-20: "1 app in whole machine not multiple ... global dashboard
+// give overall overview of all worlds". Harvests every registered world fresh on
+// each request (same "nothing stored, harvested live" law as a single world's page)
+// and renders a card per world, linking to /<name>/.
+function renderIndex(worlds) {
+  const cards = worlds.length ? worlds.map(w => {
+    let d, err = null;
+    try { d = harvest(w.path); } catch (e) { err = e.message; }
+    const censusLine = d ? Object.entries(d.census).map(([race, n]) => `<span>${esc(race)} ${n}</span>`).join('') : '';
+    const health = d ? esc(d.health) : `unreadable: ${esc(err || 'unknown error')}`;
+    return `<a class="wcard" href="/${esc(w.name)}/">
+      <h3>⋄ ${esc(w.name)}</h3>
+      <div class="wstat wcensus">${censusLine || '<span class="dim">no population yet</span>'}</div>
+      <div class="wstat">${health}</div>
+      <div class="wstat">last seen ${esc((w.lastSeen || '').slice(0, 10) || '–')} · ${esc(w.path)}</div>
+    </a>`;
+  }).join('') : `<div class="dim panel" style="padding:14px 16px;grid-column:1/-1">
+      no worlds registered yet. Run <b>/isekai</b> or <b>node tempest.js &lt;dir&gt; --ensure</b> in a world to add it here.</div>`;
+  return `<!doctype html><meta charset="utf-8"><title>tempest ⋄ all worlds</title>
+${PAGE_STYLE}
+<main>
+<h1><span class="sigil">⋄</span> TEMPEST <span style="letter-spacing:.1em;color:var(--dim);font-size:11px"> ALL WORLDS, OBSERVED · :${PORT}</span></h1>
+<div class="meta">${worlds.length} world${worlds.length === 1 ? '' : 's'} registered on this machine · one app, one process, one port —
+each world lives at its own <span style="font-family:inherit">/&lt;name&gt;/</span> sub-path.</div>
+<h2>⋄ worlds</h2>
+<div class="wcards">${cards}</div>
+</main>`;
+}
+
 // ------------ relief dispatch (law amended 2026-09-15, human order "do on dashboard") ------------
 // The board prescribes, records, and DISPATCHES: it never writes a mind itself.
 // Each relief step spawns a sequential creature-hat session (`opencode run`, cwd =
 // colony root → AGENTS.md + colony law load with it) which performs the distillation.
-// Steps log to the world home's metrics/relief.jsonl; one run in flight at a time.
+// Steps log to the world home's metrics/relief.jsonl; one run in flight at a time
+// PER WORLD — reliefByWorld is keyed by world name since one app now serves every
+// world at once, and a relief run in world A must never touch world B's queue.
 //
 // Departure from source: the source hardcodes `opencode run`. On a Claude-only
 // machine that would silently strand relief runs, so this ports the fallback this
 // session already built and tested: prefer opencode, fall back to `claude -p`.
-const RELIEF_LOG = path.join(COLONY, HOME, 'metrics', 'relief.jsonl');
-let relief = null; // {active, queue:[creature...], done, failed, current, total, startedAt, finishedAt}
+const reliefByWorld = new Map(); // name -> {active, queue, done, failed, current, total, startedAt, finishedAt}
 
-const reliefLog = rec => {
-  fs.mkdirSync(path.dirname(RELIEF_LOG), { recursive: true });
-  fs.appendFileSync(RELIEF_LOG, JSON.stringify(rec) + '\n');
+const reliefLog = (root, home, rec) => {
+  const f = path.join(root, home, 'metrics', 'relief.jsonl');
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.appendFileSync(f, JSON.stringify(rec) + '\n');
 };
 // desk-overflow first (worst ratio first), then diet-only by weight descending.
 const stressedOf = d => d.creatures.filter(c => c.thoughts > c.limit || c.dietPct > 100)
@@ -833,7 +940,7 @@ const stressedOf = d => d.creatures.filter(c => c.thoughts > c.limit || c.dietPc
     if (ao && bo) return (b.thoughts / b.limit) - (a.thoughts / a.limit) || b.kb - a.kb;
     return b.kb - a.kb;
   });
-function reliefBrief(c) {
+function reliefBrief(c, home) {
   return [
     `Relief duty, tempest dispatch (the instruments law: the board dispatches, creature-hat sessions rewrite minds).`,
     `You ARE the creature "${c.name}" of this colony for this session only. Territory: ONLY .opencode/skills/${c.name}/ (its SKILL.md and any reference/ beside it). Touch no other creature's doc, no other file.`,
@@ -843,15 +950,15 @@ function reliefBrief(c) {
     `2. Distil the desk: fold durable rules/pitfalls into the doc's own sections; bulky detail goes to reference/ files beside the doc. A lesson shared with sibling creatures is left as a one-line pointer to its orc instead.`,
     `3. Rewrite the ## Thoughts desk to at most ${c.limit} dated (YYYY-MM-DD), first-person entries. Lessons now living in the body are cleared, never restated there.`,
     c.kb > DIET_KB ? `4. Diet breach: move reference-grade detail into reference/ until SKILL.md sits near ${DIET_KB}KB. The frontmatter description block stays byte-identical (it is the load trigger).` : '',
-    c.genesisSignal ? `5. Genesis-watch ⋄: your stress+crosslinks hold the signal and naming #1 is already logged for you (metrics/celebrations.jsonl) — review the SPLIT and record the verdict (need stands named a second time / rejected, with one line of why) as a dated entry in the rewritten ## Thoughts — naming #1 rides ${HOME}/metrics/celebrations.jsonl.` : '',
+    c.genesisSignal ? `5. Genesis-watch ⋄: your stress+crosslinks hold the signal and naming #1 is already logged for you (metrics/celebrations.jsonl) — review the SPLIT and record the verdict (need stands named a second time / rejected, with one line of why) as a dated entry in the rewritten ## Thoughts — naming #1 rides ${home}/metrics/celebrations.jsonl.` : '',
     `Absolute: no git verbs at all (no commit, no push), no network, no files outside your territory. Reply with exactly one line: creature, thoughts kept, final KB.`,
   ].filter(Boolean).join('\n');
 }
-function reliefCheck(c, snap) {
+function reliefCheck(root, home, c, snap) {
   // post-step harm check (human 2026-09-15: "it doesn't cause harm, right?")
   const rec = { ts: new Date().toISOString(), kind: 'relief-check', creature: c.name };
   try {
-    const docP = path.join(COLONY, '.opencode', 'skills', c.name, 'SKILL.md');
+    const docP = path.join(root, '.opencode', 'skills', c.name, 'SKILL.md');
     const fm = s => (s.match(/^---\n[\s\S]*?\n---\n/) || [''])[0];
     const was = rd(path.join(snap, 'SKILL.md'));
     let now = rd(docP);
@@ -866,35 +973,36 @@ function reliefCheck(c, snap) {
     rec.desk = `${desk}/${c.limit}`; if (desk > c.limit) rec.breach = 'desk still over limit';
     rec.kbFrom = c.kb; rec.kbTo = +(fs.statSync(docP).size / 1024).toFixed(1);
   } catch (e) { rec.checkError = e.message; }
-  reliefLog(rec);
+  reliefLog(root, home, rec);
 }
-function reliefStep() {
+function reliefStep(root, home, worldName) {
+  const relief = reliefByWorld.get(worldName);
   const c = relief.queue.shift();
   if (!c) {
     relief.active = false; relief.current = null; relief.finishedAt = new Date().toISOString();
-    reliefLog({ ts: relief.finishedAt, kind: 'relief-run', status: 'finished', done: relief.done, failed: relief.failed });
+    reliefLog(root, home, { ts: relief.finishedAt, kind: 'relief-run', status: 'finished', done: relief.done, failed: relief.failed });
     return;
   }
   relief.current = c.name;
   // harm fence 1: snapshot the creature BEFORE its hat-session runs — minds
   // live outside git (the tracking law), so this scratch copy is the only undo in town
-  const snap = path.join(COLONY, HOME, 'tmp', relief.startedAt.slice(0, 10), 'relief-snapshot', c.name);
-  try { fs.cpSync(path.join(COLONY, '.opencode', 'skills', c.name), snap, { recursive: true }); }
-  catch (e) { reliefLog({ ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'snapshot-failed', what: e.message }); }
-  reliefLog({ ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'start', desk: `${c.thoughts}/${c.limit}`, kb: c.kb });
+  const snap = path.join(root, home, 'tmp', relief.startedAt.slice(0, 10), 'relief-snapshot', c.name);
+  try { fs.cpSync(path.join(root, '.opencode', 'skills', c.name), snap, { recursive: true }); }
+  catch (e) { reliefLog(root, home, { ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'snapshot-failed', what: e.message }); }
+  reliefLog(root, home, { ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'start', desk: `${c.thoughts}/${c.limit}`, kb: c.kb });
   const cli = detectReliefCli();
-  if (!cli) { relief.failed.push(c.name); reliefLog({ ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'spawn-failed', what: 'no relief CLI on PATH' }); return reliefStep(); }
+  if (!cli) { relief.failed.push(c.name); reliefLog(root, home, { ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'spawn-failed', what: 'no relief CLI on PATH' }); return reliefStep(root, home, worldName); }
   let child;
-  try { child = spawn(cli.bin, cli.args(reliefBrief(c)), { cwd: COLONY, stdio: 'ignore' }); }
-  catch (e) { relief.failed.push(c.name); reliefLog({ ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'spawn-failed', what: e.message }); return reliefStep(); }
+  try { child = spawn(cli.bin, cli.args(reliefBrief(c, home)), { cwd: root, stdio: 'ignore' }); }
+  catch (e) { relief.failed.push(c.name); reliefLog(root, home, { ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status: 'spawn-failed', what: e.message }); return reliefStep(root, home, worldName); }
   let timed = false, settled = false; // 'error' AND 'close' both fire on failed spawns — settle once
   const killer = setTimeout(() => { timed = true; child.kill('SIGKILL'); }, 10 * 60 * 1000); // 10 min per creature, then the next
   const settle = (status, extra) => {
     if (settled) return; settled = true; clearTimeout(killer);
     (status === 'done' ? relief.done : relief.failed).push(c.name);
-    reliefLog(Object.assign({ ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status }, extra));
-    if (status === 'done') reliefCheck(c, snap); // harm fence 2: frontmatter byte-check + desk re-count
-    reliefStep();
+    reliefLog(root, home, Object.assign({ ts: new Date().toISOString(), kind: 'relief-step', creature: c.name, status }, extra));
+    if (status === 'done') reliefCheck(root, home, c, snap); // harm fence 2: frontmatter byte-check + desk re-count
+    reliefStep(root, home, worldName);
   };
   child.on('error', e => settle('error', { what: e.message }));
   child.on('close', code => settle(timed ? 'timeout' : code === 0 ? 'done' : 'failed', { code }));
@@ -910,77 +1018,99 @@ function detectReliefCli() {
 
 // ------------ serve / dump ------------
 // --ensure: instruments stay lit (nature law 8 — while a session thinks, the
-// board is up). Idempotent: up → say so and exit; down → spawn detached and
-// forget. Any session may run this.
+// board is up). Idempotent: up → register this world and say so; down → spawn the
+// ONE global daemon detached and forget. Any session, for any world, may run this —
+// human order 2026-09-20: "1 app in whole machine not multiple ... use sub path".
 const ENSURE = args.includes('--ensure');
 const STOP = args.includes('--stop');
 if (STOP) {
-  // post the resident board to sleep
-  const rq = http.request({ host: '127.0.0.1', port: PORT, path: `/${NAME}/shutdown`, method: 'POST', timeout: 1500 },
-    r => { r.resume(); process.stdout.write(`tempest ${NAME} told to sleep :${PORT}\n`); });
-  rq.on('timeout', () => { rq.destroy(); process.stdout.write(`tempest ${NAME} unresponsive on :${PORT}\n`); });
-  rq.on('error', () => process.stdout.write(`tempest ${NAME} not up on :${PORT}\n`));
+  // post the resident (global) board to sleep — affects every registered world at
+  // once, which is the accepted tradeoff of one app for the whole machine.
+  const rq = http.request({ host: '127.0.0.1', port: PORT, path: '/shutdown', method: 'POST', timeout: 1500 },
+    r => { r.resume(); process.stdout.write(`tempest told to sleep :${PORT}\n`); });
+  rq.on('timeout', () => { rq.destroy(); process.stdout.write(`tempest unresponsive on :${PORT}\n`); });
+  rq.on('error', () => process.stdout.write(`tempest not up on :${PORT}\n`));
   rq.end();
 } else if (ENSURE) {
+  if (!fs.existsSync(path.join(COLONY, '.isekai')) && !fs.existsSync(path.join(COLONY, '.convention-zero'))) {
+    process.stdout.write(`no .isekai/ world at ${COLONY} — run /isekai first\n`); process.exit(1);
+  }
+  const entry = registerWorld(COLONY);
   const probe = http.createServer();
-  probe.once('error', () => { probe.close(); process.stdout.write(`tempest ${NAME} already lit — http://localhost:${PORT}/${NAME}/\n`); });
+  probe.once('error', () => { probe.close(); process.stdout.write(`tempest ${entry.name} already lit — http://localhost:${PORT}/${entry.name}/\n`); });
   probe.once('listening', () => {
     probe.close(() => {
-      const child = spawn(process.execPath, [__filename, COLONY, '--port', String(PORT)].concat(IMMORTAL ? ['--immortal'] : []).concat(ttlIdx > -1 ? ['--ttl', String(TTL_MIN)] : []),
+      // No COLONY arg for the daemon — it serves every registered world, not just
+      // the one that happened to light it; each request resolves its own root.
+      const child = spawn(process.execPath, [__filename, '--port', String(PORT)].concat(IMMORTAL ? ['--immortal'] : []).concat(ttlIdx > -1 ? ['--ttl', String(TTL_MIN)] : []),
         { detached: true, stdio: 'ignore' });
       child.unref();
-      process.stdout.write(`tempest ${NAME} lit — http://localhost:${PORT}/${NAME}/\n`);
+      process.stdout.write(`tempest ${entry.name} lit — http://localhost:${PORT}/${entry.name}/\n`);
     });
   });
   probe.listen(PORT, '127.0.0.1');
 } else if (JSON_MODE) {
   process.stdout.write(JSON.stringify(harvest(COLONY), null, 2) + '\n');
 } else {
-  // default: run the board in the foreground (the docker-compose shape — a
-  // long-lived process, not a spawn-and-forget heartbeat)
+  // default: run the ONE global board in the foreground (the docker-compose shape —
+  // a long-lived process, not a spawn-and-forget heartbeat). Every world it knows
+  // about (the registry) is served from this single process, one sub-path each.
   const server = http.createServer((req, res) => {
     lastTouch = Date.now();
-    const base = `/${NAME}/`;
     const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+    const parts = url.pathname.split('/').filter(Boolean); // [] | [name] | [name, action]
 
-    if (req.method === 'POST' && url.pathname === base + 'shutdown') {
+    if (req.method === 'POST' && url.pathname === '/shutdown') {
       res.writeHead(200); res.end('sleeping'); server.close(() => process.exit(0)); return;
     }
-    if (url.pathname === base + 'pulse') { res.writeHead(204); res.end(); return; }
-    if (req.method === 'GET' && (url.pathname === base || url.pathname === base.slice(0, -1))) {
+    if (url.pathname === '/pulse' || (parts.length === 2 && parts[1] === 'pulse')) { res.writeHead(204); res.end(); return; }
+
+    if (req.method === 'GET' && parts.length === 0) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(render(harvest(COLONY))); return;
+      res.end(renderIndex(prunedRegistry())); return;
     }
-    if (req.method === 'POST' && url.pathname === base + 'holidays') {
-      const d = harvest(COLONY);
+
+    const worldName = parts[0], action = parts[1] || '';
+    const root = worldRootForName(worldName);
+    if (!root) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end(`unknown world: ${worldName} — is it registered? run /isekai or tempest --ensure in it first`); return; }
+    const home = homeOf(root);
+
+    if (req.method === 'GET' && !action) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(render(harvest(root))); return;
+    }
+    if (req.method === 'POST' && action === 'holidays') {
+      const d = harvest(root);
+      const relief = reliefByWorld.get(worldName);
       if (relief && relief.active) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ stressed: stressedOf(d).length, relief: { refused: true, launched: true } })); return; }
       const worklist = stressedOf(d);
       const day = new Date().toISOString().slice(0, 10);
-      const dayDir = path.join(COLONY, HOME, 'tmp', day); fs.mkdirSync(dayDir, { recursive: true });
+      const dayDir = path.join(root, home, 'tmp', day); fs.mkdirSync(dayDir, { recursive: true });
       const file = path.join(dayDir, 'holidays.md');
       fs.writeFileSync(file, `# Relief worklist — ${day}\n\n` + (worklist.map(c => `- ${c.name}: thoughts ${c.thoughts}/${c.limit}, ${c.kb}KB/${DIET_KB}KB`).join('\n') || '(nothing over the diet)') + '\n');
       if (!worklist.length) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ stressed: 0 })); return; }
-      relief = { active: true, queue: worklist.slice(), done: [], failed: [], current: null, total: worklist.length, startedAt: new Date().toISOString() };
-      reliefStep();
+      reliefByWorld.set(worldName, { active: true, queue: worklist.slice(), done: [], failed: [], current: null, total: worklist.length, startedAt: new Date().toISOString() });
+      reliefStep(root, home, worldName);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ stressed: worklist.length, file, relief: { launched: true } })); return;
     }
-    if (req.method === 'POST' && url.pathname === base + 'party') {
-      const d = harvest(COLONY);
-      const cf = path.join(COLONY, HOME, 'metrics', 'celebrations.jsonl');
+    if (req.method === 'POST' && action === 'party') {
+      const d = harvest(root);
+      const cf = path.join(root, home, 'metrics', 'celebrations.jsonl');
       fs.mkdirSync(path.dirname(cf), { recursive: true });
       fs.appendFileSync(cf, JSON.stringify({ ts: new Date().toISOString(), kind: 'party', births: d.genesisWatch }) + '\n');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ births: d.genesisWatch })); return;
     }
-    if (req.method === 'GET' && url.pathname === base + 'relief') {
+    if (req.method === 'GET' && action === 'relief') {
+      const relief = reliefByWorld.get(worldName);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(relief ? Object.assign({}, relief, { total: relief.total, remaining: relief.queue.map(c => c.name) }) : { total: 0, active: false })); return;
     }
     res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('not found');
   });
-  server.listen(PORT, '127.0.0.1', () => process.stdout.write(`tempest ${NAME} — http://localhost:${PORT}/${NAME}/\n`));
+  server.listen(PORT, '127.0.0.1', () => process.stdout.write(`tempest — http://localhost:${PORT}/\n`));
   if (!IMMORTAL) {
-    setInterval(() => { if ((Date.now() - lastTouch) >= TTL_MS) { process.stdout.write(`tempest ${NAME} sleeping (${TTL_MIN}m silence)\n`); process.exit(0); } }, 60000).unref();
+    setInterval(() => { if ((Date.now() - lastTouch) >= TTL_MS) { process.stdout.write(`tempest sleeping (${TTL_MIN}m silence)\n`); process.exit(0); } }, 60000).unref();
   }
 }

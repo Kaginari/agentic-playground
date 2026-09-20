@@ -4,3 +4,9 @@
 .isekai/instruments/board.pid
 .isekai/instruments/board.json
 .isekai/metrics/
+
+# .isekai/tmp/ — Law 5's proving grounds (tests, experiments, scratch files). Same
+# machine-local/disposable exception as instruments state above; the directory itself
+# still travels (the .gitkeep below is explicitly re-included).
+.isekai/tmp/*
+!.isekai/tmp/.gitkeep

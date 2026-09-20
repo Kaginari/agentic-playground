@@ -61,6 +61,16 @@ Both Claude Code and OpenCode can run `/isekai` and `/genesis`; the world docume
 population they produce are the same either way, since `.isekai/isekai.md` already treats
 `.opencode/` and `.claude/` as two coexisting homes for the same Minds and Bodies.
 
+## Minds shipped in this repo
+
+- **`palette-audit`** (`.opencode/skills/palette-audit/`, ported to
+  `.claude/skills/palette-audit/`) — audits a UI's color palette and typography for
+  accessibility using computed OKLCH/CVD/contrast checks (bundles its own validator script)
+  instead of eyeballing, and insists dark/light modes each get their own re-stepped palette
+  rather than reusing identical hex with the background swapped. A working example of the
+  `/don` cross-ecosystem mechanism: authored natively for OpenCode, ported byte-identical into
+  `.claude/skills/` — proof this convention actually runs Minds in parallel across both.
+
 ## Using it elsewhere
 
 Run `/isekai` (or `/isekai <path>`) in any directory to reincarnate it as its own world,
