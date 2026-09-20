@@ -359,3 +359,18 @@ Append-only. Newest entries at the bottom. One entry per change.
     own number, on direct instruction) so the fix has something real to find there; this
     world's `.isekai/isekai.md` was deliberately left unstamped — its real version number
     wasn't asserted by anyone, and `v?` is the honest reading of that, not a bug to paper over.
+
+### [2026-09-21T01:58:00+02:00] rimuru — colony diagram edges were barely visible, especially against the new zone tints
+- **Task:** Human (mongodb world): "links are kind of invisible can you do them better."
+- **Files:** .isekai/tools/tempest.js (copied whole from the mongodb world's already-verified
+  copy, confirmed byte-identical)
+- **Gate:** n/a
+- **Result:** done
+- **Learned:** `line`/`line.elfedge` were hardcoded for a dark surface (`#22304a`, width .7)
+  and were thin even there; the separate `body.light` override (`#c6cfe0`) was even paler
+  against a now-default light background, and the new race-zone tint rects from the previous
+  entry made the contrast worse still. Fixed by switching to `var(--dim)` — already re-stepped
+  per theme for exactly this legibility job — at width 1.3 and opacity .65 (mindedge:
+  `--r-mind`, width 1.2, opacity .75, since it carries the use-count label and deserves to read
+  as the more specific relationship). Deleted the now-dead `body.light line` override entirely
+  instead of updating it — one theme-adaptive rule replaces two hand-tuned ones.

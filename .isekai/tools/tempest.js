@@ -745,8 +745,15 @@ padding:12px 16px;border-radius:0 8px 8px 0;letter-spacing:.02em}
 .node .halo{opacity:.12}.node.warn .halo{opacity:.22}.node.hot .halo{opacity:.45}
 .node.hot .core{fill:var(--em)}
 .node.gs{filter:drop-shadow(0 0 6px rgba(242,214,117,.8))}
-.node:hover .halo{opacity:.5}line{stroke:#22304a;stroke-width:.7}line.elfedge{stroke:#3a3a2a;stroke-dasharray:2 5}
-line.mindedge{stroke:var(--r-mind);stroke-width:.9;stroke-dasharray:1 4;opacity:.55}
+.node:hover .halo{opacity:.5}
+/* Human 2026-09-21: "links are kind of invisible" — the old stroke (#22304a, width .7) was
+   hardcoded for a dark surface and barely readable there either; light mode's own override
+   (#c6cfe0) was even paler against a now-default light background. var(--dim) is already
+   re-stepped per theme (see the :root / body.light block) for exactly this legibility job —
+   reusing it fixes both themes at once instead of hand-tuning a third hex. */
+line{stroke:var(--dim);stroke-width:1.3;opacity:.65}
+line.elfedge{stroke:var(--dim);stroke-width:1.3;stroke-dasharray:3 5;opacity:.65}
+line.mindedge{stroke:var(--r-mind);stroke-width:1.2;stroke-dasharray:2 4;opacity:.75}
 g.node{cursor:pointer;transition:transform .25s ease,opacity .25s ease;transform-box:fill-box;transform-origin:center}
 body.focused g.node{opacity:.16}body.focused g.node.focus{opacity:1;transform:scale(1.6)}
 body.focused line{opacity:.1}line.lit{opacity:1;stroke:var(--cy);stroke-width:1.4}
@@ -789,7 +796,6 @@ body.light::before{background:radial-gradient(900px 480px at 78% -8%,rgba(30,140
 body.light::after{background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(28,38,52,.045) 3px 4px);opacity:.5}
 body.light .panel{background:rgba(255,255,255,.74);border-color:#dbe2ee}
 body.light h1{color:#0b1424;text-shadow:none}
-body.light line{stroke:#c6cfe0}body.light line.elfedge{stroke:#c9c39a}
 body.light .mood{background:rgba(255,255,255,.74);border-color:#dbe2ee}
 body.light .chip{background:rgba(255,255,255,.74);border-color:#dbe2ee}
 body.light td,body.light th{border-color:#e6ebf4}
