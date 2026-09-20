@@ -54,8 +54,18 @@ const PORT = portIdx > -1 ? parseInt(args[portIdx + 1], 10) : 7799;
 // Computed per-root, not module-level — one process now serves every registered
 // world, never just the COLONY it happened to be launched with.
 const homeOf = root => fs.existsSync(path.join(root, '.isekai')) ? '.isekai' : '.convention-zero';
-const canonOf = root => ['ISEKAI.md', 'CONVENTION-ZERO.md', 'SLIME.md']
-  .find(f => fs.existsSync(path.join(root, f))) || 'ISEKAI.md';
+// Canon doc location, root-relative. The newer /isekai shape keeps it *inside* home
+// (<home>/isekai.md, lowercase) — checked first; an elder world's canon doc sits at the repo
+// root instead (ISEKAI.md/CONVENTION-ZERO.md/SLIME.md, the shape this function originally
+// assumed exclusively, before a "canon v?" chip on a genuinely reincarnated world revealed the
+// gap — human 2026-09-21: "the canon is v9"). Falls back to <home>/isekai.md as the default
+// path for a world that has neither yet.
+const canonOf = (root, home) => {
+  const inHome = ['isekai.md', 'ISEKAI.md', 'CONVENTION-ZERO.md', 'SLIME.md'].find(f => fs.existsSync(path.join(root, home, f)));
+  if (inHome) return path.join(home, inHome);
+  const atRoot = ['ISEKAI.md', 'CONVENTION-ZERO.md', 'SLIME.md'].find(f => fs.existsSync(path.join(root, f)));
+  return atRoot || path.join(home, 'isekai.md');
+};
 const journalPath = (root, home) =>
   ['log.md', 'log-git.md'].map(f => path.join(root, home, f)).find(fs.existsSync)
   || path.join(root, home, 'log.md');
@@ -229,6 +239,52 @@ function harvestSkillUsage(root) {
   }
   return counts;
 }
+// Context-window stress — the dashboard's own read of the same instrument
+// `.isekai/tools/context-check.sh` reports from a terminal (Nature 9: Rimuru's own stress is
+// a measured reading, not a feeling). Same method, same 200k/180k defaults: the *most recent*
+// assistant turn's own usage (input + cache_read + cache_creation) across every session
+// matching this root is the live context-window occupancy — a cumulative sum across turns
+// would answer a different question (total spend, see harvestClaudeUsage). Human 2026-09-21:
+// "context window in tempest dash at the beginning, with color, so it's seeable."
+function harvestContextStress(root) {
+  const LIMIT = 200000, STRESS = 180000;
+  const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+  if (!fs.existsSync(projectsDir)) return null;
+  const rootPrefix = root.endsWith(path.sep) ? root : root + path.sep;
+  let slugDirs;
+  try { slugDirs = fs.readdirSync(projectsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); }
+  catch { return null; }
+  let best = null; // { ts, tin } — the latest-by-timestamp usage-bearing turn seen
+  for (const slug of slugDirs) {
+    let files;
+    try { files = fs.readdirSync(path.join(projectsDir, slug)).filter(f => f.endsWith('.jsonl')); }
+    catch { continue; }
+    for (const f of files) {
+      let text;
+      try { text = fs.readFileSync(path.join(projectsDir, slug, f), 'utf8'); }
+      catch { continue; }
+      for (const line of text.split('\n')) {
+        if (!line) continue;
+        let d;
+        try { d = JSON.parse(line); } catch { continue; }
+        if (d.type !== 'assistant') continue;
+        const cwd = d.cwd || '';
+        if (cwd !== root && !cwd.startsWith(rootPrefix)) continue;
+        const usage = (d.message || {}).usage;
+        if (!usage) continue;
+        const ts = d.timestamp || '';
+        if (!best || ts > best.ts) {
+          const tin = (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
+          best = { ts, tin };
+        }
+      }
+    }
+  }
+  if (!best) return null;
+  const pct = Math.round(100 * best.tin / LIMIT);
+  const band = best.tin >= STRESS ? 'hot' : best.tin >= STRESS * 0.75 ? 'warn' : 'cool';
+  return { tin: best.tin, limit: LIMIT, pct, band, ts: best.ts };
+}
 // ------------ machine-wide activity (for the global / index — not scoped to one world) ------------
 // Human order 2026-09-20: "how much consumption in total if opencode session ... maybe
 // information if session is active or not". Unlike harvestClaudeUsage(root)/the opencode.db
@@ -344,7 +400,7 @@ function mergeAgentUse(into, from) {
 
 // ------------ harvest ------------
 function harvest(root) {
-  const home = homeOf(root), canonFile = canonOf(root), worldName = nameOf(root, home);
+  const home = homeOf(root), canonFile = canonOf(root, home), worldName = nameOf(root, home);
   const skillsDir = path.join(root, '.opencode', 'skills');
   const docOf = d => path.join(skillsDir, d, 'SKILL.md');
   const dirs = fs.existsSync(skillsDir)
@@ -362,7 +418,12 @@ function harvest(root) {
     const race = RACES.find(r => name.startsWith(r + '-'));
     const bytes = Buffer.byteLength(doc);
     const desc = unquote((doc.match(/^description:\s*(.+)$/m) || [])[1] || '');
-    if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), desc, doc, links: [], docPath: docOf(name) }); continue; }
+    // A Mind's context cost isn't its file size — only its `description` sits in context on
+    // every turn by default (see the writing-for-agents Mind and isekai.md's own "Minds"
+    // section); the full body (`kb`) only loads when actually donned. ~4 bytes/token, the same
+    // rough estimate context-check.sh already uses and names as an estimate, not a billing
+    // figure. Human 2026-09-21: "add how much it costs [a Mind] in context tokens too."
+    if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), descTok: Math.round(Buffer.byteLength(desc) / 4), desc, doc, links: [], docPath: docOf(name) }); continue; }
     // thoughts: section-scoped dated bullets (>- ## Thoughts until next ## or EOF)
     const m = doc.match(/##\s*Thoughts([\s\S]*?)(?=\n##\s|\n#\s|$)/i);
     const tBody = m ? m[1] : '';
@@ -448,7 +509,7 @@ function harvest(root) {
   }
   // canon stamps
   const canonV = (cz.match(/canon v(\d+)/) || [])[1] || '?';
-  const chartDebt = rd(path.join(root, home, 'assets', canonFile.replace(/\.md$/, '.drawio')))
+  const chartDebt = rd(path.join(root, home, 'assets', path.basename(canonFile).replace(/\.md$/, '.drawio')))
     .match(/canon v(\d+)/);
   const chartV = chartDebt ? chartDebt[1] : null;
 
@@ -614,6 +675,7 @@ function harvest(root) {
   return { root, world: worldName, home, canonFile, port: PORT, bodies, agentUse, when: new Date().toISOString(), canonV, chartV: chartV ? +chartV : null,
     chartDebt: chartV !== null && +chartV !== +canonV, census, orcs, creatures, minds, days, models, tokens, live,
     genesisWatch: creatures.filter(c => c.genesisSignal).map(c => c.name),
+    ctxStress: harvestContextStress(root),
     health: stressed.length ? stressed.join(' · ') : 'all minds within budget' };
 }
 
@@ -733,12 +795,14 @@ body.light .chip{background:rgba(255,255,255,.74);border-color:#dbe2ee}
 body.light td,body.light th{border-color:#e6ebf4}
 body.light .tbtns button{background:rgba(255,255,255,.8);border-color:#cfdae9;color:#1c2634}
 .rib{filter:drop-shadow(0 0 5px currentColor)}.ax{fill:var(--dim);font-size:10px;letter-spacing:.12em}
+.mindedgelabel{font-size:9px;fill:var(--dim);stroke:var(--nodefill);stroke-width:3px;paint-order:stroke fill;font-variant-numeric:tabular-nums}
 table{border-collapse:collapse;width:100%}td,th{padding:5px 12px;border-bottom:1px solid #0e1624;text-align:left;
 font-size:12px}th{color:var(--dim);font-weight:400;letter-spacing:.18em;font-size:10px;text-transform:uppercase}
 .num{text-align:right;font-variant-numeric:tabular-nums}.dim{color:var(--dim)}.gs{color:var(--gd)}
 .pill{border:1px solid;border-radius:999px;padding:1px 10px;font-size:10px;letter-spacing:.14em}
-.pill.cool{color:var(--cy);border-color:#17384a}.pill.warn{color:var(--gd);border-color:#3a3016}
-.pill.hot{color:var(--em);border-color:#4a2117;text-shadow:0 0 8px rgba(255,122,89,.7)}
+.pill.cool{color:var(--cy);border-color:var(--cy);background:color-mix(in srgb,var(--cy) 16%,transparent)}
+.pill.warn{color:var(--gd);border-color:var(--gd);background:color-mix(in srgb,var(--gd) 16%,transparent)}
+.pill.hot{color:var(--em);border-color:var(--em);background:color-mix(in srgb,var(--em) 18%,transparent);text-shadow:0 0 8px rgba(255,122,89,.7)}
 td.desc{color:var(--dim);font-size:11px}td.desc b{color:var(--ink)}
 body.calm .halo{transition:opacity 1.2s;opacity:.04!important}
 @keyframes fest{30%{filter:saturate(1.9) hue-rotate(30deg) brightness(1.3)}}
@@ -752,83 +816,122 @@ function render(d) {
   // elf = output, dark elf burns beyond. Radius ∝ √(KB / 6KB law): an
   // over-diet mind GROWS INTO its neighbors — collisions aren't layout bugs,
   // they're the noise made visible (human doctrine 2026-09-14).
-  const W = 1180, H = 640;
+  const W = 1180, H = 700;
   const byName = {};
   for (const c of d.creatures) byName[c.name] = c;
   const resolve = n => byName[n] || byName[Object.keys(byName).find(k => n.endsWith(k) || k.endsWith(n)) || ''];
   const rad = c => Math.round(100 * 11 * Math.sqrt(Math.max(c.kb, 0.5) / 6)) / 100;
-  // Label offsets below clear the drawn .halo (r*1.7), not the core circle (r) — a
-  // fatter creature's halo used to outgrow the old r+10 gap and swallow its own name.
-  const X = { slime: 215, orc: 560, elf: 905 };
+  // Human 2026-09-21, full thread: "I want [minds] after slime like 4th level" → "only slime
+  // link[s] to skills so be relative" → "or after orc if orc orchester[s] skill to slime,
+  // match the architecture" — settled on slime → orc → minds → elf: the Orc is the one that
+  // "rules its domain; commands its Slimes; validates their work" (isekai.md), so it reads as
+  // Orc reaching for a Mind before results flow up to Elf. The harmony-link data itself still
+  // isn't race-restricted (a Mind links to *any* creature whose doc mentions it, never
+  // hand-assigned) — this is a visual/architectural framing choice, not a data constraint.
+  const X = { slime: 150, orc: 440, mind: 730, elf: 1020 };
+  // Every node type used a different label position before (slime left, orc above, elf right,
+  // mind below) — each individually safe, but inconsistent and still fragile. One rule now,
+  // for every node: centered, below, clearing the halo (r*1.7 + 8) — human 2026-09-21: "always
+  // load text below cercle so no collision happens for every thing."
+  const below = (x, y, r) => ({ anch: 'middle', lx: x, ly: y + r * 1.7 + 8 });
+  // Human 2026-09-21: "prepare places for ascended races" — highorc/darkelf/kijin had NO
+  // placement logic at all before this (only darkelf got a fixed corner, and highorc/kijin
+  // never rendered in the graph even when present in the cast table). They're rare, "born in
+  // time" (isekai.md), and don't each anchor to one base column the way orc/elf do — so they
+  // share one reserved shelf below a dashed divider, visible and labeled even at zero
+  // population, instead of three separate speculative column slots.
+  const shelfDivider = H - 130, layerBottom = shelfDivider - 40, ascShelfY = shelfDivider + 55;
   const nodes = [], edges = [];
-  const spread = list => list.map((it, i) => ({ ...it, y: 74 + (H - 128) * (i + 1) / (list.length + 1) }));
+  const spread = list => list.map((it, i) => ({ ...it, y: 74 + (layerBottom - 74) * (i + 1) / (list.length + 1) }));
   const slimeSeq = [];
   for (const o of d.orcs) for (const s of o.slimes) slimeSeq.push({ s, orc: o.orc });
   const slimeNodes = spread(slimeSeq).map(({ s, orc, y }) => {
     const c = resolve(s) || { kb: 6, stressPct: 0, race: 'slime', thoughts: 0, limit: 5, crosslinks: 0 };
     const r = rad(c);
-    return { name: s, c, x: X.slime, y, r, orc, anch: 'end', lx: X.slime - r * 1.7 - 8, ly: y + 3 };
+    return { name: s, c, x: X.slime, y, r, orc, ...below(X.slime, y, r) };
   });
   const orcNodes = spread(d.orcs.map(o => ({ o }))).map(({ o, y }) => {
     const c = resolve(o.orc) || { kb: 6, stressPct: 0, race: 'orc', thoughts: 0, limit: 5, crosslinks: 0 };
     const r = rad(c);
-    return { name: o.orc, c, x: X.orc, y, r, anch: 'middle', lx: X.orc, ly: y - r * 1.7 - 8 };
+    return { name: o.orc, c, x: X.orc, y, r, ...below(X.orc, y, r) };
   });
   const orcByName = {}; for (const n of orcNodes) orcByName[n.name] = n;
   for (const sn of slimeNodes) { const oc = orcByName[sn.orc];
     if (oc) edges.push(`<line class="e-${oc.name} e-${sn.name}" x1="${sn.x.toFixed(1)}" y1="${sn.y.toFixed(1)}" x2="${oc.x.toFixed(1)}" y2="${oc.y.toFixed(1)}"/>`); }
   nodes.push(...slimeNodes, ...orcNodes);
+  // Minds (skills) — the 3rd column now, between orc and elf. Still not a layer, not raced:
+  // linked to whichever creature nodes the harmony pass above actually found a textual reason
+  // to connect (see harvest()'s "Mind ↔ creature harmony links") — never hand-assigned, and
+  // drawn with zero edges when nothing in the world actually names it yet, which is itself an
+  // honest reading, not a bug. Spread vertically exactly like the creature layers now that it
+  // has its own column — the old horizontal-shelf name truncation is gone with it; a vertical
+  // column doesn't fight its neighbor for the same row the way a tight horizontal shelf did.
+  const mindNodes = spread(d.minds || []).map(m => {
+    const mc = { race: 'mind', kb: m.kb, descTok: m.descTok, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1, crosslinks: m.links.length, genesisSignal: false, desc: m.desc, uses: m.uses };
+    const r = Math.max(9, Math.min(18, rad(mc) * 0.55 + Math.min(m.uses, 10) * 0.4));
+    return { name: m.name, c: mc, x: X.mind, y: m.y, r, ...below(X.mind, m.y, r), links: m.links };
+  });
+  nodes.push(...mindNodes);
   // Elf(s): found generically by race, never by an assumed literal name — a world's Elf
   // is not always named "elf-colony" (that was one demo world's own name, not a schema).
   // Spread vertically like orcs/slimes if a world ever has more than one (Nature 6 — an
   // elf-colony forming from 2+ elves thinking alike is a real possibility, not the default).
   const elfNodes = spread(d.creatures.filter(c => c.race === 'elf').map(c => ({ c }))).map(({ c, y }) => {
     const r = rad(c);
-    return { name: c.name, c, x: X.elf, y, r, anch: 'start', lx: X.elf + r * 1.7 + 8, ly: y + 3 };
+    return { name: c.name, c, x: X.elf, y, r, ...below(X.elf, y, r) };
   });
   nodes.push(...elfNodes);
   for (const en of elfNodes) for (const oc of orcNodes)
     edges.push(`<line class="elfedge e-${en.name} e-${oc.name}" x1="${oc.x.toFixed(1)}" y1="${oc.y.toFixed(1)}" x2="${en.x.toFixed(1)}" y2="${en.y.toFixed(1)}"/>`);
-  // Dark elf(s): same generic-by-race fix, stacked if more than one (rare, but not assumed-single).
-  const darkelfNodes = d.creatures.filter(c => c.race === 'darkelf').map((c, i) => {
-    const r = rad(c), y = 66 + i * (r * 2 + 14);
-    return { name: c.name, c, x: X.elf, y, r, anch: 'middle', lx: X.elf, ly: y - r * 1.7 - 8 };
+  // Ascended shelf: highorc + darkelf + kijin together, spread across the same reserved band —
+  // rendered as real nodes (portrait, halo, label-below, same as any other race) if any exist,
+  // but the divider + caption + zone tint are drawn unconditionally below, so the place is
+  // visible and named even at zero population.
+  const ascended = d.creatures.filter(c => c.race === 'highorc' || c.race === 'darkelf' || c.race === 'kijin');
+  const ascX = i => 40 + (W - 80) * (i + 1) / (ascended.length + 1);
+  const ascendedNodes = ascended.map((c, i) => {
+    const r = rad(c), x = ascX(i), y = ascShelfY;
+    return { name: c.name, c, x, y, r, ...below(x, y, r) };
   });
-  nodes.push(...darkelfNodes);
-  // Minds (skills) — not a layer, not raced: a shelf worn by the whole colony. Linked
-  // to whichever creature nodes the harmony pass above actually found a textual
-  // reason to connect (see harvest()'s "Mind ↔ creature harmony links") — never
-  // hand-assigned, and drawn with zero edges when nothing in the world actually
-  // names it yet, which is itself an honest reading, not a bug.
+  nodes.push(...ascendedNodes);
+  // Mind-edge linking happens last, once every node type (including elf and the ascended
+  // shelf) actually exists in `nodes` — a Mind can link to a creature of *any* race (never
+  // race-restricted, see above), so building this lookup before elf/ascended existed would
+  // have silently dropped any edge pointing at one of them.
   const nodeByName = {}; for (const n of nodes) nodeByName[n.name] = n;
-  const mindNodes = (d.minds || []).map((m, i, arr) => {
-    const mc = { race: 'mind', kb: m.kb, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1, crosslinks: m.links.length, genesisSignal: false, desc: m.desc, uses: m.uses };
-    const r = Math.max(9, Math.min(18, rad(mc) * 0.55 + Math.min(m.uses, 10) * 0.4));
-    const x = X.slime + (X.elf - X.slime) * (i + 1) / (arr.length + 1);
-    const y = H - 30;
-    // Mind labels share a fixed-width shelf (unlike layer labels, which extend outward into
-    // open space) — a long skill name at the layer's default font would overlap its neighbor's
-    // circle, not just its own halo. Truncate to what the slot can actually hold; the full name
-    // still rides the tooltip (<title>), the modal, and both mind tables above, so nothing is
-    // lost — only not re-drawn somewhere it physically can't fit.
-    const slot = (X.elf - X.slime) / (arr.length + 1);
-    const budget = Math.max(6, Math.floor((slot - 8) / 6));
-    const label = m.name.length > budget ? m.name.slice(0, budget - 1) + '…' : m.name;
-    return { name: m.name, c: mc, x, y, r, anch: 'middle', lx: x, ly: y + r * 1.7 + 8, links: m.links, label };
-  });
-  nodes.push(...mindNodes);
   for (const mn of mindNodes) for (const linkName of mn.links) {
     const t = nodeByName[linkName];
-    if (t) edges.push(`<line class="mindedge e-${mn.name} e-${linkName}" x1="${mn.x.toFixed(1)}" y1="${mn.y.toFixed(1)}" x2="${t.x.toFixed(1)}" y2="${t.y.toFixed(1)}"/>`);
+    if (!t) continue;
+    edges.push(`<line class="mindedge e-${mn.name} e-${linkName}" x1="${mn.x.toFixed(1)}" y1="${mn.y.toFixed(1)}" x2="${t.x.toFixed(1)}" y2="${t.y.toFixed(1)}"/>`);
+    // Human 2026-09-21: "if slime used skill it will link to it with a variable of how much
+    // time it used." Honest limit, named rather than guessed past: Claude Code's own
+    // transcripts don't attribute a Skill invocation to which specific creature/subagent
+    // triggered it — only coarsely 'subagent' vs 'main session' (see harvestClaudeUsage's own
+    // comment on this same ceiling). So this is the mind's total use count across the whole
+    // world, drawn once per edge it has — not a true per-pair count, which the data can't
+    // currently support. Skipped entirely at 0 uses rather than printing a hollow "0×".
+    if (mn.c.uses) {
+      const mx = (mn.x + t.x) / 2, my = (mn.y + t.y) / 2;
+      edges.push(`<text class="mindedgelabel" x="${mx.toFixed(1)}" y="${my.toFixed(1)}" text-anchor="middle">${mn.c.uses}×</text>`);
+    }
   }
+  const zoneRects = [
+    { x: X.slime, race: 'slime' }, { x: X.orc, race: 'orc' },
+    { x: X.mind, race: 'mind' }, { x: X.elf, race: 'elf' },
+  ].map(({ x, race }) =>
+    `<rect x="${(x - 120).toFixed(1)}" y="48" width="240" height="${(layerBottom - 8).toFixed(1)}" rx="14" fill="${RCOL[race]}" fill-opacity="0.05"/>`
+  ).join('') +
+    `<rect x="40" y="${shelfDivider}" width="${W - 80}" height="${(H - 20 - shelfDivider).toFixed(1)}" rx="14" fill="var(--dim)" fill-opacity="0.04"/>`;
   const layerTags = `<text class="ax" x="${X.slime}" y="36" text-anchor="middle">INPUT — SLIMES</text>` +
-    `<text class="ax" x="${X.orc}" y="36" text-anchor="middle">HIDDEN — ORCS</text>` +
+    `<text class="ax" x="${X.orc}" y="36" text-anchor="middle">ORCHESTRATES — ORCS</text>` +
+    `<text class="ax" x="${X.mind}" y="36" text-anchor="middle">TOOLING — MINDS</text>` +
     `<text class="ax" x="${X.elf}" y="36" text-anchor="middle">OUTPUT — ELF ⋄ AWAKENED ABOVE</text>` +
-    (mindNodes.length ? `<text class="ax" x="${W / 2}" y="${H - 8}" text-anchor="middle">⋄ MINDS — WORN, NOT RACED</text>` : '');
+    `<line x1="40" y1="${shelfDivider}" x2="${W - 40}" y2="${shelfDivider}" stroke="#2a3a52" stroke-width="1" stroke-dasharray="7 5"/>` +
+    `<text class="ax" x="${W / 2}" y="${shelfDivider + 18}" text-anchor="middle">⋄ ASCENDED — HIGH ORC · DARK ELF · KIJIN${ascended.length ? '' : ' (none born yet — place reserved)'}</text>`;
   const nodeSvg = layerTags + nodes.map(({ name, c, x, y, r, lx, ly, anch, label }) => {
     const col = RCOL[c.race] || RCOL.plain, au = aura(c);
     const tip = c.race === 'mind'
-      ? `${esc(name)} — Mind · ${c.kb}KB · ${c.uses} use${c.uses === 1 ? '' : 's'} · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`
+      ? `${esc(name)} — Mind · ${c.kb}KB (≈${c.descTok} tok resident) · ${c.uses} use${c.uses === 1 ? '' : 's'} · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`
       : `${esc(name)} — ${esc(c.race)} · ${c.kb}KB · desk ${c.thoughts}/${c.limit} · links ${c.crosslinks ?? '–'}${c.genesisSignal ? ' · ⋄ genesis watch' : ''}`;
     const portrait = PORTRAIT_FILE[c.race];
     // A portrait fills the node's face at ~0.85r (leaving the ring's own stroke visible) in
@@ -893,6 +996,7 @@ function render(d) {
     .map(([id, v]) => `<tr><td><b>${esc(id)}</b></td><td class="dim">${esc(v.mounted.join(' · ') || '–')}</td><td class="num">${v.mentions}</td></tr>`).join('');
   const mindRows = (d.minds || []).slice().sort((a, b) => b.uses - a.uses)
     .map(m => `<tr data-name="${esc(m.name)}" style="cursor:pointer"><td><b>${esc(m.name)}</b></td><td class="num">${m.uses}</td><td class="num">${m.kb}</td>
+      <td class="num" title="estimate — the description alone, the part that sits in context every turn; ~4 bytes/token">≈${m.descTok}</td>
       <td class="dim">${m.links.length ? esc(m.links.join(' · ')) : '–'}</td>
       <td class="desc" title="${esc(m.desc || '')}">${m.desc ? esc(brief(m.desc)) : '–'}</td></tr>`).join('');
 
@@ -903,11 +1007,12 @@ function render(d) {
 
   return `<!doctype html><meta charset="utf-8"><title>tempest ⋄ ${esc(d.world)} — ${esc(path.basename(d.root))}</title>
 ${PAGE_STYLE}
+<body class="light">
 <main>
 <a href="/" class="allworlds">← all worlds</a>
 <h1><span class="sigil">⋄</span> TEMPEST <span style="letter-spacing:.1em;color:var(--dim);font-size:11px"> ${d.world.toUpperCase()} — THE WORLD, OBSERVED · /${d.world}/ · :${PORT}</span></h1>
-<div class="meta"><span class="tbtns"><button id="themeBtn" title="light/dark">◐ light</button><button id="stressBtn" title="the suffering blink, while you watch">⚡ stress detect</button>
-<button class="rng" data-r="1" title="last 24h — today (day-bucket)">24h</button><button class="rng" data-r="7" title="last 7 days">7d</button><button class="rng active" data-r="30" title="last 30 days">30d</button><button class="rng" data-r="0" title="all time">all</button></span><span class="chip">${esc(path.basename(d.root))}</span><span class="chip">canon v${d.canonV}</span>
+<div class="meta"><span class="tbtns"><button id="themeBtn" title="light/dark">◑ dark</button><button id="stressBtn" title="the suffering blink, while you watch">⚡ stress detect</button>
+<button class="rng" data-r="1" title="last 24h — today (day-bucket)">24h</button><button class="rng" data-r="7" title="last 7 days">7d</button><button class="rng active" data-r="30" title="last 30 days">30d</button><button class="rng" data-r="0" title="all time">all</button></span>${d.ctxStress ? `<span class="pill ${d.ctxStress.band}" title="most recent turn's context occupancy (estimate, Nature 9 instrument), ${d.ctxStress.pct}% of the ${fmtN(d.ctxStress.limit)} budget">⋄ context ${fmtN(d.ctxStress.tin)} tok</span>` : ''}<span class="chip">${esc(path.basename(d.root))}</span><span class="chip">canon v${d.canonV}</span>
 <span class="chip">${d.chartV === null ? 'chart: none' : d.chartDebt ? `<span class="debt">chart v${d.chartV} × debt 22/22a</span>` : `<span class="ok">chart v${d.chartV} ✓</span>`}</span>
 <span class="chip">${esc(d.when.replace('T', ' ').slice(0, 19))}</span>
 <span class="chip">genesis watch: ${d.genesisWatch.length ? esc(d.genesisWatch.join(' · ')) : '<span class="ok">none</span>'}</span></div>
@@ -916,8 +1021,8 @@ ${PAGE_STYLE}
 <table><tr><th>creature</th><th>race</th><th>KB</th><th>desk</th><th>links</th><th>stress</th><th>expertise (brief — full text on hover)</th></tr>${castRows}</table>
 
 <h2>⋄ minds — worn, not raced</h2>
-<table><tr><th>mind</th><th>uses</th><th>KB</th><th>worn by</th><th>purpose (brief — full text on hover)</th></tr>${mindRows || '<tr><td colspan="5" class="dim">no Minds in this world yet — /don brings one in from .opencode/skills/</td></tr>'}</table>
-<div class="dim">uses = Skill tool_use invocations counted from this world's own Claude Code transcripts (~/.claude/projects/) — a Mind that exists but reads 0 has never actually been invoked here, only referenced.</div>
+<table><tr><th>mind</th><th>uses</th><th>KB</th><th>≈ ctx tok</th><th>worn by</th><th>purpose (brief — full text on hover)</th></tr>${mindRows || '<tr><td colspan="6" class="dim">no Minds in this world yet — /don brings one in from .opencode/skills/</td></tr>'}</table>
+<div class="dim">uses = Skill tool_use invocations counted from this world's own Claude Code transcripts (~/.claude/projects/) — a Mind that exists but reads 0 has never actually been invoked here, only referenced. ≈ ctx tok = estimated tokens the <b>description alone</b> costs every turn it's installed (~4 bytes/token) — not the KB column, which is the full body, loaded only when actually donned.</div>
 
 <h2>⋄ models — mounted &amp; mentioned</h2>
 <table><tr><th>model</th><th>mounted on (colony genomes)</th><th>ledger sightings</th></tr>${modelRows || '<tr><td class="dim">no model pins found</td></tr>'}</table>
@@ -961,7 +1066,7 @@ ${Object.entries(U.perDay).sort().map(([k, v]) => `<tr><td>${esc(k)}</td><td cla
 <div class="dim" style="margin-top:6px">source: ${withSrc}${d.live.rows && d.tokens.rows ? ` + manual ledger (${d.tokens.rows} rows beside it)` : ''} — USD still lives in gateway telemetry.</div>`; })()}
 
 <h2>⋄ the colony — size is weight, glow is stress</h2>
-<svg viewBox="0 0 ${W} ${H}" class="panel">${edges.join('')}${nodeSvg}</svg>
+<svg viewBox="0 0 ${W} ${H}" class="panel">${zoneRects}${edges.join('')}${nodeSvg}</svg>
 <div id="focusPanel" class="panel" style="margin-top:10px"></div>
 <div id="docModal" class="modal-backdrop" style="display:none">
   <div id="docModalBox" class="modal-box">
@@ -970,7 +1075,7 @@ ${Object.entries(U.perDay).sort().map(([k, v]) => `<tr><td>${esc(k)}</td><td cla
     <div id="docModalBody"></div>
   </div>
 </div>
-<script type="application/json" id="zdata">${esc(JSON.stringify({ creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null, desc: c.desc || '' }])), minds: Object.fromEntries((d.minds || []).map(m => [m.name, { race: 'mind', kb: m.kb, uses: m.uses, links: m.links.length, desc: m.desc || '' }])), orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))) }))}</script>
+<script type="application/json" id="zdata">${esc(JSON.stringify({ creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null, desc: c.desc || '' }])), minds: Object.fromEntries((d.minds || []).map(m => [m.name, { race: 'mind', kb: m.kb, descTok: m.descTok, uses: m.uses, links: m.links.length, desc: m.desc || '' }])), orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))) }))}</script>
 <script>
 (function(){
 var Z=JSON.parse(document.getElementById('zdata').textContent);
@@ -1016,7 +1121,7 @@ function focus(name){var c=Z.creatures[name],isMind=false;
   if(isMind){
    P.innerHTML='<b>'+esc2(name)+'</b> <span class="dim">mind · worn by '+c.links+' creature'+(c.links===1?'':'s')+'</span><br>'
     +(c.desc?'<span class="focusdesc">'+esc2(c.desc)+'</span><br>':'')
-    +c.kb+'KB · '+c.uses+' use'+(c.uses===1?'':'s');
+    +c.kb+'KB <span class="dim">(≈'+c.descTok+' tok resident — description only, always in context)</span> · '+c.uses+' use'+(c.uses===1?'':'s');
   }else{
    P.innerHTML=(PORTRAIT_RACES[c.race]?'<img class="focusface" src="portrait/'+c.race+'" alt="" onerror="this.remove()">':'')
     +'<b>'+esc2(name)+'</b> <span class="dim">'+esc2(c.race)+(Z.orcOf[name]?' under '+esc2(Z.orcOf[name]):'')+'</span><br>'
@@ -1293,6 +1398,7 @@ function renderIndex(worlds) {
 ${PAGE_STYLE}
 <style>.actpanel{padding:16px 18px}.actpanel h3{margin:0 0 8px;font-size:13px;letter-spacing:.06em}
 .actgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-top:14px}</style>
+<body class="light">
 <main>
 <h1><span class="sigil">⋄</span> TEMPEST <span style="letter-spacing:.1em;color:var(--dim);font-size:11px"> ALL WORLDS, OBSERVED · :${PORT}</span></h1>
 <div class="meta">${worlds.length} world${worlds.length === 1 ? '' : 's'} registered · ${totalCreatures} creature${totalCreatures === 1 ? '' : 's'} total ·

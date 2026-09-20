@@ -273,3 +273,89 @@ Append-only. Newest entries at the bottom. One entry per change.
     tool family, which aren't gated by that same classifier — every hunk above was applied
     here by hand through Edit, verified identical to the source world's file, never through a
     blind file copy.
+
+### [2026-09-21T01:05:00+02:00] rimuru — default theme light; stress pill now fills with its own status color
+- **Task:** Human, in the mongodb world: "by default load light version, the stress percentage
+  pill should be filling with matching color in light mode." Synced here on the same standing
+  "update convention dir, commit and push" instruction as the previous entry.
+- **Files:** .isekai/tools/tempest.js (both world-page `render()` and the global
+  `renderIndex()` now emit `<body class="light">`; `.pill` CSS)
+- **Gate:** n/a
+- **Result:** done
+- **Learned:** Neither page ever wrote a literal `<body>` tag before — the browser's implicit
+  one is what `document.body.classList.toggle('light')` was always operating on, so adding an
+  explicit `<body class="light">` was the whole fix; the per-world page's `themeBtn` static
+  label was flipped from "◐ light" to "◑ dark" to match (it shows the *next* click's action,
+  and light is now the starting state). `.pill.cool/warn/hot` had a matching text color but a
+  hardcoded dark-only border hex and no background at all — nearly invisible on a light
+  surface. Fixed with `background:color-mix(in srgb, var(--cy) 16%, transparent)` (and the
+  --gd/--em equivalents) instead of a second light-mode override block — reuses the *same*
+  already-light/dark-adaptive tokens the text already used, one definition instead of two.
+
+### [2026-09-21T01:45:00+02:00] rimuru — colony diagram rebuilt (4-column order, zone tints, ascended shelf), context-window chip, skill context-cost, canon version fixed
+- **Task:** Continuing chain in the mongodb world, human asks in order: "add a light background
+  color per race zone... prepare places for ascended races" and "I want [Minds] after slime
+  like 4th level" → clarified twice ("only slime link to skills, be relative" → "or after orc if
+  orc orchestrates skill to slime, match the architecture") settling on slime → orc → minds →
+  elf; "add how much it costs [a Mind] in context tokens too"; "context window in tempest dash
+  at the beginning, with color, so it's seeable" then "don't put % — put tokens, not
+  percentage"; and separately "the canon is v9" (root-caused: `canonOf()` only ever checked for
+  a root-level `ISEKAI.md` that never existed in the new `/isekai` shape, so the chip always
+  read `v?`).
+- **Files:** .isekai/tools/tempest.js (copied whole from the mongodb world's already-verified
+  copy this round — confirmed byte-identical with `diff`, `node --check` passed here too)
+- **Gate:** n/a
+- **Result:** done
+- **Learned:**
+  - **Diagram column order, settled by architecture, not guessed twice more**: after getting
+    Minds' position wrong across two earlier redesigns based on text descriptions alone
+    (impossible to verify without a screenshot), the human explicitly reasoned it through in
+    chat — Orc "rules its domain; commands its Slimes; validates their work" (isekai.md's own
+    words), so Orc is the one reaching for a Mind, not Slime directly. Final order: slime → orc
+    → minds → elf. The harmony-link data underneath is still not race-restricted (a Mind links
+    to *any* creature whose doc mentions it) — this is a visual/architectural framing choice
+    layered on top, not a change to what the data actually measures.
+  - **Two real bugs caught and fixed while rebuilding, not just moved**: (1) `nodeByName` was
+    being built for mind-edge lookups *before* `elfNodes` existed in the node list — any Mind
+    linking to an Elf would have silently found nothing. Fixed by deferring the whole mind-edge
+    pass to after every node type (including the new ascended shelf) is constructed. (2) The
+    mind-node y-position was read from `.map()`'s *index* parameter (accidentally named `y`)
+    instead of the actual spread-computed `y` on each item — would have stacked every Mind at
+    sequential integer y-coordinates (0,1,2…) instead of their real vertical slots. Caught by
+    re-reading the diff before trusting it, not by the syntax checker (both were valid JS).
+  - **Minds got a real vertical column** (same spread/below-label treatment as slime/orc/elf)
+    instead of a cramped horizontal shelf — the old per-mind name truncation (needed when
+    neighbors sat ~99px apart *sideways*) is gone with it; a vertical column doesn't fight its
+    neighbor for the same row, confirmed live: `git-guardrails-claude-code` now renders in full.
+  - **"Prepare places for ascended races"**: highorc and kijin had *zero* placement logic before
+    this at all (only darkelf got a fixed corner) — a creature of either race existing in a
+    world's cast table would never have appeared in the graph. Rather than inventing three
+    separate speculative column slots, they share one reserved shelf below a dashed divider
+    (reusing the exact divider/caption pattern already proven for the old Mind shelf), visible
+    and captioned "(none born yet — place reserved)" even at zero population — honest per
+    Nature 9, not a fabricated placeholder node.
+  - **Zone backgrounds**: one low-opacity tinted `<rect>` per column (slime/orc/minds/elf),
+    each using that race's *own* already-validated CSS variable (`--r-slime` etc.) rather than
+    a new hex, so light/dark mode both stay correct automatically; the ascended shelf gets a
+    neutral dim tint since it can hold three different races at once.
+  - **Context-window chip**: new `harvestContextStress()` mirrors `.isekai/tools/context-
+    check.sh` exactly (same 200k/180k defaults, same "most recent assistant turn's own usage,
+    not a cumulative sum" method) so the terminal instrument and the dashboard chip can never
+    silently drift apart. First version showed a percentage ("⋄ context 251%"); the human
+    immediately said no — percentage of a soft, admittedly-conservative 200k budget was
+    confusing once real usage exceeded it. Switched to a plain token count.
+  - **Skill context cost**: a Mind's `kb` (full file size) was never the right number for "what
+    does this cost me" — per isekai.md's own Minds section, only the YAML `description` sits in
+    context on every turn by default; the full body loads only when actually donned. Added
+    `descTok` (≈bytes/4) computed from the description alone, shown in the Minds table, the
+    node tooltip, and the focus-panel mind branch — genuinely new information, not a re-unit of
+    the existing KB column.
+  - **Canon version**: `canonOf()` looked only for a root-level `ISEKAI.md`/`CONVENTION-
+    ZERO.md`/`SLIME.md`, a shape from the *elder* convention. Neither this world nor the
+    mongodb world has ever had one — the real canon doc has lived at `<home>/isekai.md` since
+    the `/isekai` reincarnation, so the chip always read `v?`, silently, for every world on this
+    shape. Fixed to check `<home>/` first, falling back to the elder root-level shape. The
+    mongodb world's own `.isekai/isekai.md` got an explicit `canon v9` stamp added (the human's
+    own number, on direct instruction) so the fix has something real to find there; this
+    world's `.isekai/isekai.md` was deliberately left unstamped — its real version number
+    wasn't asserted by anyone, and `v?` is the honest reading of that, not a bug to paper over.
