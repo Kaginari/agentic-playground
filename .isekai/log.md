@@ -171,3 +171,38 @@ Append-only. Newest entries at the bottom. One entry per change.
     exposed — a Skill's YAML `description: "..."` (quoted) kept its literal quote marks
     through the extraction regex. Added a small `unquote()` helper, applied at both
     description-extraction sites (skills-shaped and `.isekai/{elf,orc,slime}` shaped).
+
+### [2026-09-20 23:30] rimuru — Rimuru's own context stress, as a measured instrument
+- **Task:** "add a context window of 200K like an internal limiter... the system itself can
+  stress when session cames closer to 180K it enter stress mode... recommend or ask the human
+  let me take a break" — extend Nature 9 (Perception: measured, never guessed) from creature
+  stress to Rimuru's own session.
+- **Files:** .isekai/tools/context-check.sh (new), .isekai/isekai.md (+ propagated to all 4
+  command templates and the mongodb world's isekai.md/context-check.sh)
+- **Gate:** n/a
+- **Result:** done
+- **Learned:**
+  - **Real, working instrument, not just a documented threshold.** `context-check.sh` reads
+    the running session's own Claude Code transcript (most-recently-modified `.jsonl` under
+    `~/.claude/projects/<slugified-cwd>/`) and takes the *last* assistant turn's own
+    `input_tokens + cache_read_input_tokens + cache_creation_input_tokens` as current context
+    occupancy — not a cumulative sum across turns, which is a different, much larger number
+    (total spend, already computed elsewhere by `tempest.js`'s `harvestClaudeUsage`). Tested
+    live against this very session: reported 418,671 tokens, matching Claude Code's own
+    `/context` reading (385.3k) to within ~7% — close enough to trust for catching a zone,
+    not exact enough to bill from.
+  - **The 200K budget is deliberately conservative and model-independent**, not tied to
+    whichever model's real window happens to be seated on the throne (Rimuru is
+    model-agnostic by rule — "the throne does not choose its horse" — and some models have
+    far smaller real windows than others). Fired correctly on first real test: this session
+    is at 209% of that conservative budget while nowhere near its actual 1M-token model
+    window, which is the intended behavior — recommend a break early, not wait for the real
+    ceiling.
+  - **What "stress mode" actually does, on inspection, is not eviction — nothing can force
+    content out of context mid-session.** Documented the three real levers instead: write
+    anything not yet durable immediately (insurance against a compaction losing it), dispatch
+    remaining heavy work to a Court Body rather than inline (the shrink mechanism already
+    documented this session), and tell the human plainly that a break/`/clear`/fresh session
+    is warranted. This is a behavioral commitment for Rimuru to self-check at natural
+    checkpoints, not an automatic system-level enforcement — named honestly as such rather
+    than oversold as automatic.

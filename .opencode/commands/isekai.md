@@ -302,6 +302,18 @@ the world can see about itself *right now* without asking a document, which may 
 - Instruments are not tracked the way `log.md` is: they are overwritten freely, since they are
   a window, not a record. What an instrument reveals that matters gets written into a
   document (and the log) — the instrument itself is disposable.
+- **Rimuru's own stress is an instrument reading too, not a feeling.**
+  `.isekai/tools/context-check.sh` reads the running session's own transcript and reports its
+  current context occupancy against a conservative, model-independent budget (default
+  200,000 tokens — deliberately far below any single model's real window, since Rimuru rides
+  whichever model the human picked, and some are much smaller than others). Past 180,000
+  (90% of budget) is the stress zone: write anything not yet durable to `log.md` or its
+  owning doc immediately, dispatch any remaining heavy work to a Court Body rather than
+  running it inline from here on, and tell the human plainly that this is a good point for a
+  break, a `/clear`, or a fresh session picking up from what was just written down. The
+  number is an estimate (cross-checked against Claude Code's own `/context` to within ~7%
+  on 2026-09-20), not a billing figure — good enough to catch the zone, not to argue
+  precision.
 
 ## Minds & Bodies
 
