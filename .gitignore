@@ -10,3 +10,7 @@
 # still travels (the .gitkeep below is explicitly re-included).
 .isekai/tmp/*
 !.isekai/tmp/.gitkeep
+
+# LibreOffice lock files — created transiently while a .pptx/.docx/etc is open
+# for conversion or viewing, never meant to be tracked.
+.~lock.*#

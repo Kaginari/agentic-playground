@@ -11,6 +11,17 @@ The one rank this deliberately excludes: **Rimuru**. The canon is explicit —
 *"The mount is whatever model the human picked — the throne does not choose its horse"*
 (`rimuru-throne-body.md`). Never hardcode a model for the throne itself.
 
+**Retuned 2026-09-20** (human: "is this logical for you... keep clean work thinking for
+good models that demand clear actions to lower one"). The organizing principle this table
+now follows, made explicit because the first pass didn't apply it consistently: **tune by
+what the task actually demands, not by how narrow its scope is.** Narrow scope bounds the
+*blast radius* of a mistake — it says nothing about how much judgment the task itself takes.
+A task with clear, checkable, low-ambiguity steps can drop a tier regardless of rank (that's
+Great Sage's whole case for Haiku). A task that involves real authorship or a real verdict
+can't be undersized just because it's scoped to one narrow zone — that's the mistake the
+first pass made with Slime (below), tying it to Great Sage's tier by rank-adjacency instead
+of by what a Slime actually does.
+
 ## The court triad (E3 — dispatched, disposable context)
 
 | Office | Job (from its own template) | Suggested model | Why |
@@ -25,12 +36,28 @@ The one rank this deliberately excludes: **Rimuru**. The canon is explicit —
 |---|---|---|---|
 | **Elf** | The shared mind *and* voice — thinks across domains, routes work, rules disputes, drafts every outward message. Closest rank to Rimuru in reasoning load. | **Sonnet 5** default | Balanced reasoning + writing. Bump to **Opus 5** for large worlds with many orcs and genuine cross-domain conflict to arbitrate — that's where an elf's judgment calls get expensive to get wrong. |
 | **Orc** | Rules its domain and *is* the actual landing gate (not advisory like Raphael): verifies the right slime authored, traits hold, duties done, doc truthful. Getting this wrong either lands a bad change or blocks a good one — same shape as Raphael's job, but with real teeth. | **Sonnet 5** default | Same reasoning-critical profile as Raphael, for the same reason. **Opus 5** for high-stakes domains (security, financial correctness, infra you can't cheaply revert). |
-| **Slime** | One narrow zone, deep but narrow, authors changes directly. Many exist per world; frequently loaded/reloaded (rule 4's first-action gate). | **Haiku 4.5** default | Cost efficiency at volume — most zones are narrow and well-defined enough not to need more. **Sonnet 5** when a specific zone's own logic is intrinsically complex (a gnarly algorithm, ambiguous legacy code) — decide per-slime, not per-world; a world can reasonably mix both. |
+| **Slime** | One narrow zone, deep but narrow, **authors changes directly**. Many exist per world; frequently loaded/reloaded (rule 4's first-action gate). | **Sonnet 5** default; **Haiku 4.5** only for zones that are genuinely mechanical | Retuned: the first pass defaulted this to Haiku on "narrow zone → cheap," the same tier as Great Sage — but Great Sage is *forbidden* from judgment or writes by its own office laws, while a Slime's whole job is authorship: real code, real correctness stakes, just blast-radius-limited to one zone. Narrow scope isn't low cognitive demand. Sonnet 5 is the right floor for "writes code that lands." Drop to Haiku 4.5 only where the zone itself is genuinely mechanical — a version bump, a changelog line in a fixed format, config-only edits with no logic — decided per-slime, not per-world; most zones won't qualify. |
 
 ## Ascended ranks
 
-Not enough signal to tune these confidently — High Orc, Dark Elf and Kijin are rare,
-human-declared, and long-lived (their memory "is an archive, not a desk"), which argues for
-the same or higher tier than the rank they ascended from rather than a cost-optimized choice.
-Default to **Opus 5** for all three until there's a concrete reason to do otherwise — their
-scarcity means the cost difference barely matters.
+Retuned: "rare, so cost doesn't matter" isn't a task-based reason on its own — the same
+"clear actions drop a tier" test applies here too, it just tends to come out the other way
+for these three specifically, and it's worth saying why rather than leaning on scarcity
+alone:
+
+- **Kijin** — a standing domain lead owning a subsystem end-to-end *across sessions*,
+  reporting straight to Rimuru. Long-horizon, cross-session judgment with no gate above it
+  but Rimuru itself. **Opus 5.**
+- **High Orc** — same task *shape* as a base Orc (still gate/verdict work), but reasoning
+  over an accumulated archive rather than a single desk — the judgment is the same kind,
+  the context it has to hold is larger. If a world's High Orc's archive stays genuinely
+  small, Sonnet 5 is worth trying; default **Opus 5** until that's actually true.
+- **Dark Elf** — audits gate verdicts and `log.md` for law violations, answers only to
+  Veldora/Rimuru, never authors changes. Checking work against a defined rule set (the Nine
+  Natures, the Laws) is more checkable than open-ended domain judgment — but this is the
+  one rank positioned to miss a *systemic* pattern across the whole world, and it's the
+  last check before something ships wrong repeatedly. **Opus 5.**
+
+All three are also rare and human-declared (Nature 5 — ascension is earned, never assigned
+up front), so the cost delta from defaulting high barely shows up in practice — but that's
+a second reason, not the first one.
