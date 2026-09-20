@@ -67,6 +67,93 @@ const TTL_MS = TTL_MIN * 60000;
 const IMMORTAL = args.includes('--immortal');
 let lastTouch = Date.now();
 
+// ------------ Claude Code usage (no opencode.db — read its JSONL transcripts instead) ------------
+// Claude Code has no SQLite session store; each session is one JSONL transcript at
+// ~/.claude/projects/<slugified-cwd>/<sessionId>.jsonl. Assistant turns carry
+// message.model, message.usage.{input,output}_tokens and a timestamp; d.cwd is matched
+// against root with the same LIKE-prefix semantics as the opencode query below.
+// Best-effort only: unlike opencode's `agent` column (a precise mounted-body name),
+// Claude's transcripts don't cleanly name which minted sub-agent handled a turn, so agent
+// identity here is coarse — d.isSidechain: 'subagent' vs 'main session' — not per-body.
+// Read beats inferring (see /genesis): this is honestly labeled as coarser, not silently
+// passed off as equally precise.
+function harvestClaudeUsage(root) {
+  const out = { live: { rows: 0, totalIn: 0, totalOut: 0, perDay: {}, perModel: {}, series: {} },
+    agentUse: {} };
+  const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+  if (!fs.existsSync(projectsDir)) return out;
+  const rootPrefix = root.endsWith(path.sep) ? root : root + path.sep;
+  let slugDirs;
+  try { slugDirs = fs.readdirSync(projectsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); }
+  catch { return out; }
+  for (const slug of slugDirs) {
+    let files;
+    try { files = fs.readdirSync(path.join(projectsDir, slug)).filter(f => f.endsWith('.jsonl')); }
+    catch { continue; }
+    for (const f of files) {
+      let text;
+      try { text = fs.readFileSync(path.join(projectsDir, slug, f), 'utf8'); }
+      catch { continue; }
+      for (const line of text.split('\n')) {
+        if (!line) continue;
+        let d;
+        try { d = JSON.parse(line); } catch { continue; }
+        if (d.type !== 'assistant') continue;
+        const cwd = d.cwd || '';
+        if (cwd !== root && !cwd.startsWith(rootPrefix)) continue;
+        const msg = d.message || {};
+        const usage = msg.usage || {};
+        const mid = msg.model || 'unknown';
+        const tin = usage.input_tokens || 0, tout = usage.output_tokens || 0;
+        const day = String(d.timestamp || '').slice(0, 10) || 'undated';
+        const agentKey = d.isSidechain ? 'subagent' : 'main session';
+
+        out.live.rows++; out.live.totalIn += tin; out.live.totalOut += tout;
+        const pd = out.live.perDay[day] ||= { in: 0, out: 0 };
+        pd.in += tin; pd.out += tout;
+        const pm = out.live.perModel[mid] ||= { in: 0, out: 0, rows: 0, agents: [] };
+        pm.in += tin; pm.out += tout; pm.rows++;
+        if (!pm.agents.includes(agentKey)) pm.agents.push(agentKey);
+        const sd = (out.live.series[mid] ||= {})[day] ||= [0, 0, 0];
+        sd[0] += tin; sd[1] += tout; sd[2]++;
+
+        const row = out.agentUse[agentKey] ||= { sessions: 0, totIn: 0, totOut: 0, models: [], lastDay: '' };
+        row.sessions++; row.totIn += tin; row.totOut += tout;
+        if (!row.models.includes(mid)) row.models.push(mid);
+        if (day > row.lastDay) row.lastDay = day;
+      }
+    }
+  }
+  return out;
+}
+function mergeLive(into, from) {
+  into.rows += from.rows; into.totalIn += from.totalIn; into.totalOut += from.totalOut;
+  for (const [day, v] of Object.entries(from.perDay)) {
+    const pd = into.perDay[day] ||= { in: 0, out: 0 };
+    pd.in += v.in; pd.out += v.out;
+  }
+  for (const [mid, v] of Object.entries(from.perModel)) {
+    const pm = into.perModel[mid] ||= { in: 0, out: 0, rows: 0, agents: [] };
+    pm.in += v.in; pm.out += v.out; pm.rows += v.rows;
+    for (const a of v.agents) if (!pm.agents.includes(a)) pm.agents.push(a);
+  }
+  for (const [mid, days] of Object.entries(from.series || {})) {
+    const s = into.series[mid] ||= {};
+    for (const [day, arr] of Object.entries(days)) {
+      const sd = s[day] ||= [0, 0, 0];
+      sd[0] += arr[0]; sd[1] += arr[1]; sd[2] += arr[2];
+    }
+  }
+}
+function mergeAgentUse(into, from) {
+  for (const [agent, v] of Object.entries(from)) {
+    const row = into[agent] ||= { sessions: 0, totIn: 0, totOut: 0, models: [], lastDay: '' };
+    row.sessions += v.sessions; row.totIn += v.totIn; row.totOut += v.totOut;
+    for (const m of v.models) if (!row.models.includes(m)) row.models.push(m);
+    if (v.lastDay > row.lastDay) row.lastDay = v.lastDay;
+  }
+}
+
 // ------------ harvest ------------
 function harvest(root) {
   const skillsDir = path.join(root, '.opencode', 'skills');
@@ -87,6 +174,38 @@ function harvest(root) {
     return { name, race, kb: +(bytes / 1024).toFixed(1), thoughts: thoughtLines.length,
       thoughtDates, limit: DESK_LIMIT(name), desc, doc };
   });
+
+  // operative /isekai + /genesis shape: .isekai/{elf,orc,slime}/<name>/*.md — no
+  // .opencode/skills/ or AGENTS.md required. Merged in alongside any skills-shaped
+  // creatures above (not a replacement), so either shape, or both at once, renders.
+  const isekaiOrcCommands = {}; // orc name -> [slime names], read off its own "Commands:" line
+  for (const race of ['elf', 'orc', 'slime']) {
+    const raceDir = path.join(root, HOME, race);
+    if (!fs.existsSync(raceDir)) continue;
+    for (const zone of fs.readdirSync(raceDir, { withFileTypes: true })
+      .filter(e => e.isDirectory()).map(e => e.name).sort()) {
+      const name = `${race}-${zone}`;
+      if (creatures.some(c => c.name === name)) continue; // skills-shaped already has it
+      const zoneDir = path.join(raceDir, zone);
+      const mdFile = ['README.md', ...fs.readdirSync(zoneDir).filter(f => f.endsWith('.md'))]
+        .find(f => fs.existsSync(path.join(zoneDir, f)));
+      if (!mdFile) continue;
+      const doc = rd(path.join(zoneDir, mdFile));
+      const bytes = Buffer.byteLength(doc);
+      const m = doc.match(/##\s*Thoughts([\s\S]*?)(?=\n##\s|\n#\s|$)/i);
+      const tBody = m ? m[1] : '';
+      const thoughtLines = tBody.split('\n').filter(l => /^\s*(-|###)/.test(l) && /\d{4}-\d{2}-\d{2}/.test(l));
+      const thoughtDates = thoughtLines.map(l => (l.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
+      const desc = (doc.match(/^description:\s*(.+)$/m) || [])[1]
+        || (doc.match(/^-\s*\*\*Purpose:\*\*\s*(.+)$/m) || [])[1] || '';
+      if (race === 'orc') {
+        const cmds = (doc.match(/^-\s*\*\*Commands:\*\*\s*(.+)$/m) || [])[1] || '';
+        isekaiOrcCommands[name] = cmds.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      creatures.push({ name, race, kb: +(bytes / 1024).toFixed(1), thoughts: thoughtLines.length,
+        thoughtDates, limit: DESK_LIMIT(name), desc, doc });
+    }
+  }
   // crosslink index: mentions of other creature names (dir name or map alias) inside a doc
   const aliases = {}; // dir -> [names it answers to]
   const cz = rd(path.join(root, CANON));
@@ -117,6 +236,11 @@ function harvest(root) {
     if (m) orcs.push({ orc: m[1], domain: m[2].trim(),
       slimes: [...m[3].matchAll(/`([^`]+)`/g)].map(x => x[1]).filter(s => s !== '-') });
   }
+  // same tree, read straight off each isekai-shaped orc's own "Commands:" line —
+  // no AGENTS.md required for the operative /isekai + /genesis shape.
+  for (const [orc, slimes] of Object.entries(isekaiOrcCommands)) {
+    if (!orcs.some(o => o.orc === orc)) orcs.push({ orc, domain: '', slimes });
+  }
   // canon stamps
   const canonV = (cz.match(/canon v(\d+)/) || [])[1] || '?';
   const chartDebt = rd(path.join(root, HOME, 'assets', CANON.replace(/\.md$/, '.drawio')))
@@ -140,10 +264,14 @@ function harvest(root) {
 
   // model mounts (colony genome pins) + ledger sightings
   const models = {};
-  const agentsDir = path.join(root, '.opencode', 'agents');
-  if (fs.existsSync(agentsDir)) for (const f of fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'))) {
-    const mm = rd(path.join(agentsDir, f)).match(/^model:\s*(\S+)/m);
-    if (mm) (models[mm[1]] ||= { mounted: [], mentions: 0 }).mounted.push(f.replace(/\.md$/, ''));
+  // Bodies live natively at .opencode/agents/ (OpenCode) or .claude/agents/ (Claude Code,
+  // via /mint) — both scanned and merged, since a world can have either or both.
+  const agentDirs = [path.join(root, '.opencode', 'agents'), path.join(root, '.claude', 'agents')];
+  const agentFiles = agentDirs.flatMap(d => fs.existsSync(d)
+    ? fs.readdirSync(d).filter(f => f.endsWith('.md')).map(f => path.join(d, f)) : []);
+  for (const f of agentFiles) {
+    const mm = rd(f).match(/^model:\s*(\S+)/m);
+    if (mm) (models[mm[1]] ||= { mounted: [], mentions: 0 }).mounted.push(path.basename(f, '.md'));
   }
   const ledger = rd(journalPath(root)) + '\n' + ag + '\n' + cz;
   for (const id of Object.keys(models)) models[id].mentions = ledger.split(id).length - 1;
@@ -198,15 +326,23 @@ function harvest(root) {
       } finally { db.close(); }
     }
   } catch { /* an unreadable store is noise — the manual ledger still stands */ }
+  // Claude Code's own session transcripts — merged additively, not a replacement, so a
+  // machine running both ecosystems on the same world sees combined numbers.
+  const claudeUsage = harvestClaudeUsage(root);
+  mergeLive(live, claudeUsage.live);
 
   // ==== agents: minted bodies on disk + per-session breath (the agents ledger) ====
   const bodies = [];
-  if (fs.existsSync(agentsDir)) for (const f of fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'))) {
-    const t = rd(path.join(agentsDir, f));
-    bodies.push({ name: f.replace(/\.md$/, ''),
+  for (const f of agentFiles) {
+    const t = rd(f);
+    const claudeBody = f.includes(`${path.sep}.claude${path.sep}agents${path.sep}`);
+    bodies.push({ name: path.basename(f, '.md'),
       model: (t.match(/^model:\s*(\S+)/m) || [null, '(inherits session)'])[1],
-      mode: (t.match(/^mode:\s*(\S+)/m) || [null, '?'])[1],
-      born: fs.statSync(path.join(agentsDir, f)).birthtime.toISOString().slice(0, 10),
+      // Claude Code sub-agents carry no `mode:` field (no primary/all distinction the way
+      // OpenCode has) — every .claude/agents/ file is Court-shaped (Agent-tool invoked), so
+      // default to 'subagent' there instead of an unhelpful '?'.
+      mode: (t.match(/^mode:\s*(\S+)/m) || [null, claudeBody ? 'subagent' : '?'])[1],
+      born: fs.statSync(f).birthtime.toISOString().slice(0, 10),
       kb: +(Buffer.byteLength(t) / 1024).toFixed(1) });
   }
   // per-session agent breath — opencode's store, read-only; avg context = the mean
@@ -233,6 +369,7 @@ function harvest(root) {
       } finally { db.close(); }
     }
   } catch { /* store absent/unreadable — the ledger simply lacks usage */ }
+  mergeAgentUse(agentUse, claudeUsage.agentUse);
   for (const u of Object.values(agentUse))
     u.avgCtx = u.sessions ? Math.round((u.totIn + u.totOut) / u.sessions) : 0;
 

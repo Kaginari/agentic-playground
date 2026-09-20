@@ -61,19 +61,24 @@ silently; it always shows its reasoning before writing anything.
    of history shows up across more than one zone, that's Nature 5 analysis that should flow up
    (mention it in step 8's log entry so it reaches the Orc/Elf level).
 5. **Classify by need, not by file count:**
+   - **Elf** — every world gets at least one, regardless of how many Orcs it needs. The chain
+     of command is fixed (Principles: Rimuru → Elf → Orc → Slime) — an Orc reporting straight
+     to Rimuru skips a rank, not just a formality. A single-domain world still gets exactly one
+     Elf commanding its one Orc; mint more only where something is genuinely cross-domain
+     (shared types/utilities more than one Orc's territory depends on, project-wide
+     conventions, docs/tests that cut across domains) and multiple Orcs actually need
+     arbitrating. When there's no natural cross-domain name to give it, `elf-core` is a lawful
+     default — don't invent a false cross-domain purpose just to justify a fancier name.
+   - **Orc** — a domain wide enough to need a ruler: it contains multiple Slime-sized zones, or
+     it's the boundary other domains talk through (an API layer, a provider's resource
+     registry, a CLI's command set). Name it `orc-<domain>`. Always reports to an Elf, never
+     directly to Rimuru.
    - **Slime** — a narrow area that is the one source of ground truth for something specific:
      a single resource/model/schema, a single config parser, a single integration point. Name
      it `slime-<zone>` after the thing it's ground-truth for.
-   - **Orc** — a domain wide enough to need a ruler: it contains multiple Slime-sized zones, or
-     it's the boundary other domains talk through (an API layer, a provider's resource
-     registry, a CLI's command set). Name it `orc-<domain>`.
-   - **Elf** — needed only where something is genuinely cross-domain: shared types/utilities
-     more than one Orc's territory depends on, project-wide conventions, or docs/tests that cut
-     across domains. Don't mint an Elf just to have one — a world with a single coherent domain
-     may need zero Elves and one Orc directly under Rimuru.
-   - Err toward fewer creatures. A dozen one-file Slimes is noise, not symbiosis (Nature 2) —
-     merge sibling zones under one Slime when they're always touched together, split a Slime
-     that's clearly doing two unrelated jobs.
+   - Err toward fewer creatures beyond the mandatory Elf. A dozen one-file Slimes is noise, not
+     symbiosis (Nature 2) — merge sibling zones under one Slime when they're always touched
+     together, split a Slime that's clearly doing two unrelated jobs.
 6. **Draft the population map** and show it to the user before writing anything: for each
    proposed creature, its id, its territory (paths), a one-line reason, and which existing
    creature (if any) it reports to. Also list what's staying unrouted on purpose (e.g. CI
@@ -88,7 +93,8 @@ silently; it always shows its reasoning before writing anything.
 
      - **Rank:** Elf | Orc | Slime
      - **Territory:** <paths this creature owns>
-     - **Reports to:** <elf-name | orc-name | Rimuru>
+     - **Reports to:** <Rimuru if this is the Elf; its Elf if this is an Orc; its Orc if this
+       is a Slime — an Orc never reports directly to Rimuru>
      - **Purpose:** <one paragraph, from step 5's reasoning>
 
      ## Traits
@@ -103,7 +109,8 @@ silently; it always shows its reasoning before writing anything.
      ### [<date>]
      Born by /genesis. <one line: why this territory needed a creature now>
      ```
-   - For an Orc, also note which Slimes it commands (fill in as they're born in the same run).
+   - For the Elf, also note which Orc(s) it commands; for an Orc, also note which Slimes it
+     commands (fill in as they're born in the same run).
 8. **Record it.** Append one entry to `.isekai/log.md` for the whole run (not one per
    creature): task, every creature born (id + territory), gate `n/a` (birth, not a landing),
    result `done`, and anything learned about the codebase's shape worth keeping — on
@@ -123,6 +130,8 @@ silently; it always shows its reasoning before writing anything.
 - Reading beats inferring, always. A creature born from file names and commit counts alone is
   a placeholder, not ground truth — Genesis isn't done until every non-trivial creature's
   `## Traits` holds something only a reader of the actual code would know.
+- Every population includes exactly one Elf at minimum, even a single-Orc world — it's a
+  required link in the fixed chain of command, not an optional convenience for large worlds.
 - `--depth deep` costs more time and context per zone — reach for it when the code's current
   shape doesn't fully explain itself (an odd hardcoded value, a version-tagged comment with no
   other context, two siblings that diverge for no visible reason), or when the human asks for
