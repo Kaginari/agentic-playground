@@ -135,3 +135,39 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Added a new main-deck slide ("When a rank hits its ceiling: escalate, never guess")
     illustrating the real Rule III chain, with the Fable/escalation distinction stated
     explicitly rather than left implicit.
+
+### [2026-09-20 23:17] rimuru — Mind usage tracking in tempest.js; lazy-load/shrink documented
+- **Task:** "make sure convention lazy load skills when needed too and it should show on
+  tempest the skills and how much they are used... implement a shrink mechanism that removes
+  skill from context when it's not needed."
+- **Files:** .isekai/tools/tempest.js, .isekai/isekai.md (+ propagated to all 4 command
+  templates and the mongodb world's isekai.md/tempest.js)
+- **Gate:** n/a
+- **Result:** done, with two of the three asks reframed rather than built new — they were
+  already true of the mechanism, just undocumented
+- **Learned:**
+  - **Lazy loading already happens — nothing to implement.** A Skill's frontmatter
+    `description` is the only part that sits in context by default; the full body loads only
+    on invocation (`call the Skill tool first — the skill's instructions load into the turn`).
+    This is the harness's own mechanism, not something the convention controls. Documented it
+    explicitly in `isekai.md`'s Minds section instead of building a redundant layer, with a
+    pointer to the newly-imported `writing-for-agents` Mind for how to write a description
+    that actually triggers reliably.
+  - **"Remove from context when not needed" isn't a lever this architecture has** — once a
+    Mind's body is loaded into a conversation, there's no in-place unload short of the
+    harness's own auto-compaction. But the convention already has the mechanism that achieves
+    the same practical effect: a Court Body's context (and whatever Mind it wore) dies with
+    its task, and only the terse wire report survives to the dispatcher. Documented this
+    explicitly under Bodies rather than inventing a new "shrink" concept — it was already Rule
+    II + Court mode, just not connected to Minds specifically in writing.
+  - **Real, new feature: Mind usage tracking.** Added `harvestSkillUsage(root)` — scans this
+    world's own Claude Code transcripts for `Skill` tool_use events (`input.skill`), tallies
+    per-name counts, cwd-scoped the same way `harvestClaudeUsage` already is. Wired into a new
+    "minds — worn, not raced" table (sorted by uses) and into the neural-graph's Mind-node
+    tooltips/sizing (more-used Minds render larger). Verified against raw grep ground truth on
+    convention-jura's own transcripts before trusting it (2 genuine `isekai` invocations found;
+    the 5 newly-imported Minds correctly show 0 — installed, not yet actually invoked).
+  - **Side fix:** found and fixed a pre-existing cosmetic bug the new table's `desc` column
+    exposed — a Skill's YAML `description: "..."` (quoted) kept its literal quote marks
+    through the extraction regex. Added a small `unquote()` helper, applied at both
+    description-extraction sites (skills-shaped and `.isekai/{elf,orc,slime}` shaped).

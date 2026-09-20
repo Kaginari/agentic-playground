@@ -306,6 +306,13 @@ Rank (below, "The world") says **what a creature is responsible for**. Minds and
   Claude Code skill. `/don --project` installs it for this world only
   (`.claude/skills/<name>/`); `/don --global` installs it for Rimuru
   (`~/.claude/skills/<name>/`), so it is worn by every world from then on.
+- **Loading is already two-tiered — this is not a lever the convention needs to pull.** A
+  Mind's `description` is the only part that sits in context by default, on every turn; its
+  full body loads only when the Mind is actually donned. Write descriptions the way a context
+  pointer should read: front-loaded, one trigger per real branch, nothing the name already
+  carries (the `writing-for-agents` Mind, if worn, is the reference for this). A description
+  that tries to also be the content is not saving anything — that is context load with extra
+  steps, not lazy loading.
 
 **Bodies — vessels, minted on name only.**
 - A Body is an agent: the thing that actually runs and holds context. A Body is never minted
@@ -321,6 +328,13 @@ Rank (below, "The world") says **what a creature is responsible for**. Minds and
   - **Court** (`mode: subagent`) — disposable eyes, gate or quill. Minted for one task, its
     context dies with the task. Most Elves, Orcs and Slimes run as Court: they are born,
     they work, they are gone, and only what they wrote to `.isekai/` survives them.
+  - **A Mind heavy enough to bloat a long-lived session belongs worn by a Court Body, not
+    donned inline in a Keeper's own context.** The Court's context — and whatever Mind it wore
+    to do the work — dies with the task; only the terse wire report (Absolute Rule II) returns
+    to whoever dispatched it. This is the convention's actual answer to "how does a Mind's
+    content leave context once it's no longer needed": there is no in-place removal, only
+    dispatch-and-discard. A single long session that dons many heavy Minds one after another
+    without ever dispatching is accumulating weight it has no way to shed.
 
 ## The world
 

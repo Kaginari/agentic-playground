@@ -65,6 +65,10 @@ const DIET_KB = 6;                    // rule 14 breath law
 const DESK_LIMIT = n => n.startsWith('darkelf') ? 10 : 5; // archive law vs ground races
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const rd = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
+// A YAML frontmatter `description: "..."` captures its quotes literally with a bare .+
+// regex — strip one matching pair so the extracted text reads the same whether the source
+// quoted it or not.
+const unquote = s => (s || '').replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
 
 // The world name (nature law 8 naming): the home's `name` file holds one line —
 // jura-style names lawful, chosen at birth/populate; it travels (rule 12 re-include).
@@ -183,6 +187,47 @@ function harvestClaudeUsage(root) {
     }
   }
   return out;
+}
+// Mind usage: how many times each Mind (a Claude Code Skill tool_use, `input.skill`) was
+// actually invoked in this world's own transcripts — not just whether it exists. Human order
+// 2026-09-20: "show on tempest the skills and how much they are used". Same cwd-prefix
+// scoping as harvestClaudeUsage(root); a skill invoked from a subagent still counts (isSidechain
+// doesn't change which Mind ran).
+function harvestSkillUsage(root) {
+  const counts = {};
+  const projectsDir = path.join(os.homedir(), '.claude', 'projects');
+  if (!fs.existsSync(projectsDir)) return counts;
+  const rootPrefix = root.endsWith(path.sep) ? root : root + path.sep;
+  let slugDirs;
+  try { slugDirs = fs.readdirSync(projectsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); }
+  catch { return counts; }
+  for (const slug of slugDirs) {
+    let files;
+    try { files = fs.readdirSync(path.join(projectsDir, slug)).filter(f => f.endsWith('.jsonl')); }
+    catch { continue; }
+    for (const f of files) {
+      let text;
+      try { text = fs.readFileSync(path.join(projectsDir, slug, f), 'utf8'); }
+      catch { continue; }
+      for (const line of text.split('\n')) {
+        if (!line) continue;
+        let d;
+        try { d = JSON.parse(line); } catch { continue; }
+        if (d.type !== 'assistant') continue;
+        const cwd = d.cwd || '';
+        if (cwd !== root && !cwd.startsWith(rootPrefix)) continue;
+        const content = (d.message || {}).content;
+        if (!Array.isArray(content)) continue;
+        for (const block of content) {
+          if (block && block.type === 'tool_use' && block.name === 'Skill' && block.input && block.input.skill) {
+            const name = block.input.skill.split(':').pop(); // strip plugin/dir-scope prefix
+            counts[name] = (counts[name] || 0) + 1;
+          }
+        }
+      }
+    }
+  }
+  return counts;
 }
 // ------------ machine-wide activity (for the global / index — not scoped to one world) ------------
 // Human order 2026-09-20: "how much consumption in total if opencode session ... maybe
@@ -316,7 +361,7 @@ function harvest(root) {
     const doc = rd(docOf(name));
     const race = RACES.find(r => name.startsWith(r + '-'));
     const bytes = Buffer.byteLength(doc);
-    const desc = (doc.match(/^description:\s*(.+)$/m) || [])[1] || '';
+    const desc = unquote((doc.match(/^description:\s*(.+)$/m) || [])[1] || '');
     if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), desc, doc, links: [] }); continue; }
     // thoughts: section-scoped dated bullets (>- ## Thoughts until next ## or EOF)
     const m = doc.match(/##\s*Thoughts([\s\S]*?)(?=\n##\s|\n#\s|$)/i);
@@ -348,8 +393,8 @@ function harvest(root) {
       const tBody = m ? m[1] : '';
       const thoughtLines = tBody.split('\n').filter(l => /^\s*(-|###)/.test(l) && /\d{4}-\d{2}-\d{2}/.test(l));
       const thoughtDates = thoughtLines.map(l => (l.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
-      const desc = (doc.match(/^description:\s*(.+)$/m) || [])[1]
-        || (doc.match(/^-\s*\*\*Purpose:\*\*\s*(.+)$/m) || [])[1] || '';
+      const desc = unquote((doc.match(/^description:\s*(.+)$/m) || [])[1]
+        || (doc.match(/^-\s*\*\*Purpose:\*\*\s*(.+)$/m) || [])[1] || '');
       if (race === 'orc') {
         const cmds = (doc.match(/^-\s*\*\*Commands:\*\*\s*(.+)$/m) || [])[1] || '';
         isekaiOrcCommands[name] = cmds.split(',').map(s => s.trim()).filter(Boolean);
@@ -374,6 +419,8 @@ function harvest(root) {
   for (const mind of minds) {
     mind.links = creatures.filter(c => mind.doc.includes(c.name) || c.doc.includes(mind.name)).map(c => c.name);
   }
+  const skillUses = harvestSkillUsage(root);
+  for (const mind of minds) mind.uses = skillUses[mind.name] || 0;
   for (const c of creatures) {
     c.crosslinks = creatures.filter(o => o.name !== c.name)
       .reduce((n, o) => n + aliases[o.name].reduce((k, al) =>
@@ -732,8 +779,8 @@ function render(d) {
   // names it yet, which is itself an honest reading, not a bug.
   const nodeByName = {}; for (const n of nodes) nodeByName[n.name] = n;
   const mindNodes = (d.minds || []).map((m, i, arr) => {
-    const mc = { race: 'mind', kb: m.kb, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1, crosslinks: m.links.length, genesisSignal: false, desc: m.desc };
-    const r = Math.max(9, Math.min(15, rad(mc) * 0.55));
+    const mc = { race: 'mind', kb: m.kb, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1, crosslinks: m.links.length, genesisSignal: false, desc: m.desc, uses: m.uses };
+    const r = Math.max(9, Math.min(18, rad(mc) * 0.55 + Math.min(m.uses, 10) * 0.4));
     const x = X.slime + (X.elf - X.slime) * (i + 1) / (arr.length + 1);
     const y = H - 30;
     return { name: m.name, c: mc, x, y, r, anch: 'middle', lx: x, ly: y + r + 14, links: m.links };
@@ -750,7 +797,7 @@ function render(d) {
   const nodeSvg = layerTags + nodes.map(({ name, c, x, y, r, lx, ly, anch }) => {
     const col = RCOL[c.race] || RCOL.plain, au = aura(c);
     const tip = c.race === 'mind'
-      ? `${esc(name)} — Mind · ${c.kb}KB · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`
+      ? `${esc(name)} — Mind · ${c.kb}KB · ${c.uses} use${c.uses === 1 ? '' : 's'} · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`
       : `${esc(name)} — ${esc(c.race)} · ${c.kb}KB · desk ${c.thoughts}/${c.limit} · links ${c.crosslinks ?? '–'}${c.genesisSignal ? ' · ⋄ genesis watch' : ''}`;
     return `<g id="n-${esc(name)}" data-name="${esc(name)}" class="node ${au}${c.race === 'mind' ? ' mind' : ''}${c.genesisSignal ? ' gs' : ''}">
       <circle class="halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 1.7).toFixed(1)}" fill="${col}"/>
@@ -802,6 +849,10 @@ function render(d) {
   const modelRows = Object.entries(d.models || {})
     .sort((a, b) => b[1].mentions - a[1].mentions)
     .map(([id, v]) => `<tr><td><b>${esc(id)}</b></td><td class="dim">${esc(v.mounted.join(' · ') || '–')}</td><td class="num">${v.mentions}</td></tr>`).join('');
+  const mindRows = (d.minds || []).slice().sort((a, b) => b.uses - a.uses)
+    .map(m => `<tr><td><b>${esc(m.name)}</b></td><td class="num">${m.uses}</td><td class="num">${m.kb}</td>
+      <td class="dim">${m.links.length ? esc(m.links.join(' · ')) : '–'}</td>
+      <td class="desc" title="${esc(m.desc || '')}">${m.desc ? esc(brief(m.desc)) : '–'}</td></tr>`).join('');
 
   const fmtN = v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(1) + 'k' : String(v);
   const bRows = (d.bodies || []).map(b => `<tr><td><b>${esc(b.name)}</b></td><td class="dim">${esc(b.mode)}</td><td>${esc(b.model)}</td><td class="dim">${b.born}</td><td class="num">${b.kb}</td></tr>`).join('');
@@ -821,6 +872,10 @@ ${PAGE_STYLE}
 
 <h2>⋄ cast — who holds what</h2>
 <table><tr><th>creature</th><th>race</th><th>KB</th><th>desk</th><th>links</th><th>stress</th><th>expertise (brief — full text on hover)</th></tr>${castRows}</table>
+
+<h2>⋄ minds — worn, not raced</h2>
+<table><tr><th>mind</th><th>uses</th><th>KB</th><th>worn by</th><th>purpose (brief — full text on hover)</th></tr>${mindRows || '<tr><td colspan="5" class="dim">no Minds in this world yet — /don brings one in from .opencode/skills/</td></tr>'}</table>
+<div class="dim">uses = Skill tool_use invocations counted from this world's own Claude Code transcripts (~/.claude/projects/) — a Mind that exists but reads 0 has never actually been invoked here, only referenced.</div>
 
 <h2>⋄ models — mounted &amp; mentioned</h2>
 <table><tr><th>model</th><th>mounted on (colony genomes)</th><th>ledger sightings</th></tr>${modelRows || '<tr><td class="dim">no model pins found</td></tr>'}</table>
