@@ -449,13 +449,23 @@ function render(d) {
   for (const sn of slimeNodes) { const oc = orcByName[sn.orc];
     if (oc) edges.push(`<line class="e-${oc.name} e-${sn.name}" x1="${sn.x.toFixed(1)}" y1="${sn.y.toFixed(1)}" x2="${oc.x.toFixed(1)}" y2="${oc.y.toFixed(1)}"/>`); }
   nodes.push(...slimeNodes, ...orcNodes);
-  const elfC = byName['elf-colony'];
-  if (elfC) { const r = rad(elfC);
-    nodes.push({ name: 'elf-colony', c: elfC, x: X.elf, y: H / 2, r, anch: 'start', lx: X.elf + r + 10, ly: H / 2 + 3 });
-    for (const oc of orcNodes) edges.push(`<line class="elfedge e-elf-colony e-${oc.name}" x1="${oc.x.toFixed(1)}" y1="${oc.y.toFixed(1)}" x2="${X.elf}" y2="${(H / 2).toFixed(1)}"/>`); }
-  const dk = byName['darkelf-rust'];
-  if (dk) { const r = rad(dk);
-    nodes.push({ name: 'darkelf-rust', c: dk, x: X.elf, y: 66, r, anch: 'middle', lx: X.elf, ly: 66 - r - 10 }); }
+  // Elf(s): found generically by race, never by an assumed literal name — a world's Elf
+  // is not always named "elf-colony" (that was one demo world's own name, not a schema).
+  // Spread vertically like orcs/slimes if a world ever has more than one (Nature 6 — an
+  // elf-colony forming from 2+ elves thinking alike is a real possibility, not the default).
+  const elfNodes = spread(d.creatures.filter(c => c.race === 'elf').map(c => ({ c }))).map(({ c, y }) => {
+    const r = rad(c);
+    return { name: c.name, c, x: X.elf, y, r, anch: 'start', lx: X.elf + r + 10, ly: y + 3 };
+  });
+  nodes.push(...elfNodes);
+  for (const en of elfNodes) for (const oc of orcNodes)
+    edges.push(`<line class="elfedge e-${en.name} e-${oc.name}" x1="${oc.x.toFixed(1)}" y1="${oc.y.toFixed(1)}" x2="${en.x.toFixed(1)}" y2="${en.y.toFixed(1)}"/>`);
+  // Dark elf(s): same generic-by-race fix, stacked if more than one (rare, but not assumed-single).
+  const darkelfNodes = d.creatures.filter(c => c.race === 'darkelf').map((c, i) => {
+    const r = rad(c), y = 66 + i * (r * 2 + 14);
+    return { name: c.name, c, x: X.elf, y, r, anch: 'middle', lx: X.elf, ly: y - r - 10 };
+  });
+  nodes.push(...darkelfNodes);
   const layerTags = `<text class="ax" x="${X.slime}" y="36" text-anchor="middle">INPUT — SLIMES</text>` +
     `<text class="ax" x="${X.orc}" y="36" text-anchor="middle">HIDDEN — ORCS</text>` +
     `<text class="ax" x="${X.elf}" y="36" text-anchor="middle">OUTPUT — ELF ⋄ AWAKENED ABOVE</text>`;
