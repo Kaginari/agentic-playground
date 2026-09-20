@@ -144,7 +144,15 @@ function harvestClaudeUsage(root) {
         const msg = d.message || {};
         const usage = msg.usage || {};
         const mid = msg.model || 'unknown';
-        const tin = usage.input_tokens || 0, tout = usage.output_tokens || 0;
+        // usage.input_tokens alone is only the *uncached* sliver of a turn's real input —
+        // found 2026-09-20 after a human asked why "in" showed 0.0M next to a 1.2M "out":
+        // with prompt caching (the normal case for any multi-turn Claude Code session),
+        // almost all real input is cache_read_input_tokens (context reused from earlier
+        // turns) or cache_creation_input_tokens (context newly cached this turn) — both
+        // silently excluded before. On this world alone that was a ~177M-token undercount,
+        // not a rounding error.
+        const tin = (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
+        const tout = usage.output_tokens || 0;
         const day = String(d.timestamp || '').slice(0, 10) || 'undated';
         const agentKey = d.isSidechain ? 'subagent' : 'main session';
 
@@ -196,7 +204,10 @@ function harvestClaudeGlobal() {
         if (d.type !== 'assistant') continue;
         const usage = (d.message || {}).usage || {};
         const mid = (d.message || {}).model || 'unknown';
-        const tin = usage.input_tokens || 0, tout = usage.output_tokens || 0;
+        // See harvestClaudeUsage(root)'s comment: input_tokens alone excludes cache
+        // reads/writes, which is almost all of it under prompt caching.
+        const tin = (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
+        const tout = usage.output_tokens || 0;
         out.totalIn += tin; out.totalOut += tout;
         const pm = out.perModel[mid] ||= { in: 0, out: 0 };
         pm.in += tin; pm.out += tout;
