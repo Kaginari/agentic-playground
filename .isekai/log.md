@@ -99,3 +99,39 @@ Append-only. Newest entries at the bottom. One entry per change.
     Whether it amortizes *across separate sessions* on the same world (a different axis —
     each session pays the read cost again regardless, but task N might redo less
     archaeology) is still untested.
+
+### [2026-09-20 22:53] rimuru — Fixed a missing law, verified free-model + escalation, deck slide
+- **Task:** three follow-ups from the same thread: (1) a "does escalation exist" question that
+  surfaced a real bug while checking it, (2) "does this work with non-Claude/open-source
+  models," (3) add the escalation flow to the deck.
+- **Files:** .isekai/isekai.md, presentations/isekai-opencode-overview.pptx
+- **Gate:** n/a
+- **Result:** done
+- **Learned:**
+  - **Real bug found and fixed:** this world's own `.isekai/isekai.md` was missing
+    `### III. Confirmation and Escalation` entirely — Nature 4's own text (line 135)
+    references "Absolute Rule III" by name, but the section itself was never written into
+    *this* copy, even though all 4 command templates and the terraform-provider-mongodb
+    world's copy have it. Drift from a prior session's edit that apparently landed everywhere
+    except here. Restored verbatim from the mongodb world's copy; a full diff now shows the
+    two files byte-identical.
+  - **Escalation is real and rank-based, not model-based:** Rule III's actual answer to
+    "can a Slime escalate a task it can't do" is yes — one hop at a time, Slime → Orc → Elf →
+    Rimuru → Veldora, never skipping a rank, never a handoff of the work itself. Fable 5.1
+    is NOT part of this chain — per `model-assignments.md` it's a model choice for the
+    Elf/Ciel office's outward-voice drafting specifically, a different axis entirely
+    (which rank resolves it vs. which model that rank happens to run on). Corrected this
+    distinction when building the deck slide rather than encoding the conflation.
+  - **Non-Claude/open-source model support: already true, now verified, not just asserted.**
+    Ran `opencode run` against terraform-provider-mongodb's real `.isekai/` with two free
+    OpenCode models (`big-pickle`, `nemotron-3.5-lightning-free`, zero cost, zero
+    credentials configured). Both correctly read a Slime's Traits doc and Rule III cold and
+    answered accurately and specifically — not generically. Confirms what a source read
+    already implied: `isekai.md` and `genesis.md` have zero Claude-specific assumptions
+    (grep for "claude" turns up only `/don`/`/mint`, which exist *because* Claude Code needs
+    a bridge OpenCode doesn't). The only Claude-specific artifact in this repo is
+    `model-assignments.md`, and it says so in its own opening line — reference material, not
+    a requirement.
+  - Added a new main-deck slide ("When a rank hits its ceiling: escalate, never guess")
+    illustrating the real Rule III chain, with the Fable/escalation distinction stated
+    explicitly rather than left implicit.
