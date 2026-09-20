@@ -70,11 +70,32 @@ Append-only. Newest entries at the bottom. One entry per change.
     overlap (n=3/arm, so real signal, not noise at this size) — the overhead is turns spent
     reading `isekai.md` plus all four creature READMEs, including ones irrelevant to this
     bug (`elf-core`, `slime-config`'s TLS traits, `orc-provider`'s registry notes).
-  - **Caveat named by the human, not yet tested:** this measured one task, one cold session
-    per trial — it could not detect prompt-cache amortization (repeat reads of the same
-    docs get cheap within a session) or accumulated-knowledge amortization (task 2 in the
-    same zone shouldn't need to redo task 1's archaeology) across a *sequence* of tasks,
-    since every trial started fresh with no continuation. The real "does cost drop over a
-    session" question is still open — a follow-up would need `claude -c`/`--continue` to
-    chain a second, different real task onto each of these same 6 trial directories and
-    compare marginal (not total) cost.
+  - **Caveat named by the human, then tested:** this measured one task, one cold session
+    per trial — it could not detect prompt-cache amortization across a *sequence* of tasks,
+    since every trial started fresh with no continuation.
+
+### [2026-09-20 22:43] rimuru — Follow-up: does cost drop over a sequence? Not relatively.
+- **Task:** chained a second, different real task (make `provider.go`'s hardcoded
+  `MaxConnLifetime: 10` connect-timeout configurable via a new schema field — a bug
+  `slime-config`'s own Traits documents) onto each of the prior entry's 6 sessions via
+  `claude -p ... -c` (continue), same with/without split, same directories.
+- **Files:** none in this world (same gitignored scratch copies)
+- **Gate:** n/a
+- **Result:** done
+- **Learned:**
+  - **Correctness was ~a tie:** 5/6 trials wired a correct new schema field regardless of
+    condition — this task lives entirely in two files with no cross-file archaeology needed,
+    so the "with" edge from the first task (finding a fix pattern in a sibling file via
+    Traits) had nothing to bite on here. The one failure (with-3) was the *same* carried-over
+    bug from task 1 (an unfixed dangling `err` reference), not a new task-2 defect.
+  - **Cost went up for every trial, both conditions, task 1 to task 2** — $0.494→$0.791 avg
+    "with", $0.165→$0.254 avg "without" — despite 91–98% cache-hit rates on task 2's reads.
+    A continued session re-sends its full accumulated history every turn; caching discounts
+    the per-token rate but the history itself keeps growing, so total cost keeps climbing.
+  - **The with/without ratio did not shrink across the sequence — it held or widened**
+    (task 1: ~2.99x; task 2 marginal cost: ~3.35x). The convention's up-front reading cost
+    isn't paid once and forgotten within a session — it rides along in the cached context on
+    every subsequent turn, so its overhead persists rather than amortizing away turn-to-turn.
+    Whether it amortizes *across separate sessions* on the same world (a different axis —
+    each session pays the read cost again regardless, but task N might redo less
+    archaeology) is still untested.
