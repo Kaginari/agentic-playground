@@ -11,6 +11,15 @@
 // — the tool plans and launches, hat-sessions write the minds; the tool never does.
 // Usage: node tempest.js [worldRoot] [--port N] [--ttl minutes] [--immortal] [--json] [--ensure] [--stop]
 //
+// Prerequisites: plain Node for everything except reading OpenCode's own usage —
+// that one path (harvestOpencodeGlobal, the global dashboard's OpenCode card) needs
+// `node:sqlite`, a Node 22.5+ builtin. On an older system Node (this machine shipped
+// 16.20.2, confirmed 2026-09-20) that card still renders — dbExists still gets
+// checked with plain fs — but `available` comes back false with an honest `error`
+// instead of a silent zero (see the comment at harvestOpencodeGlobal's definition).
+// Fix: install Node 22.5+ (e.g. `nvm install 22`) and run tempest.js with that Node;
+// everything else about tempest.js keeps working unmodified either way.
+//
 // Ported from photographs of the source (2026-09-20) — see .isekai/canon/README.md
 // for how much of the original was actually visible. Two deliberate departures from
 // what's shown, both kept and flagged inline where they occur:
@@ -31,6 +40,7 @@ const { execSync, spawn, spawnSync } = require('child_process');
 
 const args = process.argv.slice(2);
 const JSON_MODE = args.includes('--json');
+const JSON_GLOBAL_MODE = args.includes('--json-global');
 const COLONY = path.resolve(args.find(a => !a.startsWith('--') && isNaN(+a)) || '.');
 // One app for the whole machine (human order 2026-09-20: "should be 1 app in whole
 // machine not multiple"), not one process + one hash-derived port per world. A fixed
@@ -237,8 +247,14 @@ function harvestOpencodeGlobal() {
     out.available = true;
     try {
       const sinceMs = Date.now() - ACTIVE_WINDOW_MS;
+      // Same undercount class as harvestClaudeUsage/harvestClaudeGlobal above: tokens_input
+      // alone is only the uncached sliver of a turn's real input. Found 2026-09-20 by the
+      // deterministic test in test-opencode-integration.js — tokens_cache_read/_write must
+      // be summed in too, or a session showing 11,008 real cache-read tokens in `opencode
+      // export` reports as if it cost 51.
       for (const r of db.prepare(
-        `SELECT COALESCE(model,'') m, COUNT(*) runs, COALESCE(SUM(tokens_input),0) tin,
+        `SELECT COALESCE(model,'') m, COUNT(*) runs,
+                COALESCE(SUM(tokens_input + tokens_cache_read + tokens_cache_write),0) tin,
                 COALESCE(SUM(tokens_output),0) tout,
                 SUM(CASE WHEN time_created >= ? THEN 1 ELSE 0 END) recent
          FROM session GROUP BY m`).all(sinceMs)) {
@@ -1221,6 +1237,10 @@ if (STOP) {
   probe.listen(PORT, '127.0.0.1');
 } else if (JSON_MODE) {
   process.stdout.write(JSON.stringify(harvest(COLONY), null, 2) + '\n');
+} else if (JSON_GLOBAL_MODE) {
+  // One-shot, no daemon needed — for scripts/tests to verify the global panel's own
+  // numbers directly instead of scraping rendered HTML (Nature 9: compute it, check it).
+  process.stdout.write(JSON.stringify({ claude: harvestClaudeGlobal(), opencode: harvestOpencodeGlobal() }, null, 2) + '\n');
 } else {
   // default: run the ONE global board in the foreground (the docker-compose shape —
   // a long-lived process, not a spawn-and-forget heartbeat). Every world it knows
