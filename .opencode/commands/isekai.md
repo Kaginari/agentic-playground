@@ -125,7 +125,13 @@ again. Passing the gate while a nature is broken is not a pass.
 
 - Creatures live in `.isekai/<race>/<name>/` — `elf/`, `orc/`, `slime/`.
 - Living memory stays per machine.
-- Everything inside `.isekai/` is tracked, always.
+- Everything inside `.isekai/` is tracked in git by default, with one named exception:
+  machine-local, disposable state (an instrument's live readings, metrics, `.isekai/tmp/`'s
+  scratch content) is gitignored — the directories still travel (a `.gitkeep` keeps each one
+  present in a fresh clone), only their live contents don't. This is "tracked" in the
+  version-control sense; it is a different claim from "durably recorded," which Instruments
+  below draws the real line on (a document is never silently overwritten; an instrument is,
+  freely, whether or not git is watching it).
 
 ### II. Language — the wire
 
@@ -222,13 +228,20 @@ creature never sits on confusion, and never guesses past it.
    - A newborn needs a clear purpose, its elder's welcome, and zero territory overlap.
    - A creature causing confusion or bloat is disharmony → **merge, split or remove**, at once.
 3. **Evolution — every mistake mutates the genome.**
-   - Every mistake or friction changes the genome (laws, traits) immediately, in the same change.
+   - Every mistake or friction changes the genome — a creature's own traits, a command's own
+     procedure, canon reference material — immediately, in the same change. No one asks first
+     to fix their own house.
+   - `isekai.md` itself is the one exception this Nature doesn't override: Law 6 still gates
+     it. A friction point there is named and escalated (Absolute Rule III), not silently
+     patched — the same distinction Nature 4's Genesis draws for births.
    - Measure it: the same mistake never happens twice. If it does, the law itself adapts.
 4. **Genesis — nothing is born silently.**
    - Birth fires mid-session on a trigger:
      - an unrouted territory
      - a stressed slime (an instrument reading, not a guess — see Instruments below)
-     - a recurring cross-orc current
+     - a recurring cross-orc current (territory nobody's domain actually covers yet —
+       distinct from Nature 6's colony trigger, where the Orcs already cover it and are
+       only converging on how)
      - a persistent external relation
    - A need is named twice before it exists: the first naming is only a note (in a doc or
      `log.md`); the second, separate naming fires the birth. One naming is an observation —
@@ -250,6 +263,10 @@ creature never sits on confusion, and never guesses past it.
    - A colony is observed, not declared — it forms only once convergence is actually seen,
      and it dissolves the moment that convergence ends. A colony outliving its convergence
      is disharmony (Nature 2).
+   - Distinct from Genesis's "recurring cross-orc current" trigger (Nature 4): a colony forms
+     among Orcs that already own their territory and are independently converging on the same
+     trait. Genesis fires instead when the recurring current reveals territory nobody owns —
+     convergence among the owned, birth for the unowned.
 7. **Containment — territory inward.**
    - Context and work flow inward and up within the world (see Principles); nothing produced
      here acts on, publishes to, or reaches outside the world without Veldora's agreement.

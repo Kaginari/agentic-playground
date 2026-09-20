@@ -209,10 +209,18 @@ function harvestClaudeGlobal() {
 // (model, tokens_input, tokens_output, time_created) — no session-id column is used
 // anywhere else here, so "sessions" isn't claimed, only rows and recent-row activity.
 function harvestOpencodeGlobal() {
-  const out = { rows: 0, activeRows: 0, totalIn: 0, totalOut: 0, perModel: {}, available: false };
+  // Nature 9: an instrument that's gone silent is itself a finding, not a thing to route
+  // around. `dbExists` (the store is there) and `available` (we could actually read it) are
+  // deliberately separate — found the hard way 2026-09-20: node:sqlite is a Node 22.5+
+  // built-in, so on any older system Node (this machine ships 16.20.2), `require('node:sqlite')`
+  // throws and a REAL opencode.db with real sessions in it was silently reported as "OpenCode
+  // not in use here" — indistinguishable from the file genuinely not existing. That's exactly
+  // the failure mode this Nature warns against.
+  const out = { rows: 0, activeRows: 0, totalIn: 0, totalOut: 0, perModel: {}, dbExists: false, available: false, error: null };
+  const dbp = path.join(os.homedir(), '.local', 'share', 'opencode', 'opencode.db');
+  out.dbExists = fs.existsSync(dbp);
+  if (!out.dbExists) return out;
   try {
-    const dbp = path.join(os.homedir(), '.local', 'share', 'opencode', 'opencode.db');
-    if (!fs.existsSync(dbp)) return out;
     const { DatabaseSync } = require('node:sqlite');
     const db = new DatabaseSync(dbp, { readOnly: true });
     out.available = true;
@@ -231,7 +239,7 @@ function harvestOpencodeGlobal() {
         pm.in += r.tin; pm.out += r.tout;
       }
     } finally { db.close(); }
-  } catch { /* unreadable store — reported as unavailable, not a crash */ }
+  } catch (e) { out.error = e.message; }
   return out;
 }
 function mergeLive(into, from) {
@@ -1019,8 +1027,12 @@ function renderIndex(worlds) {
     <div class="wstat">${fmtN(claudeG.totalIn)} in / ${fmtN(claudeG.totalOut)} out — all-time, every transcript under <span style="font-family:inherit">~/.claude/projects/</span></div>
     ${claudeModelRows ? `<table><tr><th>model</th><th>in</th><th>out</th></tr>${claudeModelRows}</table>` : '<div class="dim">no usage recorded yet</div>'}
   </div>`;
-  const openPanel = !openG.available ? `<div class="panel actpanel">
+  const openPanel = !openG.dbExists ? `<div class="panel actpanel">
     <h3>⋄ OpenCode</h3><div class="dim">no <span style="font-family:inherit">~/.local/share/opencode/opencode.db</span> on this machine — OpenCode not in use here, or never run.</div>
+  </div>` : !openG.available ? `<div class="panel actpanel">
+    <h3>⋄ OpenCode <span class="pill hot">unreadable</span></h3>
+    <div class="wstat">The database exists — real sessions may be sitting in it — but this board's own Node runtime can't read it: <span style="font-family:inherit">${esc(openG.error || 'unknown error')}</span>.</div>
+    <div class="wstat dim"><span style="font-family:inherit">node:sqlite</span> needs Node 22.5+; this process is running on ${esc(process.version)}. Nature 9: a silent instrument is itself a finding — this panel says so instead of quietly reporting zero.</div>
   </div>` : `<div class="panel actpanel">
     <h3>⋄ OpenCode <span class="pill ${openG.activeRows ? 'hot' : 'cool'}">${openG.activeRows ? openG.activeRows + ' recent run' + (openG.activeRows === 1 ? '' : 's') : 'idle'}</span></h3>
     <div class="wstat">${openG.rows} run${openG.rows === 1 ? '' : 's'} recorded, all-time, machine-wide</div>
