@@ -71,6 +71,15 @@ population they produce are the same either way, since `.isekai/isekai.md` alrea
   `/don` cross-ecosystem mechanism: authored natively for OpenCode, ported byte-identical into
   `.claude/skills/` — proof this convention actually runs Minds in parallel across both.
 
+## Presentations
+
+- **`presentations/isekai-opencode-overview.pptx`** — a 12-slide overview of the convention
+  from OpenCode's perspective (the ecosystem Minds and Bodies are natively authored for),
+  closing with an appendix on Claude Code compatibility (`/don`/`/mint`, the shared
+  `palette-audit` Mind, `tempest.js` reading both ecosystems' session usage). Built with
+  `pptxgenjs`; file-structure and content validated, visual render QA not run in this
+  environment (no LibreOffice / no passwordless sudo to install it here).
+
 ## Using it elsewhere
 
 Run `/isekai` (or `/isekai <path>`) in any directory to reincarnate it as its own world,
