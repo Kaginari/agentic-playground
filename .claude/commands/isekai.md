@@ -20,6 +20,11 @@ memory, and the convention that binds them. Reincarnating here does not re-found
 
 ```
 <target>/
+├── CLAUDE.md      # session-start pointer for Claude Code — the only reason a fresh session
+│                  # (or one right after /clear) actually re-reads isekai.md and log.md
+│                  # instead of forgetting
+├── AGENTS.md      # the same pointer, for OpenCode and any other agent that reads AGENTS.md —
+│                  # a symlink to CLAUDE.md, never a second copy (one wire, both mouths)
 └── .isekai/
     ├── isekai.md    # the Reincarnation Convention — every creature reads it before working
     ├── log.md        # append-only record of every change made by any creature
@@ -31,6 +36,13 @@ memory, and the convention that binds them. Reincarnating here does not re-found
     └── tmp/          # the proving grounds — tests, experiments, scratch files
 ```
 Every empty dir gets a `.gitkeep`. Everything inside `.isekai/` is tracked.
+
+`CLAUDE.md`/`AGENTS.md` are not optional decoration: Claude Code loads `CLAUDE.md` and OpenCode
+loads `AGENTS.md`, both fresh on every session start in this directory, including the moment
+right after `/clear`. Without one, "the world remembers in documents, because sessions forget"
+is only half true for that tool — the world writes memory down but no session of that tool ever
+reads it back on its own. These two files are the wire between the two halves, for whichever
+agent is currently working the world.
 
 ## Steps
 
@@ -48,8 +60,15 @@ Every empty dir gets a `.gitkeep`. Everything inside `.isekai/` is tracked.
    current date and time (ISO 8601) and `{{TARGET}}` with the target directory's name.
 6. If the target is a git repository (`git rev-parse --is-inside-work-tree`), make sure no
    `.gitignore` rule excludes `.isekai/`. If one does, tell the user instead of editing it.
-7. Show the user the resulting tree and a one-line summary. The world is reincarnated.
-8. **If this was a fresh reincarnation** — `.isekai/` did not already exist before step 2 —
+7. Write or update `<target>/CLAUDE.md` using the **CLAUDE.md template** below (append rather
+   than overwrite if a `CLAUDE.md` already exists there without this pointer — it may already
+   carry the project's own instructions). Then, if `<target>/AGENTS.md` does not exist, create
+   it as a symlink to `CLAUDE.md` (`ln -s CLAUDE.md AGENTS.md`) so both tools read the one file
+   with no drift between two copies. If `AGENTS.md` already exists as a real file (not a
+   symlink to `CLAUDE.md`), don't replace it — append the CLAUDE.md template's content to it
+   instead, the same way step 7 treats a pre-existing `CLAUDE.md`.
+8. Show the user the resulting tree and a one-line summary. The world is reincarnated.
+9. **If this was a fresh reincarnation** — `.isekai/` did not already exist before step 2 —
    don't stop here: continue straight into populate. Follow `/genesis`'s own Steps 3–7 against
    this same target, using the `.isekai/isekai.md` and `.isekai/log.md` just written as the
    already-loaded convention (its step 1) and the existing, still-empty population (its step
@@ -419,8 +438,31 @@ Append-only. Newest entries at the bottom. One entry per change.
 
 ### [{{DATE}}] rimuru — World reincarnated
 - **Task:** /isekai {{TARGET}}
-- **Files:** .isekai/isekai.md, .isekai/log.md, .isekai/{portraits,instruments,elf,orc,slime,tmp}/
+- **Files:** .isekai/isekai.md, .isekai/log.md, .isekai/{portraits,instruments,elf,orc,slime,tmp}/, CLAUDE.md
 - **Gate:** n/a
 - **Result:** done
 - **Learned:** The world is reincarnated. Read isekai.md before any work.
+```
+
+---
+
+## CLAUDE.md template (`<target>/CLAUDE.md`)
+
+Append this block (or write the whole file, if none exists yet):
+
+```markdown
+# {{TARGET}} — Isekai world
+
+This directory is reincarnated per the Isekai convention. Before doing any work this session:
+
+1. Read `.isekai/isekai.md` in full — it governs how work here is done, and every creature
+   (including Rimuru, the session agent) reads it before working.
+2. Skim the last 5–10 entries of `.isekai/log.md` for what the world already learned.
+
+This applies **every session, including immediately after `/clear`.** The convention's whole
+premise — "the world remembers in documents, because sessions forget" — depends on this file
+being the thing that actually reconnects a fresh session to what was written down. Without it,
+the mid-session stress-relief instrument (`.isekai/tools/context-check.sh`) only does half its
+job: it tells a stressed session to write to `log.md`, but nothing told the next session to
+read it back. This file is that missing half.
 ```

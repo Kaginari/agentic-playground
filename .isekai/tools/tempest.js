@@ -362,14 +362,14 @@ function harvest(root) {
     const race = RACES.find(r => name.startsWith(r + '-'));
     const bytes = Buffer.byteLength(doc);
     const desc = unquote((doc.match(/^description:\s*(.+)$/m) || [])[1] || '');
-    if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), desc, doc, links: [] }); continue; }
+    if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), desc, doc, links: [], docPath: docOf(name) }); continue; }
     // thoughts: section-scoped dated bullets (>- ## Thoughts until next ## or EOF)
     const m = doc.match(/##\s*Thoughts([\s\S]*?)(?=\n##\s|\n#\s|$)/i);
     const tBody = m ? m[1] : '';
     const thoughtLines = tBody.split('\n').filter(l => /^\s*(-|###)/.test(l) && /\d{4}-\d{2}-\d{2}/.test(l));
     const thoughtDates = thoughtLines.map(l => (l.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
     creatures.push({ name, race, kb: +(bytes / 1024).toFixed(1), thoughts: thoughtLines.length,
-      thoughtDates, limit: DESK_LIMIT(name), desc, doc });
+      thoughtDates, limit: DESK_LIMIT(name), desc, doc, docPath: docOf(name) });
   }
 
   // operative /isekai + /genesis shape: .isekai/{elf,orc,slime}/<name>/*.md — no
@@ -400,7 +400,7 @@ function harvest(root) {
         isekaiOrcCommands[name] = cmds.split(',').map(s => s.trim()).filter(Boolean);
       }
       creatures.push({ name, race, kb: +(bytes / 1024).toFixed(1), thoughts: thoughtLines.length,
-        thoughtDates, limit: DESK_LIMIT(name), desc, doc });
+        thoughtDates, limit: DESK_LIMIT(name), desc, doc, docPath: path.join(zoneDir, mdFile) });
     }
   }
   // crosslink index: mentions of other creature names (dir name or map alias) inside a doc
@@ -628,6 +628,10 @@ function harvest(root) {
 // baked into server-rendered SVG regardless of theme.
 const RCOL = { slime: 'var(--r-slime)', orc: 'var(--r-orc)', elf: 'var(--r-elf)', darkelf: 'var(--r-darkelf)', highorc: 'var(--r-highorc)', kijin: 'var(--r-kijin)', plain: 'var(--r-plain)', mind: 'var(--r-mind)' };
 const aura = c => c.stressPct >= 100 ? 'hot' : c.stressPct >= 60 || c.dietPct >= 100 ? 'warn' : 'cool';
+// Race portrait files, human 2026-09-21 — served only by this fixed map (never a raw
+// filename off the URL) from <root>/<home>/portraits/. 'plain' and 'mind' have none —
+// they keep their flat color-dot look, which is honest: they're not a named race/likeness.
+const PORTRAIT_FILE = { slime: 'slime.png', orc: 'orc.png', elf: 'elf.png', darkelf: 'dark_elf.png', highorc: 'high_orc.png', kijin: 'kijin.png' };
 
 const PAGE_STYLE = `<style>
 :root{--bg:#03060c;--ink:#c9d4e3;--dim:#616b79;--cy:#2695bd;--vi:#7c5cd6;--em:#d6402a;--gd:#bd8c24;--nodefill:#05070d;
@@ -684,8 +688,25 @@ line.mindedge{stroke:var(--r-mind);stroke-width:.9;stroke-dasharray:1 4;opacity:
 g.node{cursor:pointer;transition:transform .25s ease,opacity .25s ease;transform-box:fill-box;transform-origin:center}
 body.focused g.node{opacity:.16}body.focused g.node.focus{opacity:1;transform:scale(1.6)}
 body.focused line{opacity:.1}line.lit{opacity:1;stroke:var(--cy);stroke-width:1.4}
-#focusPanel{padding:12px 16px;min-height:64px;letter-spacing:.02em}
+.castface{width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:2px}
+.focusface{width:56px;height:56px;border-radius:50%;object-fit:cover;float:left;margin:0 12px 6px 0;
+border:1.6px solid var(--dim)}
+#focusPanel{padding:12px 16px;min-height:64px;letter-spacing:.02em;display:flow-root}
 #focusPanel b{color:#eaf2ff}#focusPanel .dim{color:var(--dim)}
+.docbox{max-height:360px;overflow:auto;white-space:pre-wrap;word-break:break-word;
+background:rgba(13,20,32,.5);border:1px solid #1a2436;border-radius:6px;padding:10px 14px;
+font-size:12px;line-height:1.5;margin:0;letter-spacing:normal;cursor:auto}
+body.light .docbox{background:rgba(255,255,255,.6);border-color:#cfdae9}
+.modal-backdrop{position:fixed;inset:0;background:rgba(1,3,7,.72);z-index:50;
+display:flex;align-items:center;justify-content:center;padding:28px}
+.modal-box{position:relative;background:#0a0f18;border:1px solid #1a2436;border-radius:12px;
+padding:22px 26px;max-width:860px;width:100%;max-height:82vh;overflow:auto;
+box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-close{position:absolute;top:10px;right:12px;background:transparent;border:none;
+color:var(--dim);font-size:22px;line-height:1;cursor:pointer;padding:4px 8px}
+.modal-close:hover{color:var(--ink)}
+.modal-box .docbox{max-height:none}
+body.light .modal-box{background:#fff;box-shadow:0 20px 60px rgba(20,30,50,.25)}
 tr[data-name]:hover{background:rgba(89,214,255,.06)}
 .tbtns{float:right}.tbtns button{background:rgba(13,20,32,.6);border:1px solid #1a2436;color:var(--ink);
 font:inherit;font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:6px 14px;border-radius:999px;
@@ -736,6 +757,8 @@ function render(d) {
   for (const c of d.creatures) byName[c.name] = c;
   const resolve = n => byName[n] || byName[Object.keys(byName).find(k => n.endsWith(k) || k.endsWith(n)) || ''];
   const rad = c => Math.round(100 * 11 * Math.sqrt(Math.max(c.kb, 0.5) / 6)) / 100;
+  // Label offsets below clear the drawn .halo (r*1.7), not the core circle (r) — a
+  // fatter creature's halo used to outgrow the old r+10 gap and swallow its own name.
   const X = { slime: 215, orc: 560, elf: 905 };
   const nodes = [], edges = [];
   const spread = list => list.map((it, i) => ({ ...it, y: 74 + (H - 128) * (i + 1) / (list.length + 1) }));
@@ -744,12 +767,12 @@ function render(d) {
   const slimeNodes = spread(slimeSeq).map(({ s, orc, y }) => {
     const c = resolve(s) || { kb: 6, stressPct: 0, race: 'slime', thoughts: 0, limit: 5, crosslinks: 0 };
     const r = rad(c);
-    return { name: s, c, x: X.slime, y, r, orc, anch: 'end', lx: X.slime - r - 10, ly: y + 3 };
+    return { name: s, c, x: X.slime, y, r, orc, anch: 'end', lx: X.slime - r * 1.7 - 8, ly: y + 3 };
   });
   const orcNodes = spread(d.orcs.map(o => ({ o }))).map(({ o, y }) => {
     const c = resolve(o.orc) || { kb: 6, stressPct: 0, race: 'orc', thoughts: 0, limit: 5, crosslinks: 0 };
     const r = rad(c);
-    return { name: o.orc, c, x: X.orc, y, r, anch: 'middle', lx: X.orc, ly: y - r - 10 };
+    return { name: o.orc, c, x: X.orc, y, r, anch: 'middle', lx: X.orc, ly: y - r * 1.7 - 8 };
   });
   const orcByName = {}; for (const n of orcNodes) orcByName[n.name] = n;
   for (const sn of slimeNodes) { const oc = orcByName[sn.orc];
@@ -761,7 +784,7 @@ function render(d) {
   // elf-colony forming from 2+ elves thinking alike is a real possibility, not the default).
   const elfNodes = spread(d.creatures.filter(c => c.race === 'elf').map(c => ({ c }))).map(({ c, y }) => {
     const r = rad(c);
-    return { name: c.name, c, x: X.elf, y, r, anch: 'start', lx: X.elf + r + 10, ly: y + 3 };
+    return { name: c.name, c, x: X.elf, y, r, anch: 'start', lx: X.elf + r * 1.7 + 8, ly: y + 3 };
   });
   nodes.push(...elfNodes);
   for (const en of elfNodes) for (const oc of orcNodes)
@@ -769,7 +792,7 @@ function render(d) {
   // Dark elf(s): same generic-by-race fix, stacked if more than one (rare, but not assumed-single).
   const darkelfNodes = d.creatures.filter(c => c.race === 'darkelf').map((c, i) => {
     const r = rad(c), y = 66 + i * (r * 2 + 14);
-    return { name: c.name, c, x: X.elf, y, r, anch: 'middle', lx: X.elf, ly: y - r - 10 };
+    return { name: c.name, c, x: X.elf, y, r, anch: 'middle', lx: X.elf, ly: y - r * 1.7 - 8 };
   });
   nodes.push(...darkelfNodes);
   // Minds (skills) — not a layer, not raced: a shelf worn by the whole colony. Linked
@@ -783,7 +806,15 @@ function render(d) {
     const r = Math.max(9, Math.min(18, rad(mc) * 0.55 + Math.min(m.uses, 10) * 0.4));
     const x = X.slime + (X.elf - X.slime) * (i + 1) / (arr.length + 1);
     const y = H - 30;
-    return { name: m.name, c: mc, x, y, r, anch: 'middle', lx: x, ly: y + r + 14, links: m.links };
+    // Mind labels share a fixed-width shelf (unlike layer labels, which extend outward into
+    // open space) — a long skill name at the layer's default font would overlap its neighbor's
+    // circle, not just its own halo. Truncate to what the slot can actually hold; the full name
+    // still rides the tooltip (<title>), the modal, and both mind tables above, so nothing is
+    // lost — only not re-drawn somewhere it physically can't fit.
+    const slot = (X.elf - X.slime) / (arr.length + 1);
+    const budget = Math.max(6, Math.floor((slot - 8) / 6));
+    const label = m.name.length > budget ? m.name.slice(0, budget - 1) + '…' : m.name;
+    return { name: m.name, c: mc, x, y, r, anch: 'middle', lx: x, ly: y + r * 1.7 + 8, links: m.links, label };
   });
   nodes.push(...mindNodes);
   for (const mn of mindNodes) for (const linkName of mn.links) {
@@ -794,16 +825,27 @@ function render(d) {
     `<text class="ax" x="${X.orc}" y="36" text-anchor="middle">HIDDEN — ORCS</text>` +
     `<text class="ax" x="${X.elf}" y="36" text-anchor="middle">OUTPUT — ELF ⋄ AWAKENED ABOVE</text>` +
     (mindNodes.length ? `<text class="ax" x="${W / 2}" y="${H - 8}" text-anchor="middle">⋄ MINDS — WORN, NOT RACED</text>` : '');
-  const nodeSvg = layerTags + nodes.map(({ name, c, x, y, r, lx, ly, anch }) => {
+  const nodeSvg = layerTags + nodes.map(({ name, c, x, y, r, lx, ly, anch, label }) => {
     const col = RCOL[c.race] || RCOL.plain, au = aura(c);
     const tip = c.race === 'mind'
       ? `${esc(name)} — Mind · ${c.kb}KB · ${c.uses} use${c.uses === 1 ? '' : 's'} · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`
       : `${esc(name)} — ${esc(c.race)} · ${c.kb}KB · desk ${c.thoughts}/${c.limit} · links ${c.crosslinks ?? '–'}${c.genesisSignal ? ' · ⋄ genesis watch' : ''}`;
+    const portrait = PORTRAIT_FILE[c.race];
+    // A portrait fills the node's face at ~0.85r (leaving the ring's own stroke visible) in
+    // place of the old flat color dot; races with no portrait (plain/mind) keep that dot —
+    // it's honest, they're not a named likeness. Radius still ∝ √(KB) either way, so a face
+    // grows into its neighbors exactly like the plain dot did (Nature law unchanged, art added).
+    const pr = r * 0.85;
+    const core = portrait
+      ? `<clipPath id="clip-${esc(name)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${pr.toFixed(1)}"/></clipPath>
+      <image href="portrait/${c.race}" x="${(x - pr).toFixed(1)}" y="${(y - pr).toFixed(1)}" width="${(pr * 2).toFixed(1)}" height="${(pr * 2).toFixed(1)}"
+        preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${esc(name)})" onerror="this.remove()"/>`
+      : `<circle class="core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 0.45).toFixed(1)}" fill="${col}"/>`;
     return `<g id="n-${esc(name)}" data-name="${esc(name)}" class="node ${au}${c.race === 'mind' ? ' mind' : ''}${c.genesisSignal ? ' gs' : ''}">
       <circle class="halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 1.7).toFixed(1)}" fill="${col}"/>
       <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="var(--nodefill)" stroke="${col}" stroke-width="1.6" stroke-dasharray="${c.race === 'mind' ? '3 2' : 'none'}"/>
-      <circle class="core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 0.45).toFixed(1)}" fill="${col}"/>
-      <text text-anchor="${anch}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${esc(name.replace(/^(slime|orc|elf|darkelf|highorc|kijin)-/, ''))}</text>
+      ${core}
+      <text text-anchor="${anch}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${esc(label || name.replace(/^(slime|orc|elf|darkelf|highorc|kijin)-/, ''))}</text>
       <title>${tip}</title></g>`;
   }).join('');
 
@@ -841,7 +883,7 @@ function render(d) {
   const brief = s => { let b = (s || '').split(/ [—-] /)[0].trim();
     if (b.length > 118) b = b.slice(0, 115).replace(/\s\S*$/, '') + '…'; return b; };
   const castRows = d.creatures.map(c => `<tr data-name="${esc(c.name)}" style="cursor:pointer">
-      <td><span style="color:${RCOL[c.race] || RCOL.plain}">●</span> <b>${esc(c.name)}</b>${c.genesisSignal ? ' <span class="gs">⋄</span>' : ''}</td>
+      <td>${PORTRAIT_FILE[c.race] ? `<img class="castface" src="portrait/${c.race}" alt="" onerror="this.remove()">` : `<span style="color:${RCOL[c.race] || RCOL.plain}">●</span>`} <b>${esc(c.name)}</b>${c.genesisSignal ? ' <span class="gs">⋄</span>' : ''}</td>
       <td class="dim">${esc(c.race)}</td>
       <td class="num">${c.kb}</td><td class="num">${c.thoughts}/${c.limit}</td><td class="num">${c.crosslinks}</td>
       <td><span class="pill ${aura(c)}">${c.stressPct}%</span></td>
@@ -850,7 +892,7 @@ function render(d) {
     .sort((a, b) => b[1].mentions - a[1].mentions)
     .map(([id, v]) => `<tr><td><b>${esc(id)}</b></td><td class="dim">${esc(v.mounted.join(' · ') || '–')}</td><td class="num">${v.mentions}</td></tr>`).join('');
   const mindRows = (d.minds || []).slice().sort((a, b) => b.uses - a.uses)
-    .map(m => `<tr><td><b>${esc(m.name)}</b></td><td class="num">${m.uses}</td><td class="num">${m.kb}</td>
+    .map(m => `<tr data-name="${esc(m.name)}" style="cursor:pointer"><td><b>${esc(m.name)}</b></td><td class="num">${m.uses}</td><td class="num">${m.kb}</td>
       <td class="dim">${m.links.length ? esc(m.links.join(' · ')) : '–'}</td>
       <td class="desc" title="${esc(m.desc || '')}">${m.desc ? esc(brief(m.desc)) : '–'}</td></tr>`).join('');
 
@@ -921,24 +963,70 @@ ${Object.entries(U.perDay).sort().map(([k, v]) => `<tr><td>${esc(k)}</td><td cla
 <h2>⋄ the colony — size is weight, glow is stress</h2>
 <svg viewBox="0 0 ${W} ${H}" class="panel">${edges.join('')}${nodeSvg}</svg>
 <div id="focusPanel" class="panel" style="margin-top:10px"></div>
-<script type="application/json" id="zdata">${esc(JSON.stringify({ creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null, desc: c.desc || '' }])), orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))) }))}</script>
+<div id="docModal" class="modal-backdrop" style="display:none">
+  <div id="docModalBox" class="modal-box">
+    <button id="docModalClose" class="modal-close" aria-label="close" title="close (Esc)">×</button>
+    <div id="docModalHead" style="margin-bottom:8px"></div>
+    <div id="docModalBody"></div>
+  </div>
+</div>
+<script type="application/json" id="zdata">${esc(JSON.stringify({ creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null, desc: c.desc || '' }])), minds: Object.fromEntries((d.minds || []).map(m => [m.name, { race: 'mind', kb: m.kb, uses: m.uses, links: m.links.length, desc: m.desc || '' }])), orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))) }))}</script>
 <script>
 (function(){
 var Z=JSON.parse(document.getElementById('zdata').textContent);
 var P=document.getElementById('focusPanel');
+P.addEventListener('click',function(ev){ev.stopPropagation();}); // reading/selecting the loaded doc must not self-clear
 function esc2(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function clearAll(){document.body.classList.remove('focused');
+// doc modal (human 2026-09-21: "load like on screen ... like a popup", not buried in the
+// panel at the bottom of the page — a cast row click near the top used to update a panel
+// far below the fold, invisible without scrolling). Fixed-position overlay, opens on the
+// same click that focuses a node or cast row, closes on ×, backdrop click, or Escape.
+var DM=document.getElementById('docModal'), DMbox=document.getElementById('docModalBox'),
+    DMhead=document.getElementById('docModalHead'), DMbody=document.getElementById('docModalBody'),
+    DMclose=document.getElementById('docModalClose');
+DMbox.addEventListener('click',function(ev){ev.stopPropagation();});
+function closeDocModal(){DM.style.display='none';}
+DMclose.addEventListener('click',function(ev){ev.stopPropagation();closeDocModal();});
+DM.addEventListener('click',closeDocModal);
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeDocModal();});
+function clearAll(){document.body.classList.remove('focused');closeDocModal();
   document.querySelectorAll('.node.focus,.lit').forEach(function(e){e.classList.remove('focus','lit');});
   P.innerHTML='<span class="dim">click a creature — node or cast row — and it steps forward; click again (or the void) to release. Nothing moves on its own: calm is ambient, attention is yours.</span>';}
-function focus(name){var c=Z.creatures[name];if(!c)return;clearAll();
+var DOCCACHE={}; // name -> {text} | {error} — fetched once per page life, never re-read on re-focus
+function loadDoc(name,mount){
+ if(DOCCACHE[name]){paintDoc(DOCCACHE[name],mount);return;}
+ mount.innerHTML='<span class="dim">loading doc…</span>';
+ fetch('doc?name='+encodeURIComponent(name)).then(function(r){return r.json();}).then(function(j){
+  DOCCACHE[name]=j;paintDoc(j,mount);
+ }).catch(function(){paintDoc({error:'failed to load — is the board alive?'},mount);});}
+function paintDoc(j,mount){
+ if(j.text)mount.innerHTML='<div class="dim" style="margin-bottom:4px">'+esc2(j.path)+'</div><pre class="docbox">'+esc2(j.text)+'</pre>';
+ else mount.innerHTML='<span class="dim">'+esc2(j.error||'no doc file for this creature.')+'</span>';}
+var PORTRAIT_RACES={slime:1,orc:1,elf:1,darkelf:1,highorc:1,kijin:1};
+function openDocModal(name,c){
+ DMhead.innerHTML=(PORTRAIT_RACES[c.race]?'<img class="focusface" src="portrait/'+c.race+'" alt="" onerror="this.remove()">':'')
+  +'<b>'+esc2(name)+'</b> <span class="dim">'+esc2(c.race)+'</span>';
+ DM.style.display='flex';
+ loadDoc(name,DMbody);}
+function focus(name){var c=Z.creatures[name],isMind=false;
+  if(!c){c=Z.minds[name];isMind=true;}
+  if(!c)return;clearAll();
   var g=document.getElementById('n-'+name);if(g){document.body.classList.add('focused');g.classList.add('focus');}
   document.querySelectorAll('.e-'+CSS.escape(name)).forEach(function(e){e.classList.add('lit');});
-  P.innerHTML='<b>'+esc2(name)+'</b> <span class="dim">'+esc2(c.race)+(Z.orcOf[name]?' under '+esc2(Z.orcOf[name]):'')+'</span><br>'
-   +(c.desc?'<span class="focusdesc">'+esc2(c.desc)+'</span><br>':'')
-   +'doc '+c.kb+'KB <span class="dim">(diet '+c.dietPct+'% of the 6KB law)</span> · desk '+c.thoughts+'/'+c.limit
-   +' <span class="dim">(stress '+c.stressPct+'%)</span> · crosslinks '+c.links
-   +(c.g?' · <span class="gs">⋄ genesis watch</span>':'')
-   +'<br><span class="dim">last thought written: '+esc2(c.last||'none yet')+'</span>';}
+  if(isMind){
+   P.innerHTML='<b>'+esc2(name)+'</b> <span class="dim">mind · worn by '+c.links+' creature'+(c.links===1?'':'s')+'</span><br>'
+    +(c.desc?'<span class="focusdesc">'+esc2(c.desc)+'</span><br>':'')
+    +c.kb+'KB · '+c.uses+' use'+(c.uses===1?'':'s');
+  }else{
+   P.innerHTML=(PORTRAIT_RACES[c.race]?'<img class="focusface" src="portrait/'+c.race+'" alt="" onerror="this.remove()">':'')
+    +'<b>'+esc2(name)+'</b> <span class="dim">'+esc2(c.race)+(Z.orcOf[name]?' under '+esc2(Z.orcOf[name]):'')+'</span><br>'
+    +(c.desc?'<span class="focusdesc">'+esc2(c.desc)+'</span><br>':'')
+    +'doc '+c.kb+'KB <span class="dim">(diet '+c.dietPct+'% of the 6KB law)</span> · desk '+c.thoughts+'/'+c.limit
+    +' <span class="dim">(stress '+c.stressPct+'%)</span> · crosslinks '+c.links
+    +(c.g?' · <span class="gs">⋄ genesis watch</span>':'')
+    +'<br><span class="dim">last thought written: '+esc2(c.last||'none yet')+'</span>';
+  }
+  openDocModal(name,c);}
 document.querySelectorAll('g.node,tr[data-name]').forEach(function(el){
   el.addEventListener('click',function(ev){ev.stopPropagation();var n=el.getAttribute('data-name');
    var g=document.getElementById('n-'+n);
@@ -1030,28 +1118,80 @@ setInterval(function(){fetch('pulse').catch(function(){});},60000);
   if(ttag){try{TD=JSON.parse(ttag.textContent);}catch(e){}}
   if(atag){try{TAG=JSON.parse(atag.textContent);}catch(e){}}
   var mids=Object.keys(TD);var cur=null;
+  // Fixed categorical order, never cycled — the same already-validated race hues (re-tuned
+  // 2026-09-20 against validate_palette.js, see the :root comment above) reused for model
+  // identity rather than a second palette invented and re-validated from scratch. Last slot
+  // (--r-plain, the existing muted/untyped color) is reserved for the overflow "other" bucket.
+  var CAT=['var(--r-slime)','var(--r-orc)','var(--r-elf)','var(--r-darkelf)','var(--r-highorc)','var(--r-kijin)','var(--r-mind)','var(--r-plain)'];
+  var COLOR={},SERIES=[]; // built by initTok once mids are sorted by consumption
   function totR(m){var t=0,dm=TD[m];for(var k in dm)if(inR(k))t+=dm[k][0]+dm[k][1];return t;}
+  // rounded-top / square-baseline bar path (mark spec: 4px data-end, square at baseline)
+  function barPath(x,yTop,w,h,rr){if(h<=0.5)return'';rr=Math.min(rr,w/2,h);
+   return'M'+x+','+(yTop+h)+'L'+x+','+(yTop+rr)+'Q'+x+','+yTop+' '+(x+rr)+','+yTop+
+    'L'+(x+w-rr)+','+yTop+'Q'+(x+w)+','+yTop+' '+(x+w)+','+(yTop+rr)+'L'+(x+w)+','+(yTop+h)+'Z';}
   function drawTok(){var box=$('tokChart');if(!box||!cur)return;
+   if(cur==='__all__'){drawTokAll(box);return;}
    var days=Object.keys(TD[cur]||{}).filter(inR).sort(),n=days.length,i,t;
    if(!n){box.innerHTML='<div class="dim" style="padding:10px 0">'+hj(cur)+' — nothing in this range.</div>';return;}
    var W=1180,H=300,ml=64,mr=18,mt=22,mb=42,pw=W-ml-mr,ph=H-mt-mb,mx=1;
    for(i=0;i<n;i++){var v=TD[cur][days[i]];if(v[0]>mx)mx=v[0];if(v[1]>mx)mx=v[1];}
-   var sx=function(q){return ml+(n===1?pw/2:q*pw/(n-1));};
+   var slot=pw/n,gap=2,bw=Math.max(2,Math.min(24,(slot-gap-6)/2)),baseline=mt+ph;
+   var gx=function(q){return ml+slot*(q+0.5);}; // group (day) center
    var sy=function(q){return mt+ph*(1-q/mx);};
+   var ic=COLOR[cur]||'var(--cy)'; // same hue as this model's selector swatch — in solid, out at half opacity
    var s='<text x="'+ml+'" y="14" class="ax">tokens / day — '+hj(cur)+'</text>';
-   s+='<text x="'+(W-mr)+'" y="14" class="ax" text-anchor="end"><tspan fill="#59d6ff">■ in</tspan> · <tspan fill="#a78bfa">■ out</tspan></text>';
+   s+='<text x="'+(W-mr)+'" y="14" class="ax" text-anchor="end"><tspan fill="'+ic+'">■ in</tspan> · <tspan fill="'+ic+'" fill-opacity="0.45">■ out</tspan></text>';
    for(t=0;t<=4;t++){var tv=Math.round(mx*t/4);yy=sy(tv).toFixed(1);
     s+='<line x1="'+ml+'" y1="'+yy+'" x2="'+(W-mr)+'" y2="'+yy+'" stroke="#22304a" stroke-width="0.6" opacity="'+(t?0.45:1)+'"/>';
     s+='<text x="'+(ml-8)+'" y="'+(+yy+3)+'" class="ax" text-anchor="end">'+fmt(tv)+'</text>';}
    var step=Math.ceil(n/12);
-   for(i=0;i<n;i++){if(i%step&&i!==n-1)continue;xx=sx(i).toFixed(1);
-    s+='<line x1="'+xx+'" y1="'+(H-mb)+'" x2="'+xx+'" y2="'+(H-mb+5)+'" stroke="#22304a"/>';
-    s+='<text x="'+xx+'" y="'+(H-mb+17)+'" class="ax" text-anchor="middle">'+days[i].slice(5)+'</text>';}
+   for(i=0;i<n;i++){var cx=gx(i).toFixed(1),vv=TD[cur][days[i]];
+    var inTop=sy(vv[0]),outTop=sy(vv[1]);
+    s+='<path d="'+barPath(gx(i)-gap/2-bw,inTop,bw,baseline-inTop,4)+'" fill="'+ic+'"><title>'+hj(days[i])+' in '+fmt(vv[0])+'</title></path>';
+    s+='<path d="'+barPath(gx(i)+gap/2,outTop,bw,baseline-outTop,4)+'" fill="'+ic+'" fill-opacity="0.45"><title>'+hj(days[i])+' out '+fmt(vv[1])+'</title></path>';
+    if(i%step&&i!==n-1)continue;
+    s+='<line x1="'+cx+'" y1="'+baseline+'" x2="'+cx+'" y2="'+(baseline+5)+'" stroke="#22304a"/>';
+    s+='<text x="'+cx+'" y="'+(baseline+17)+'" class="ax" text-anchor="middle">'+days[i].slice(5)+'</text>';}
+   s+='<line x1="'+ml+'" y1="'+baseline+'" x2="'+(W-mr)+'" y2="'+baseline+'" stroke="#22304a" stroke-width="0.6"/>';
    s+='<text x="'+(W-mr)+'" y="'+(H-4)+'" class="ax" text-anchor="end">day →</text>';
-   var pin=[],pout=[];
-   for(i=0;i<n;i++){var vv=TD[cur][days[i]];pin.push(sx(i).toFixed(1)+','+sy(vv[0]).toFixed(1));pout.push(sx(i).toFixed(1)+','+sy(vv[1]).toFixed(1));}
-   s+='<polyline points="'+pin.join(' ')+'" fill="none" stroke="#59d6ff" stroke-width="1.8"/>';
-   s+='<polyline points="'+pout.join(' ')+'" fill="none" stroke="#a78bfa" stroke-width="1.8" stroke-dasharray="4 3"/>';
+   box.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" class="panel">'+s+'</svg>';}
+  // merged view (human order 2026-09-21: "one selector that merges all consumption,
+  // separated by colors") — one bar per model per day (in+out combined), grouped by day,
+  // each model its own fixed CAT hue; overflow beyond CAT's slots folds into one muted
+  // "other" series rather than generating a 9th hue (dataviz skill non-negotiable).
+  function drawTokAll(box){
+   var days=[],seen={};SERIES.forEach(function(sr){sr.members.forEach(function(m){for(var k in TD[m]||{})if(inR(k)&&!seen[k]){seen[k]=1;days.push(k);}});});
+   days.sort();var n=days.length,i,t,j;
+   if(!n){box.innerHTML='<div class="dim" style="padding:10px 0">no consumption data in this range.</div>';return;}
+   var W=1180,H=300,ml=64,mr=18,mt=22,mb=42,pw=W-ml-mr,ph=H-mt-mb,mx=1;
+   var totals={};
+   SERIES.forEach(function(sr){var byDay={};sr.members.forEach(function(m){var dm=TD[m]||{};for(var k in dm)if(inR(k)){var v=dm[k];byDay[k]=(byDay[k]||0)+v[0]+v[1];}});
+    totals[sr.id]=byDay;for(var k in byDay)if(byDay[k]>mx)mx=byDay[k];});
+   var k2=SERIES.length,slot=pw/n,gap=2,bw=Math.max(1.5,Math.min(22,(slot-gap*(k2-1)-6)/k2)),baseline=mt+ph;
+   var gx=function(q){return ml+slot*(q+0.5);};
+   // Log scale: models here differ by orders of magnitude (a main session vs. an occasional
+   // subagent build) — on a linear axis the small series round to sub-pixel and vanish, which
+   // reads as "broken," not "small." log10(v+1) keeps every nonzero bar visibly tall while
+   // still ordering correctly; ticks are spaced evenly in log-space (the only correct way to
+   // grid a log axis) and labeled with the real token value they represent.
+   var logMax=Math.log10(mx+1)||1;
+   var sy=function(q){return mt+ph*(1-Math.log10(q+1)/logMax);};
+   var s='<text x="'+ml+'" y="14" class="ax">tokens / day — all models (log scale)</text>';
+   var lg='';SERIES.forEach(function(sr){lg+=(lg?' · ':'')+'<tspan fill="'+sr.color+'">■ '+hj(sr.label)+'</tspan>';});
+   s+='<text x="'+(W-mr)+'" y="14" class="ax" text-anchor="end">'+lg+'</text>';
+   for(t=0;t<=4;t++){var frac=t/4,tv=Math.round(Math.pow(10,logMax*frac))-1;yy=(mt+ph*(1-frac)).toFixed(1);
+    s+='<line x1="'+ml+'" y1="'+yy+'" x2="'+(W-mr)+'" y2="'+yy+'" stroke="#22304a" stroke-width="0.6" opacity="'+(t?0.45:1)+'"/>';
+    s+='<text x="'+(ml-8)+'" y="'+(+yy+3)+'" class="ax" text-anchor="end">'+fmt(Math.max(0,tv))+'</text>';}
+   var step=Math.ceil(n/12);
+   for(i=0;i<n;i++){var cx=gx(i).toFixed(1),groupStart=gx(i)-(k2*bw+(k2-1)*gap)/2;
+    for(j=0;j<k2;j++){var sr=SERIES[j],v=totals[sr.id][days[i]]||0;if(!v)continue;
+     var top=sy(v),x=groupStart+j*(bw+gap);
+     s+='<path d="'+barPath(x,top,bw,baseline-top,3)+'" fill="'+sr.color+'"><title>'+hj(days[i])+' '+hj(sr.label)+' '+fmt(v)+'</title></path>';}
+    if(i%step&&i!==n-1)continue;
+    s+='<line x1="'+cx+'" y1="'+baseline+'" x2="'+cx+'" y2="'+(baseline+5)+'" stroke="#22304a"/>';
+    s+='<text x="'+cx+'" y="'+(baseline+17)+'" class="ax" text-anchor="middle">'+days[i].slice(5)+'</text>';}
+   s+='<line x1="'+ml+'" y1="'+baseline+'" x2="'+(W-mr)+'" y2="'+baseline+'" stroke="#22304a" stroke-width="0.6"/>';
+   s+='<text x="'+(W-mr)+'" y="'+(H-4)+'" class="ax" text-anchor="end">day →</text>';
    box.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" class="panel">'+s+'</svg>';}
   function drawTokTables(){var mt=$('tokModelTable'),dt=$('tokDayTable');var tot=1;mids.forEach(function(m){tot+=totR(m);});tot=tot-1||1;
    if(mt){var rows='<tr><th>model</th><th>sessions (agents)</th><th>runs</th><th>in</th><th>out</th><th>share</th></tr>';
@@ -1065,12 +1205,23 @@ setInterval(function(){fetch('pulse').catch(function(){});},60000);
     dt.innerHTML=rr;}}
   function initTok(){var sel=$('tokSel');if(!sel)return;
    if(!mids.length){sel.innerHTML='<span class="dim">no consumption data</span>';return;}
-   mids.sort(function(a,b){return totR(b)-totR(a);});cur=mids[0];sel.innerHTML='';
-   mids.forEach(function(m){var b=document.createElement('button');b.textContent=m;b.style.margin='0 6px 6px 0';
-    b.onclick=function(){cur=m;var ch=sel.children;for(var k=0;k<ch.length;k++)ch[k].style.borderColor='';b.style.borderColor='var(--cy)';drawTok();};
-    if(m===cur)b.style.borderColor='var(--cy)';
-    sel.appendChild(b);});
-   drawTok();}
+   mids.sort(function(a,b){return totR(b)-totR(a);});
+   SERIES=[];COLOR={};
+   var capIndiv=mids.length>CAT.length?CAT.length-1:mids.length,i;
+   for(i=0;i<capIndiv;i++){COLOR[mids[i]]=CAT[i];SERIES.push({id:mids[i],label:mids[i],color:CAT[i],members:[mids[i]]});}
+   if(mids.length>capIndiv){var rest=mids.slice(capIndiv),oc=CAT[CAT.length-1];rest.forEach(function(m){COLOR[m]=oc;});
+    SERIES.push({id:'__other__',label:'other ('+rest.length+')',color:oc,members:rest});}
+   cur='__all__';sel.innerHTML='';
+   function mkBtn(label,color){var b=document.createElement('button');b.textContent=label;
+    b.style.cssText='margin:0 6px 6px 0;padding:3px 10px;border-radius:3px;cursor:pointer;background:transparent;border:1px solid '+color+';color:'+color;
+    return b;}
+   var btns={};
+   var allBtn=mkBtn('◆ all','var(--ink)');allBtn.onclick=function(){cur='__all__';paint();};sel.appendChild(allBtn);
+   mids.forEach(function(m){var b=mkBtn(m,COLOR[m]);b.onclick=function(){cur=m;paint();};btns[m]=b;sel.appendChild(b);});
+   function paint(){allBtn.style.boxShadow='';mids.forEach(function(m){btns[m].style.boxShadow='';});
+    if(cur==='__all__')allBtn.style.boxShadow='0 0 8px var(--ink)';else btns[cur].style.boxShadow='0 0 8px '+COLOR[cur];
+    drawTok();}
+   paint();}
   var btns=document.querySelectorAll('.rng');
   function apply(r){RANGE=r;for(var k=0;k<btns.length;k++){btns[k].classList.toggle('active',+btns[k].getAttribute('data-r')===r);}drawBreath();drawTokTables();drawTok();}
   for(var bi=0;bi<btns.length;bi++){(function(b){b.onclick=function(){apply(+b.getAttribute('data-r'));};})(btns[bi]);}
@@ -1320,6 +1471,21 @@ if (STOP) {
     if (!root) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end(`unknown world: ${worldName} — is it registered? run /isekai or tempest --ensure in it first`); return; }
     const home = homeOf(root);
 
+    // race portrait, e.g. GET /<world>/portrait/slime — `race` is a lookup key into
+    // PORTRAIT_FILE, never a raw filename, so this can't be asked to read anything
+    // outside <root>/<home>/portraits/.
+    if (req.method === 'GET' && action === 'portrait') {
+      const race = parts[2] || '';
+      const file = PORTRAIT_FILE[race];
+      if (!file) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('no portrait for that race'); return; }
+      const p = path.join(root, home, 'portraits', file);
+      fs.readFile(p, (err, buf) => {
+        if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('portrait file missing'); return; }
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+        res.end(buf);
+      });
+      return;
+    }
     if (req.method === 'GET' && !action) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(render(harvest(root))); return;
@@ -1351,6 +1517,22 @@ if (STOP) {
       const relief = reliefByWorld.get(worldName);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(relief ? Object.assign({}, relief, { total: relief.total, remaining: relief.queue.map(c => c.name) }) : { total: 0, active: false })); return;
+    }
+    // the cast row's "load the md file" ask (human 2026-09-21): the panel only ever showed the
+    // brief `desc`, never the creature's actual doc. Re-harvests fresh (never cached) and only
+    // ever reads the docPath harvest() itself resolved for a name in *this* world's own
+    // creature/mind list — the query string is a lookup key into that trusted list, never a
+    // path. Extended to Minds ("do same for skills") — same SKILL.md read, same safety.
+    if (req.method === 'GET' && action === 'doc') {
+      const nm = url.searchParams.get('name') || '';
+      const d = harvest(root);
+      const c = d.creatures.find(x => x.name === nm) || d.minds.find(x => x.name === nm);
+      if (!c || !c.docPath) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown creature or no doc file' })); return; }
+      let text;
+      try { text = fs.readFileSync(c.docPath, 'utf8'); }
+      catch (e) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'doc file unreadable: ' + e.message })); return; }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ name: c.name, path: path.relative(root, c.docPath), text })); return;
     }
     res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('not found');
   });

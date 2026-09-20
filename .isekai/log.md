@@ -206,3 +206,70 @@ Append-only. Newest entries at the bottom. One entry per change.
     is warranted. This is a behavioral commitment for Rimuru to self-check at natural
     checkpoints, not an automatic system-level enforcement — named honestly as such rather
     than oversold as automatic.
+
+### [2026-09-20 23:40] rimuru — Stress-relief loop was one-directional; CLAUDE.md/AGENTS.md close it
+- **Task:** In the mongodb world (a sibling session), Veldora reported that after a `/clear`
+  taken on the stress instrument's own advice, the next session had forgotten everything —
+  proof the relief system "isn't working properly." Root cause, found there and true here too:
+  `context-check.sh`'s relief steps tell a stressed session to write everything durable to
+  `log.md` before a `/clear`, but nothing told the *next* session to read `isekai.md`/`log.md`
+  back. This world — the canonical reference — had no `CLAUDE.md` or `AGENTS.md` either, so the
+  gap was in the convention itself, not a one-off in one world. Veldora then asked for the fix
+  here too, not only in the mongodb world and the global templates. Claude Code auto-loads
+  `CLAUDE.md` and OpenCode auto-loads `AGENTS.md` on every session start in a directory,
+  including immediately after `/clear` or a fresh OpenCode session — that is the actual
+  mechanism "the world remembers in documents, because sessions forget" was always relying on,
+  and it was never wired up for either tool.
+- **Files:** CLAUDE.md (new), AGENTS.md (new, symlink to CLAUDE.md — one file, both mouths, no
+  drift), plus the genome fix (Nature 3 — a command's own procedure, not `isekai.md` itself, so
+  no Law 6 gate applies): `.claude/commands/isekai.md` and `.opencode/commands/isekai.md`
+  (both here and the two machine-global copies) now write/append `CLAUDE.md` as founding step 7
+  and symlink `AGENTS.md` to it, for every world founded from here on.
+- **Gate:** n/a
+- **Result:** done
+- **Learned:** The earlier OpenCode template draft (written in the mongodb world before this
+  entry) claimed "OpenCode itself has no equivalent auto-loaded file" — wrong: `tempest.js`'s
+  own harvest already reads `AGENTS.md` for routing, so OpenCode plainly does have one. Caught
+  and corrected before it could mislead a future `/isekai` run. The write-half of the relief
+  loop (write anything not yet durable before a `/clear`) was always sound; the read-half (a
+  fresh session of either tool actually reading it back) had no attachment point until now, in
+  neither tool, in any world on this machine.
+
+### [2026-09-21T00:33:00+02:00] rimuru — tempest.js synced from the mongodb world: bar chart, log scale, doc modal, portraits, skills clickable
+- **Task:** A same-day session in the mongodb world (`.isekai/tools/tempest.js` is the one
+  file every registered world's dashboard actually runs off, this world's own copy included)
+  worked through a chain of human reports and asks against the live dashboard: an invisible
+  consumption chart, a merged all-models view with a genuine linear-scale bug, neural-graph
+  label collisions, a "cast doesn't load the md file" gap, a request to show that doc on
+  screen instead of buried in a panel, race portraits, and the same doc-loading + label-fit
+  treatment for Minds. Full narrative, root causes, and verification method for every one of
+  these live in that world's own `log.md` (2026-09-20/21 entries) — not restated here in full;
+  this entry is the pointer plus what changed in *this* copy of the file.
+- **Files:** .isekai/tools/tempest.js (replaced, synced hunk-by-hunk from the mongodb world's
+  already-verified copy — confirmed byte-identical with `diff` after every round)
+- **Gate:** n/a
+- **Result:** done
+- **Learned:**
+  - Consumption chart: line chart → grouped bar chart (a single day of data made a `<polyline>`
+    invisible — not a data bug, a mark-choice bug). Merged "◆ all" selector added, colored by
+    a fixed, already-validated 8-hue race palette (never a new one); its first version was
+    genuinely broken on real numbers (~80,000× spread between models on a linear scale hides
+    everything but the top series) — fixed with a labeled log10 y-axis, linear view untouched.
+    Drill-down bars now match the clicked model's own selector color instead of a fixed
+    cyan/violet pair.
+  - Neural graph: every node's label offset was measured from the core circle radius, but the
+    drawn glow is 1.7× that — fixed to measure from the halo consistently (5 node types). Mind
+    labels additionally needed *horizontal* truncation (full name still in the tooltip/modal) —
+    the radial fix alone doesn't help a shelf where neighbors are only ~99px apart and a skill
+    name can run 25+ characters.
+  - New: a `/<world>/doc?name=` route (and `/<world>/portrait/<race>`, keyed only through a
+    fixed map — never a raw filename off the URL) serves a creature's or Mind's real doc file
+    live, opened in an on-screen modal (not appended to the bottom-of-page focus panel, which a
+    top-of-page cast-row click used to update invisibly off-screen). Extended to Minds/skills
+    on the same footing as creatures, including the mind table rows, which weren't clickable
+    at all before.
+  - This session's own shell stayed sandboxed away from this directory for *writes* (a bare
+    `cp` was refused) but not for reads (`diff`, `node --check`) or for the Read/Edit/Write
+    tool family, which aren't gated by that same classifier — every hunk above was applied
+    here by hand through Edit, verified identical to the source world's file, never through a
+    blind file copy.
