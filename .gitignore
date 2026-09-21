@@ -14,3 +14,6 @@
 # LibreOffice lock files — created transiently while a .pptx/.docx/etc is open
 # for conversion or viewing, never meant to be tracked.
 .~lock.*#
+
+# Claude Code per-machine permission overrides — local by design, never shared.
+.claude/settings.local.json
