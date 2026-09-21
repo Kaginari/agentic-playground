@@ -21,6 +21,24 @@ Evolution, Genesis, Memory, Swarm, Containment, The Wire, Perception — govern 
 are born, how they remember, how they talk to each other economically, and how nothing lands
 without a gate check. The full text lives in [`.isekai/isekai.md`](.isekai/isekai.md).
 
+Every creature — Rimuru, Elf, Orc, Slime, and each disposable Court Body — has the same three
+memories: **short** (context window · the ~5-thought working desk · a semantic cache), **long**
+(episodic `log.md` · procedural Minds and commands · semantic law and docs) and **shared**
+(append-only notes that travel by git, and a machine-wide set for the one Rimuru that stands
+in every world). Files are the truth; `.isekai/tools/memory.js` indexes them, recalls by
+meaning and relation, and reports each tier as an instrument reading — see
+[`.isekai/canon/memory-tiers.md`](.isekai/canon/memory-tiers.md). What is written is the smaller
+part: **the unsaid is your real knowledge** — law, colony and territory knowledge, surfaced before
+a context dies (`@U` on the wire); the same canon maps each kind onto the tiers.
+
+A Court Body works to one rhythm — perceive → recall → plan → act → verify → record — with
+budgets read from instruments, a human gate on every outward or destructive step, a journal
+it resumes from, and one-hop escalation past bounded retries (`.isekai/tools/loop.js`,
+[`canon/agent-loop.md`](.isekai/canon/agent-loop.md)). What it carries is picked, not
+carried whole: a two-level toolbox injects only the manifest that fits the turn and a token
+budget, and a body loads a full skill only on its own decision (`.isekai/tools/toolbox.js`,
+[`canon/toolbox.md`](.isekai/canon/toolbox.md)).
+
 ## The nine natures, as nature already does them
 
 Each law is borrowed from a real phenomenon — the convention didn't invent these rules,
@@ -51,7 +69,11 @@ the content. The same nine appear as slide 5 of the deck under `presentations/`.
 ├── LICENSE         # this project's license
 ├── portraits/      # one portrait per race (rimuru, elf, orc, slime, kijin, high_elf, high_orc, dark_elf)
 ├── natures/        # one glyph per nature law's real-world phenomenon (see the table above)
-├── instruments/    # raw signals the world watches itself with
+├── instruments/    # raw signals the world watches itself with (loop journals, toolbox loads)
+├── memory/         # short/ (semantic caches, local) · long/ (derived index, local) · shared/ (notes that travel)
+├── toolbox/        # extra.jsonl — externals the world knows about; registry.json is derived
+├── canon/          # the design docs behind the law: memory tiers, the unsaid, the loop, the toolbox, tempest
+├── tools/          # tempest.js (board) · context-check.sh · memory.js · loop.js · toolbox.js — stdlib Node, one file each
 └── elf/ orc/ slime/ tmp/   # where creatures and scratch work live as the world grows
 
 .claude/commands/   # /isekai, /don, /mint, /genesis — the Claude Code slash commands that operate on this convention
@@ -117,12 +139,15 @@ convention's own lore or creature system:
 
 ## Presentations
 
-- **`presentations/isekai-opencode-overview.pptx`** — a 16-slide overview of the convention
-  from OpenCode's perspective (the ecosystem Minds and Bodies are natively authored for),
-  including the nine natures and their real-world phenomena (slides 4–5), and closing with an
-  appendix on Claude Code compatibility (`/don`/`/mint`, the shared `palette-audit` Mind,
-  `tempest.js` reading both ecosystems' session usage). Built with `pptxgenjs`; rendered
-  through LibreOffice and visually checked slide by slide.
+- **`presentations/isekai-opencode-overview.pptx`** — a 20-slide overview of the convention
+  from OpenCode's perspective (the ecosystem Minds and Bodies are natively authored for):
+  the nine natures and their real-world phenomena (slides 4–5), the three memories every
+  creature has, "the unsaid is your real knowledge", the six-beat loop a Court Body runs, the
+  two-level toolbox (slides 8–11), and a closing appendix on Claude Code compatibility
+  (`/don`/`/mint`, the shared `palette-audit` Mind, `tempest.js` reading both ecosystems'
+  session usage). Source under `presentations/src/` (`npm install` there, then
+  `node build.js` writes the deck one level up; `make_icons.js` regenerates the glyphs).
+  Rendered through LibreOffice and visually checked slide by slide.
 
 ## Using it elsewhere
 

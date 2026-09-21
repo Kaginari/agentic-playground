@@ -17,3 +17,23 @@
 
 # Claude Code per-machine permission overrides — local by design, never shared.
 .claude/settings.local.json
+
+# .isekai/memory/ — three memory tiers (isekai.md § Memory tiers). SHORT (semantic caches)
+# is per-machine and disposable; LONG's index is derived from the files and rebuilt by
+# memory.js index. Only SHARED notes travel with the world.
+.isekai/memory/short/*
+.isekai/memory/long/*
+!.isekai/memory/short/.gitkeep
+!.isekai/memory/long/.gitkeep
+
+# .isekai/instruments/loop/ — agent-loop run journals (loop.js): one .jsonl per run, machine-local
+# instrument state a resume reads back; disposable like the board state above. The directory
+# travels (the .gitkeep is re-included) so a fresh clone can journal at once.
+.isekai/instruments/loop/*
+!.isekai/instruments/loop/.gitkeep
+
+# .isekai/toolbox/registry.json — the toolbox registry is derived (toolbox.js index) and
+# rebuilt at will; extra.jsonl and .gitkeep travel. The loads journal is an instrument.
+.isekai/toolbox/registry.json
+.isekai/instruments/toolbox/*
+!.isekai/instruments/toolbox/.gitkeep

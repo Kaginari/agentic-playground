@@ -34,6 +34,15 @@ unambiguous enough to build directly.
 - [`templates.md`](templates.md) — the `AGENTS.md` colony-block template Phase 2b appends
 - [`instruments-tempest.md`](instruments-tempest.md) — the full `tempest.js` instrument-board
   spec — **implemented** at [`../tools/tempest.js`](../tools/tempest.js)
+- [`memory-tiers.md`](memory-tiers.md) — the three memories every creature has (short · long ·
+  shared), the files-are-truth boundary, relation-ranked recall, and the path to a DB tier —
+  **implemented** at [`../tools/memory.js`](../tools/memory.js)
+- [`agent-loop.md`](agent-loop.md) — the six-beat loop every Court Body runs (perceive → recall →
+  plan → act → verify → record): budgets as readings, four step classes with the human gate,
+  journaled resume, one-hop escalation — **implemented** at [`../tools/loop.js`](../tools/loop.js)
+- [`toolbox.md`](toolbox.md) — the two-level toolbox: a priced registry of Minds, commands, tools,
+  Bodies and externals; level 1 injects only the manifest that fits the turn and the budget, level 2
+  loads a body on the creature's own decision — **implemented** at [`../tools/toolbox.js`](../tools/toolbox.js)
 - [`agents/great-sage.md`](agents/great-sage.md), [`agents/raphael.md`](agents/raphael.md),
   [`agents/ciel.md`](agents/ciel.md) — templates for all three "court triad" bodies
   (perceive / judge / speak); `ciel.md` is complete, the other two have small gaps (see below)

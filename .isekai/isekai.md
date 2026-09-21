@@ -64,6 +64,7 @@ so context is spent on work, not on words.
 | `@ROOT` | territory pin |
 | `@SCOPE` | what is in scope |
 | `@ASK findings\|verdict\|draft` | what is wanted (add `wire:raw` to request raw form) |
+| `@ASK … +unsaid` | also surface the unsaid (§The unsaid) |
 | `@CAP <bytes>` | answer ceiling, default 2048 |
 | `@DUMP <path>` | overflow travels by reference |
 | `@SIZE` | a draft's payload budget |
@@ -74,12 +75,15 @@ so context is spent on work, not on words.
 | `@F` | a finding, with `file:line` — one fact per line |
 | `@V` | a verdict on a claim, with evidence |
 | `@?` | a hole — named, never guessed |
+| `@U <kind> …` | the unsaid: one piece of knowledge that was in the worker's head and nowhere on disk; kind is `law`, `colony` or `territory` (§The unsaid) |
 | `@E <bytes>` | closes the answer |
 
 **Hygiene**
 - No greetings, no decoration, no transcripts in the envelope.
 - Anything long lives on disk and crosses as a path.
 - Secrets never cross — location only.
+- A Court Body's report that carries no `@U` line either had nothing unsaid or failed its
+  duty; the dispatcher may ask (`+unsaid`).
 
 **Scope of the wire**
 - The register governs exchange. The breath law governs storage.
@@ -237,6 +241,95 @@ the world can see about itself *right now* without asking a document, which may 
   on 2026-09-20), not a billing figure — good enough to catch the zone, not to argue
   precision.
 
+## Memory tiers
+
+Nature 5 says how memory *moves* — kept to ~5, distilled, let go; analysis up, wisdom down. This
+section says where it *lives*. Every creature — Rimuru, Elf, Orc, Slime, Kijin, and every Court
+Body — has the same three memories. None is a feeling: each has a file or an instrument that
+answers for it, and `.isekai/tools/memory.js` reads all three.
+
+**Short memory — per body, per task; dies with the session.**
+- *Context window* — the body's live context. Measured (`context-check.sh`, tempest's chip,
+  `memory.js status`), never guessed; past the stress zone it drains into the tiers below.
+- *Working memory* — the dated `## Thoughts` desk on the worn Mind: ~5 live thoughts, the
+  hippocampal buffer. Over ~5 is an instrument reading (Nature 5, Minds & Bodies).
+- *Semantic cache* — recent recalls keyed by meaning, so the same question asked twice in a
+  task costs one search. Lives in `.isekai/memory/short/<creature>.jsonl`: machine-local,
+  disposable, gitignored, cleared freely (`memory.js forget --short`).
+
+**Long-term memory — the world's; durable; git is its record.** Files are the truth; every
+index over them is derived and rebuildable (`memory.js index` → `.isekai/memory/long/`,
+gitignored). Three kinds, each already a file the world keeps:
+- *Episodic* — what happened: `log.md`, one memory per dated entry. Append-only (Law 4).
+- *Procedural* — how to do: Minds (`SKILL.md`), commands, tools.
+- *Semantic* — what is true: this file, creature docs (traits, territory, verdicts), canon, README.
+- Recall ranks by meaning first, then by **relation** — the same typed bonds the wire draws
+  (slime⇒orc truth-current, orc⇒elf verdict-current, body⇌mind anima-thread): a memory that
+  names the asker, its orc, or its worn mind is pulled closer. Ranking is local and model-free
+  by default (Nature 7 — nothing leaves the world); a real embedding model or a database tier
+  is the same boundary with a bigger engine (see `canon/memory-tiers.md`), never a different
+  source of truth.
+
+**Shared memory — across bodies, and across worlds.**
+- *World-shared* — `.isekai/memory/shared/notes.jsonl`: what every body in this world reads;
+  append-only (Law 4); tracked, so it travels by git — the text channel between machines.
+- *Machine-shared* — `~/.isekai/shared/notes.jsonl`: across the worlds on this machine, since
+  Rimuru is one throne body across all of them. Inside the machine is inward (Nature 7).
+- A Court Body's context dies with its task. What should outlive it goes to shared memory or
+  to its owning doc *before* the wire report — never left in a dying context.
+
+**The flow.** Short → distilled → long (Nature 5); shared is the bus between bodies; the wire
+(Absolute Rule II) points at all three by path and never carries them. `memory.js status` is
+the instrument: a silent tier (no transcript, no index, HEAD moved since the index was built)
+is a finding, reported as `@?`, never routed around (Nature 9).
+
+## The unsaid
+
+**The unsaid is your real knowledge.** What a creature wrote down is the smaller part of what it
+knows; the larger part sits in the head that did the work — and a head in this world is a context
+that dies. Three kinds of knowledge, each with a home in the tiers above:
+
+- **Law** (institutional knowledge) — the rules, definitions and decisions the isekai runs on.
+  *Analogy: how data is modelled.* Home: semantic long memory — this file, canon, creature docs
+  (traits, territory, verdicts). Surfaced by whoever catches the world running on a rule no doc
+  states.
+- **Colony** (tribal knowledge) — what the colony knows but rarely writes down anywhere.
+  *Analogy: how queries are executed.* Home: the unwritten — desks, shared notes, and what Court
+  Bodies carry and lose when their context dies. This is the kind the principle is really about:
+  it is where the world's real knowledge leaks.
+- **Territory** (domain context) — what the numbers and entities actually mean in your
+  territory. *Analogy: metadata.* Home: the Slime's own doc — the zone's ground truth.
+
+**What to do with it.** The unsaid is what you must surface — before a Court Body's context dies
+(the `@U` line of its wire report, Absolute Rule II), before a gate verdict (the Orc asks what the
+Slime knew and did not write), before a distill wave (a desk is distilled from what was said *and*
+what was not). One piece at a time, to its home: a rule to law or canon, a colony fact to a shared
+note (`memory.js remember --kind colony`) or its owning desk, territory meaning to the Slime's doc.
+"Nothing unsaid" is a claim about current state — a memory, not a fact (Nature 9); the dispatcher
+may ask.
+
+## The loop
+
+A Court Body works to one rhythm, six beats per step: perceive → recall → plan → act → verify
+→ record — both a tool (`.isekai/tools/loop.js`, for scripted plans) and a protocol (the same
+beats, followed by hand when the work is not scriptable); the shape is one.
+- **Budgets are readings.** Steps, wall clock and the context window are read from instruments
+  before every step (`memory.js status`, the same method as `context-check.sh`). Past any of
+  them the run checkpoints and stops honestly; it never presses on.
+- **Recall before, remember after.** Each step recalls by its question and carries anchors, not
+  payloads — memories from the tiers, and the tool manifest the toolbox picks for that ask
+  (level 1 only; a body loads level 2 on its own decision). A step that learned something lands
+  a shared note. A stale index or registry is rebuilt, never routed around.
+- **Four classes, one gate.** `read` · `write` (inside the world) · `outward` (Nature 7) ·
+  `destructive` (Law 6). Outward and destructive always pass the human gate — a real answer on
+  a TTY, an explicit pre-approval, or a dry run that only says what it would ask. Nothing is
+  auto-approved; a declared class only tightens; a denial stops the run there. In the protocol
+  form the gate is the host's own permission prompt, never worked around.
+- **Failure escalates one hop.** A failed verify is a failed act; retries are bounded; past
+  them the run ends with `@?` to its dispatcher (Absolute Rule III), never a guess, never a
+  loop forever. Every beat is journaled (`.isekai/instruments/loop/`) and a cut run resumes
+  from its journal — an interrupted outward act is gated again, not replayed.
+
 ## Minds & Bodies
 
 Rank (below, "The world") says **what a creature is responsible for**. Minds and Bodies say
@@ -295,6 +388,18 @@ never fused. Then the loop, because the two halves carry different halves of lif
   carries (the `writing-for-agents` Mind, if worn, is the reference for this). A description
   that tries to also be the content is not saving anything — that is context load with extra
   steps, not lazy loading.
+- **The toolbox — two levels, one budget.** A body never carries the whole shelf. Everything it
+  could pick up — Minds, commands, world tools, Bodies, and the externals `.isekai/toolbox/extra.jsonl`
+  names — is indexed by `.isekai/tools/toolbox.js` into a derived registry, each entry priced before
+  anything is injected. A turn receives **level 1, the manifest**: names, one-line descriptions,
+  triggers, paths and the cost of level 2 — only the entries that fit the ask (meaning, trigger,
+  relation) and a token budget, on the wire as `@T` lines under `@TOOLS`. **Level 2, the load**, is
+  the body's own decision to use the tool, never pre-emptive: `toolbox.js load <name>` (whole, or one
+  section by anchor), a Mind invoked by name, a Body dispatched — and every load is journaled, so
+  `status` reports what was loaded against what was merely offered. The toolbox never pastes a tool's
+  body into a prompt; it hands over pointers with known costs, and the receiving body loads on demand.
+  This is "loading is already two-tiered" made an instrument and extended past Minds to commands,
+  tools, Bodies and externals: the registry may grow without bound; the prompt does not.
 
 **Bodies — vessels, minted on name only.**
 - A Body is an agent: the thing that actually runs and holds context. A Body is never minted

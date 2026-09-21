@@ -486,3 +486,103 @@ Append-only. Newest entries at the bottom. One entry per change.
     code — recorded in the header only.
   - **The 62 photographs have now done their job** (A transcribed, B ported). Their removal is a
     deletion → Law 6, asked of Veldora, not assumed.
+
+### [2026-09-22T01:19:00+02:00] court-body (dispatched by rimuru) — The unsaid is your real knowledge: three kinds of knowledge in the law, the wire, the canon, the instrument
+- **Task:** Veldora's order (Law 1; satisfies Law 6 for `isekai.md`): incorporate "The unsaid is your
+  real knowledge" with its three kinds — institutional knowledge (the rules, definitions and
+  decisions the isekai runs on; analogy: how data is modelled), tribal knowledge (what the colony
+  knows but rarely writes down anywhere; analogy: how queries are executed), domain context (what
+  the numbers and entities actually mean in your territory; analogy: metadata) — renamed into
+  Isekai's own vocabulary, definitions kept exact, and made explicit in agent communications.
+  Second order, same session: living documents carry no provenance/dating chatter; dates and the
+  "why" live only here.
+- **Files:** .isekai/isekai.md (new `## The unsaid` between Memory tiers and Minds & Bodies, 24
+  lines; §Absolute Rules II: `@ASK … +unsaid` commission row, `@U <kind> …` answer row, one
+  hygiene bullet; "(Veldora 2026-09-22)" dropped from §Memory tiers — md5 after
+  `e55c940f8dc5717524467bdcdfdd5a72`, 438 L / 29,563 B), .isekai/canon/memory-tiers.md (new
+  section "The unsaid — three kinds of knowledge on the tier table"; opening paragraph and two
+  dated asides rewritten without dates; instrument table rows for recall/remember/status),
+  .isekai/tools/memory.js (`remember --kind`, `recall --kind` for shared notes, `status` counts
+  per kind, header states the principle; selftest 32 → 42 checks), README.md (one sentence in the
+  three-memories paragraph), .isekai/log.md (this entry).
+- **Gate:** n/a (no orcs in this world; definition of done run by the Court and to be re-run by
+  Rimuru: `node --check` ok · `selftest` `@S PASS 42 checks` on node v16.20.2 and v22.23.2 ·
+  `index` → 147 memories · `.isekai/memory/` holds only `long/index.json` + three `.gitkeep` ·
+  `~/.isekai` not created)
+- **Result:** done
+- **Learned:**
+  - **Names chosen:** `law` (institutional knowledge), `colony` (tribal knowledge),
+    `territory` (domain context). Single tokens already in the register, so the tag costs one word.
+    Home per kind: law → long·semantic (isekai.md, canon, creature docs); colony → the unwritten
+    (desks, shared notes, what a Court Body's context carries and loses) — the kind the principle
+    is really about; territory → the Slime's own doc.
+  - **Tags born today, 2026-09-22 (Absolute Rule II, dialect rule):** answer tag `@U <kind> …` —
+    the unsaid: one piece of knowledge that was in the worker's head and nowhere on disk, kind ∈
+    law|colony|territory; commission modifier `@ASK … +unsaid` — asks for it explicitly. First
+    ridden by this Court's own wire report. A Court report without `@U` had nothing unsaid or
+    failed its duty; the dispatcher may ask. Graduation per the register's own rule (2 worlds or
+    3 sessions).
+  - **Instrument shape:** a note's `kind` is stored on the JSON line (null when absent — the
+    field is a pointer, not a gate); `recall --kind law|colony|territory` filters shared notes
+    only and refuses `--tier long` (a contradictory ask is a FAIL, not an empty answer); a kind
+    with no note yet is a `@?`. Existing episodic|procedural|semantic, all flags and all wire
+    lines are unchanged for untyped notes; the SHARED status line gains `· unsaid law n · colony n
+    · territory n`.
+  - **No-provenance rule applied:** the header's "Born … on Veldora's order", the canon's birth
+    paragraph, "(Veldora 2026-09-22: …)" and "(research 2026-09-22, Fable)" are gone; substance
+    kept. Older sections (Instruments' "on 2026-09-20", Minds & Bodies' "(Veldora 2026-09-21,
+    words …)") were not in scope and are untouched — a future wave, named here once (Nature 4).
+  - **Honesty note:** one read-only `git diff --stat` was run by reflex before the "no git
+    commands" constraint was re-read; nothing was staged, committed or reset.
+
+### [2026-09-22T02:05:00+02:00] rimuru — three memories, the unsaid, the loop, the toolbox: law + canon + three instruments, validated, propagated to the global /isekai
+- **Task:** Human, in sequence across one session: "add 3 memory types in isekai — short (semantic
+  cache, working memory, LLM context window), long term (episodic, procedural, semantic) and
+  shared"; "incorporate 'The unsaid is your real knowledge' … adapt isekai naming"; "implement an
+  agent loop … agent autonomy, failure recovery, human gate (side-effecting tools need approval),
+  dynamic recall"; "a good toolbox pattern so skills and tools are injected — only the tools that
+  fit the turn — two-level: description manifest anchored in the agent, full SKILL.md pulled only
+  when the agent decides to use it"; each "by fable, validated by fable"; "no update/change notes
+  in living docs"; "change global after validation, update ppt, commit and push".
+- **Files:** .isekai/isekai.md (Law 6, on Veldora's order: new §Memory tiers, §The unsaid, §The
+  loop; `@ASK … +unsaid` and `@U <kind>` rows in the wire; "The toolbox — two levels, one budget"
+  bullet under Minds & Bodies) · .isekai/canon/{memory-tiers,agent-loop,toolbox}.md (new) +
+  canon/README.md index · .isekai/tools/{memory,loop,toolbox}.js (new, stdlib Node 16, each with
+  a selftest) · .isekai/{memory,toolbox,instruments/loop,instruments/toolbox}/ skeleton +
+  .gitignore rules · .isekai/memory/shared/notes.jsonl (first three colony notes) ·
+  README.md · presentations/ (deck 16 → 20 slides; source moved from the gitignored proving
+  grounds to presentations/src/ — the second naming of that need, Nature 4) ·
+  .claude/commands/isekai.md, .opencode/commands/isekai.md, ~/.claude/commands/isekai.md,
+  ~/.config/opencode/commands/isekai.md (law template regenerated, tree + step 3 extended) ·
+  ~/.claude/isekai/{tools,canon}/, ~/.config/opencode/isekai/{tools,canon}/ (installed beside
+  the portraits so a fresh /isekai carries them).
+- **Gate:** n/a (no orcs) — a separate validator Court Body re-ran every claim against the
+  instruments (memory 42 · toolbox 50 · loop 82 selftest checks on Node 16 and 22; 102 named
+  commands/flags/paths/tags grep-checked against source; gitignore proven by `git ls-files
+  --others --exclude-standard`); Rimuru re-ran the three selftests after.
+- **Result:** done.
+- **Tags born today (dialect rule):** `@U <kind>` (the unsaid; kind ∈ law | colony | territory)
+  and `@ASK … +unsaid` — placed in the core envelope on Veldora's word that the principle be
+  "clear in agent communications"; `@T` and `@TOOLS` (the toolbox manifest) — dialect for now,
+  defined in canon/toolbox.md, to graduate on 2 worlds / 3 sessions.
+- **Learned:**
+  - **Naming the human's three kinds of knowledge in the world's vocabulary**: institutional →
+    *law*, tribal → *colony*, domain context → *territory*; the original terms stay as glosses
+    once, in the law and the deck, so a reader can map back.
+  - **Living documents carry no change notes** (Veldora): dates, "on Veldora's order", "now",
+    "new section" cost tokens on every session start and teach nothing. Provenance lives in this
+    file only. Fable #1 stripped the dating Rimuru had written earlier the same day; older asides
+    from the handoff payload ("Veldora 2026-09-21, words …") were left as adopted — named once
+    here (Nature 4), not silently rewritten.
+  - **Four Fables, disjoint territories, one validator**: the unsaid (law/wire/canon/memory.js),
+    the loop (loop.js + canon), the toolbox (toolbox.js + canon), then a fresh validator that
+    also closed the one seam left open (loop → toolbox per step). Each proposed its law text in
+    its canon doc; Rimuru pasted it into isekai.md (Law 6). Parallel work never touched the
+    same file; the validator was told what it could fix (canon wording) and what it could only
+    name (`@?` on isekai.md).
+  - **Research before building** (Oracle DBFS vs. alternatives): a FUSE-mounted DBFS is not
+    transactional for a POSIX writer; the recommendation — files as truth, git as the record,
+    one derived index, a SQLite tier only when instruments say it is needed — is what the
+    memory tiers implement, with the DB path kept in canon rather than built ahead of need.
+  - **Instrument honesty pays**: the validator found `git check-ignore` reports a `!`-re-included
+    `.gitkeep` as ignored; the first colony note in shared memory is that fact.
