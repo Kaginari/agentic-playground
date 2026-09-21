@@ -167,7 +167,10 @@ creature never sits on confusion, and never guesses past it.
      two is a pattern.
    - A birth is always part of the same change and announced out loud, never later.
 5. **Memory — thoughts are kept, then let go, but intelligence is born.**
-   - Every creature keeps a dated `## Thoughts` section.
+   - Every creature keeps a dated `## Thoughts` section — and per the creature split (see
+     Minds & Bodies, word 11), that desk sits in the worn MIND: the hat that did the work
+     holds what the work taught; the body keeps identity, territory, traits, verdicts.
+     Mind stress (desk past ~5) mutates the genome and the body adapts in the same change.
    - Analysis flows up: slime → orc (→ high orc) → elf (→ high elf). Wisdom flows down.
    - Past ~5 entries, each thought is distilled to its final form, then the list is cleaned:
      - a rule
@@ -239,9 +242,48 @@ the world can see about itself *right now* without asking a document, which may 
 Rank (below, "The world") says **what a creature is responsible for**. Minds and Bodies say
 **how it exists**. Every creature is one rank, wearing some Minds, riding one Body.
 
+**The separation law (Veldora 2026-09-21, words 6–13).** Minds and Bodies are two planes on one
+grid — never one crowd again (the fused graph was judged "all is broken"). Any instrument that
+draws the colony draws the distinction, but formally the mind lanes keep their place BETWEEN the
+ranks on a single uniform grid, and every mind lane stands LEFT of the rank it serves — tools
+before hands (word 13): zone minds · slime · verdict minds · orc · global minds · elf · ascended
+(the ascended are bodies of bodies — a seventh lane, never an under-chart band). The planes read
+through the elements' dress — bodies carry portraits, halos, wide tints; minds are dashed rings
+on slim tints. The chart is a two-row stack: row 1 the seven lanes; row 2 the **shared skills**,
+full width — opencode commands &amp; app-provided skills that are not isekai minds (Veldora
+2026-09-21: the row does not "overload" the world's law with the host repo's tools; it names
+them plainly for what they are) — the last remainder, never a side-by-side cell (cells collided
+with the lanes' columns above). **The bonds are typed and colored** (word 15): slime⇒orc is the
+TRUTH-CURRENT (cyan); orc⇒elf the VERDICT-CURRENT (gold); body⇌worn mind is an ANIMA-THREAD —
+one dashed shape tinted by lane (zone/verdict/global/shared). **Minds wear brains** (word 19–20):
+a mind node paints its brain in its lane's reasoning color (zone gathers facts, verdict weighs
+rulings, global arms the voice, shared is the opencode toolbox) — "whose work does this mind
+do?" answered at a glance. **The triad** (same words): GREAT-SAGE reads → RAPHAEL verdicts →
+CIEL drafts — one reasoning chain, direction fixed; a draft that skipped the read writes blind.
+Each role's mount model is named beside it, resolved from the minted bodies, never hand-typed.
+A mind's place is *whom it serves*, derived from real wearers/links, never hand-assigned; a mind
+nobody wears is nobody's private tool.
+
+**The creature split & the adaptation loop (Veldora 2026-09-21, words 10–11).** Every
+race-prefixed skill IS two things, and any view of the world must draw both: the BODY — the
+ranked creature in its lane (portrait, halo, desk, stress) — and its worn MIND — the know-how
+hat in its service lane (body's race picks the lane), linked to its body by the wear-edge,
+never fused. Then the loop, because the two halves carry different halves of life:
+- **Thoughts live in the MIND.** The desk (dated `## Thoughts`) sits in the worn know-how —
+  the hat that was on during the work holds what the work taught. A body keeps identity,
+  territory, traits, gate verdicts — durable facts; experience accumulates in the hat.
+- **Mind stress is an instrument reading** (desk over its ~5-thought limit — measured, never
+  felt). A stressed mind must mutate the genome *in the same wave it is relieved*: distill the
+  desk to its final forms (Nature 5 — rule / trait / ascension / wrap-up), and the body's doc
+  adapts in the same change — traits updated, territory re-cut if the mutation outgrew it.
+- **Repetition is the verdict:** the same stress in the same mind twice means the adaptation
+  failed — escalate the form (split the mind's know-how, promote the body's rank), per
+  Evolution's own measure (Nature 3: the same mistake never repeats).
+
 **Minds — knowledge, worn as hats.**
-- A Mind is a skill: reusable, stateless know-how. It has no memory of its own and does no
-  work by itself — a creature dons it to gain capability for a task, then moves on.
+- A Mind is a skill: reusable know-how, loaded on donning. It does no work by itself —
+  a creature dons it to gain capability for a task, then moves on. Exception (word 11): the
+  hat DOES keep its own desk — thoughts live in the mind that was worn when they were earned.
 - Sourced from `.opencode/skill(s)/<name>/SKILL.md` and brought over with `/don` into a
   Claude Code skill. `/don --project` installs it for this world only
   (`.claude/skills/<name>/`); `/don --global` installs it for Rimuru

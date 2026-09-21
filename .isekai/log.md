@@ -374,3 +374,115 @@ Append-only. Newest entries at the bottom. One entry per change.
   `--r-mind`, width 1.2, opacity .75, since it carries the use-count label and deserves to read
   as the more specific relationship). Deleted the now-dead `body.light line` override entirely
   instead of updating it — one theme-adaptive rule replaces two hand-tuned ones.
+### [2026-09-21T01:20:00+02:00] rimuru — one real biological phenomenon per Nature law, in README and deck
+- **Task:** Human: "check the convention and for Nature law go look for a phenomena in nature or
+  biology and put its image or describe it in readme and ppt."
+- **Files:** README.md (new section "The nine natures, as nature already does them" — 9-row
+  table with glyph + phenomenon + description; `natures/` added to the repo tree; presentations
+  paragraph corrected from "12-slide" to 16 and the "no LibreOffice" caveat dropped — it is
+  installed now and the render was checked); .isekai/natures/*.png (9 new glyphs);
+  presentations/isekai-opencode-overview.pptx (new slide 5, slides 5–15 renumbered 6–16);
+  .isekai/tmp/pptx-build/build.js + make_icons.js (source of both — gitignored proving grounds).
+- **Gate:** n/a
+- **Result:** done
+- **Learned:**
+  - **Read "for Nature law" as one phenomenon per law, not one for the whole set** — the nine
+    are each named after a biological idea, so a single analog would have been meaningless.
+    Picks were made on *structural* match to the law's actual rule, not the name: Vitality →
+    DNA replication checkpoints + p53 apoptosis (record and change land together, stale copy is
+    sacrificed); Symbiosis → lichen; Evolution → CRISPR–Cas (the mistake literally mutates the
+    genome, at once, inherited); Genesis → quorum sensing (one signal is noise, a quorum is a
+    pattern); Memory → hippocampal→neocortical sleep consolidation (analysis up, wisdom down,
+    buffer cleared); Swarm → *Dictyostelium* cellular slime mold (colony forms on convergence,
+    dissolves after — and it is a slime); Containment → blood–brain barrier (structure, not
+    policy); The Wire → waggle dance (point don't carry + fixed schema); Perception →
+    proprioception (silent instrument = Ian Waterman's case).
+  - **Nature 7 shaped the deliverable**: "image or describe" — photos would have meant network
+    fetches, which Containment forbids without Veldora's agreement. Went with descriptions as the
+    content plus locally built Font Awesome glyphs (extending make_icons.js, same pipeline the
+    deck already used) as the visual. Offered real public-domain photos as a follow-up needing
+    consent, not done unasked.
+  - **README was stale on its own deck**: said 12 slides, deck had 15; said render QA was
+    impossible, but `soffice` is present on this machine now. Fixed both in the same change
+    (Vitality) rather than leaving them for later.
+  - **Noted, not fixed**: the deck's *source* (build.js, make_icons.js, icons/) lives under
+    `.isekai/tmp/pptx-build/`, which `.gitignore` excludes wholesale — only the built .pptx is
+    tracked. A fresh clone cannot rebuild the deck. First naming (Nature 4): if it comes up
+    again, the source should move out of the proving grounds into a tracked location.
+
+### [2026-09-21T02:05:00+02:00] rimuru — ADOPTED: law update from the bench-forge world's handoff (payload A); payload B pending
+- **Task:** Human: "i put imgs of a jura update can you check it and takes those updates?" — 62
+  photographs (IMG_2638–IMG_2699) of a screen showing `ISEKAI-UPDATE-agentic-playground.2026-09-21.md`,
+  a self-contained handoff prepared by rimuru @ the bench-forge world (Jura) on 2026-09-21 22:00
+  CEST on Veldora's word, carrying PAYLOAD A (`.isekai/isekai.md`, 24,489 B, md5
+  `61ce0e19248ff0df8db0e1907cd133b0`) and PAYLOAD B (`.isekai/tools/tempest.js`, 150,476 B, md5
+  `fa80fe87ee7b009b219c0f4431bf5eb9`).
+- **Files:** .isekai/isekai.md (Law 6: on Veldora's order — the handoff states the carrier arriving
+  from Veldora's hand IS that order, and the human's "take those updates" here confirms it)
+- **Gate:** n/a
+- **Result:** payload A adopted; payload B NOT adopted (see Learned)
+- **Learned:**
+  - **This world was the intended receiver even though the header names `agentic-playground`**:
+    the handoff's "target state at send time" matched this disk exactly — law 325 lines /
+    20,742 B, tempest.js md5 `b62bbf665d6d68a40c0c3f1708069bac`. Checked before touching anything
+    (Nature 9: the doc's claim, verified against the instrument).
+  - **Hashes before/after**: law `094e1ff390cc01b4ddb7a92de2894914` (325 L / 20,742 B) →
+    `41e487a09a63bf5b022ca077098bd4af` (367 L / 24,488 B). **Not the handoff's md5** — the
+    payload did not arrive as text, it arrived as photographs of a curved monitor, so the
+    channel was transcription, not extraction. The delta was located by line-number arithmetic
+    (offset +110 up to Nature 5, +113 to `## Instruments`) and confirmed to be four regions,
+    each transcribed from full-resolution crops: (1) Nature 5's first bullet (desk lives in the
+    worn MIND); (2) new **The separation law (words 6–13)** paragraph; (3) new **The creature
+    split & the adaptation loop (words 10–11)** with its three bullets; (4) the Minds bullet's
+    "Exception (word 11)". Instruments, Bodies, The world, gate and Laws were re-read and are
+    unchanged. One byte short of the stated 24,489 (likely a single newline or a dash variant
+    somewhere); could not be pinned from the photos and was not guessed (the handoff's own rule:
+    never "repair" payload bytes by hand). The literal `&amp;` in the separation-law paragraph is
+    reproduced as photographed — it is what the source contains.
+  - **Payload B not adoptable from photographs**: ~1,500 lines of dense JS with long wrapped
+    lines across ~50 photos cannot be transcribed faithfully; a near-copy of an instrument with
+    silent typos is worse than the older working one. Escalated to the human (Absolute Rule III)
+    with the choice: bring the handoff as a text file (the awk+md5 recipe then works as
+    designed), or have the changelog's nine items re-implemented here on top of the current
+    tempest.js as a best-effort port that will not md5-match.
+  - **Round-trip noted**: the sender's tempest.js header says it was itself "ported from
+    photographs of the source (2026-09-20)" — this world's file, photographed there, now
+    photographed back. Second time the photo channel has carried this instrument. Per Nature 4
+    that is a need named twice: a text channel between these two machines (a shared repo remote,
+    or the .md carrier moved as a file) should exist.
+- **Addendum [2026-09-21T02:15+02:00]:** Human chose "re-implement from the changelog" for
+  payload B. `context-check.sh` read 184,497 / 200,000 (92%) at that moment — stress zone —
+  so per Instruments the port is dispatched to a Court Body from `.isekai/tmp/payload-b-brief.md`
+  rather than run inline; only its wire report returns here. Human told plainly.
+
+### [2026-09-21T23:30:00+02:00] rimuru — ADOPTED: payload B (tempest.js) landed by re-implementation, via Court Body
+- **Task:** Human: "continue" after `/clear` — resume the payload B port dispatched in the previous
+  entry's addendum. That dispatch never landed: the `/clear` came first, and tempest.js was still
+  at md5 `b62bbf665d6d68a40c0c3f1708069bac` on re-entry (checked before re-dispatching — Nature 9).
+- **Files:** .isekai/tools/tempest.js (1655 → 2124 lines, md5 `565ea89687f2aeaa6df14218a871ffa8`
+  — a re-implementation from the handoff changelog + IMG_2650–2699, NOT the sender's bytes; header
+  comment updated in the same change, Vitality)
+- **Gate:** n/a (no orcs in this world; Rimuru verified against the instrument directly)
+- **Result:** done — all nine changelog items carried; definition of done re-run by Rimuru after
+  the Court reported: `node --check` ok · `--json` one parse-clean line (23 keys, 6 minds, 4
+  commands) · `--ensure` → `/convention-jura/` 200 with all seven lane ids (smind · slime · omind ·
+  orc · gmind · elf · asc), SHARED SKILLS row, GREAT-SAGE → RAPHAEL → CIEL triad at '—' ×3,
+  TRUTH/VERDICT/ANIMA bond classes present · `doc?name=tdd` → `@S:MAP` (5 sections, measured
+  bytes) · `&sec=1` → `@S:SEC` · bad name → 404 · `--stop` takes the board down.
+- **Learned:**
+  - **Dispatch-and-discard worked as the law describes it**: the Court burned ~276k tokens over
+    107 tool uses reading photographs; Rimuru received 3,210 bytes of wire and spent one
+    verification pass. That is the whole point of the Court mode — the previous session at 92%
+    could not have done this inline.
+  - **A Court's PASS is a memory until checked** — every claim in its report was re-run here
+    before this entry was written. All held.
+  - **Court's own holes (`@?`), kept honest, not patched over**: the server doc-route body was
+    never photographed (rebuilt from the visible client contract); command harvest and the
+    `.claude/skills` merge came from the brief's facts, not photos; TRIAD regexes were anchored to
+    name segments (departure from the photographed `/raphael|mon/` form, flagged in code); the
+    photographed CSS drew elfedge dashed in lane view — the changelog's shape law (solid = race
+    bond) was applied instead; a lane-tint height that overshot the row-2 divider by 28px in the
+    photo was corrected; changelog items 8/9 (succession, propagation ≠ cloning) are process, not
+    code — recorded in the header only.
+  - **The 62 photographs have now done their job** (A transcribed, B ported). Their removal is a
+    deletion → Law 6, asked of Veldora, not assumed.

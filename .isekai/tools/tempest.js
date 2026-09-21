@@ -31,6 +31,41 @@
 //      satisfy exactly what the (fully visible) client-side script calls.
 // Everything else below — harvest(), render(), the relief queue/harm-fence, the
 // SVG neural-layer graph, the SQLite session-store reads — is a faithful port.
+//
+// 2026-09-21 — PAYLOAD B of the bench-forge handoff, RE-IMPLEMENTED here (not a byte copy)
+// from the handoff changelog + photographs IMG_2650–2699 of the sender's finished file, read
+// against isekai.md §Minds & Bodies + Nature 5. Same-lineage lowercase-law world, so the file
+// is taken and adapted, not cloned (changelog 9: propagation ≠ cloning). What changed:
+//   1. Separation law — one uniform 7-lane grid, every mind lane LEFT of the rank it serves:
+//      zone minds · slime · verdict minds · orc · global minds · elf · ascended (a real lane,
+//      not an under-chart shelf); ROW 2 is SHARED SKILLS, full width — opencode/claude
+//      commands + app skills nobody wears, named plainly, never an overload of world law.
+//   2. Creature split — every race-prefixed creature renders twice: BODY in its rank lane
+//      (portrait, halo, wide tint) and its worn MIND (`<name>@hat`, dashed ring, slim tint)
+//      in the service lane its race picks, joined by a wear-edge; hats are first-class on
+//      the graph, in zdata, in the viewer.
+//   3. Adaptation loop — the dated desk (## Thoughts) is drawn on the HAT, not the head:
+//      hat stress = desk/limit (an instrument reading); the body keeps kb/diet/crosslinks/
+//      genesis and adapts in the same change. Viewer names the escalation rule.
+//   4. Bonds typed & colored — slime⇒orc TRUTH-CURRENT (cyan, solid), orc⇒elf
+//      VERDICT-CURRENT (gold, solid), body⇌mind ANIMA-THREAD (dashed, lane-tinted). Shape law
+//      in both views: solid = race bond, dashed = mind bond. Adjacency (relOf/relCls) travels
+//      server-side with the page — the viewer never scrapes the DOM for relations.
+//   5. Minds wear brains — BRAIN_D glyph tinted per lane; the court triad GREAT-SAGE reads →
+//      RAPHAEL verdicts → CIEL drafts, each mount resolved from minted bodies
+//      (.claude/agents, .opencode/agents), '—' when nothing is minted (Nature 9: honest).
+//   6. Docs ride the wire, lazy by anchor — GET /<world>/doc?name= answers @S:MAP (section
+//      index, measured bytes); &sec=N answers @S:SEC (one section). Pipe-raw encoding was
+//      considered and rejected under the anti-wire clause (tokens, not eyes): @-keyed JSON.
+//   7. Instrument — net view default (vertical rows, bézier synapses), lanes view a toggle
+//      away; per-layer backgrounds; one process / :7799 / /<world>/ / --ensure heartbeat /
+//      .isekai/name were already here — verified, not duplicated.
+//   8. Names migrate by succession: no rename wave — old ids (`n-`, `e-` classes, zdata
+//      keys) keep working; new kinds get suffixes (`@hat`, `@cmd`) beside them (Law 4).
+//   9. Provenance is this header; the log entry is Rimuru's, not this file's (scope).
+// Unphotographed (rebuilt from the client contract, flagged @? in the wire report): the server
+// doc route's MAP/SEC body; the shared-row command harvest (.claude/commands, .opencode/commands)
+// and the .claude/skills merge, which the changelog names but the photos never show.
 
 const fs = require('fs');
 const path = require('path');
@@ -79,6 +114,22 @@ const rd = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; 
 // regex — strip one matching pair so the extracted text reads the same whether the source
 // quoted it or not.
 const unquote = s => (s || '').replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+// Section map of a markdown doc (the doc route's @S:MAP answer, 2026-09-21): every ATX
+// heading outside a fenced code block opens a section; `preamble` is whatever precedes the
+// first heading (frontmatter included). Bytes are measured, never estimated (Nature 9).
+function sectionMap(text) {
+  const lines = text.split('\n');
+  const sections = [];
+  let pre = [], cur = null, fence = false;
+  for (const l of lines) {
+    if (/^\s*(```|~~~)/.test(l)) fence = !fence;
+    const h = !fence && l.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (h) { cur = { n: sections.length + 1, t: h[2].trim(), depth: h[1].length, lines: [l] }; sections.push(cur); continue; }
+    if (cur) cur.lines.push(l); else pre.push(l);
+  }
+  for (const s of sections) { s.text = s.lines.join('\n'); s.b = Buffer.byteLength(s.text); delete s.lines; }
+  return { preamble: pre.join('\n'), sections };
+}
 
 // The world name (nature law 8 naming): the home's `name` file holds one line —
 // jura-style names lawful, chosen at birth/populate; it travels (rule 12 re-include).
@@ -413,8 +464,20 @@ function harvest(root) {
   // creatures its own doc names, or whose doc names it back — never assigned by hand.
   const creatures = [];
   const minds = [];
-  for (const name of dirs) {
-    const doc = rd(docOf(name));
+  // 2026-09-21 (payload B): the same scan also covers .claude/skills/<name>/SKILL.md — a
+  // `/don --project` install, or a Claude-only world with no .opencode/ at all. Merged by
+  // name AFTER .opencode/skills/ so a Mind installed in both places is one node, not two
+  // (Nature 2: no duplication); `src` remembers where it was actually read from.
+  const claudeSkillsDir = path.join(root, '.claude', 'skills');
+  const claudeDirs = fs.existsSync(claudeSkillsDir)
+    ? fs.readdirSync(claudeSkillsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name).sort()
+    : [];
+  const skillScan = [...dirs.map(name => ({ name, docPath: docOf(name), src: '.opencode/skills' })),
+    ...claudeDirs.map(name => ({ name, docPath: path.join(claudeSkillsDir, name, 'SKILL.md'), src: '.claude/skills' }))];
+  for (const { name, docPath, src } of skillScan) {
+    if (creatures.some(c => c.name === name) || minds.some(m => m.name === name)) continue;
+    const doc = rd(docPath);
+    if (!doc && src === '.claude/skills') continue; // an empty dir there is not a Mind
     const race = RACES.find(r => name.startsWith(r + '-'));
     const bytes = Buffer.byteLength(doc);
     const desc = unquote((doc.match(/^description:\s*(.+)$/m) || [])[1] || '');
@@ -423,14 +486,33 @@ function harvest(root) {
     // section); the full body (`kb`) only loads when actually donned. ~4 bytes/token, the same
     // rough estimate context-check.sh already uses and names as an estimate, not a billing
     // figure. Human 2026-09-21: "add how much it costs [a Mind] in context tokens too."
-    if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), descTok: Math.round(Buffer.byteLength(desc) / 4), desc, doc, links: [], docPath: docOf(name) }); continue; }
+    if (!race) { minds.push({ name, kb: +(bytes / 1024).toFixed(1), descTok: Math.round(Buffer.byteLength(desc) / 4), desc, doc, links: [], docPath, src }); continue; }
     // thoughts: section-scoped dated bullets (>- ## Thoughts until next ## or EOF)
     const m = doc.match(/##\s*Thoughts([\s\S]*?)(?=\n##\s|\n#\s|$)/i);
     const tBody = m ? m[1] : '';
     const thoughtLines = tBody.split('\n').filter(l => /^\s*(-|###)/.test(l) && /\d{4}-\d{2}-\d{2}/.test(l));
     const thoughtDates = thoughtLines.map(l => (l.match(/\d{4}-\d{2}-\d{2}/) || [])[0]).filter(Boolean);
     creatures.push({ name, race, kb: +(bytes / 1024).toFixed(1), thoughts: thoughtLines.length,
-      thoughtDates, limit: DESK_LIMIT(name), desc, doc, docPath: docOf(name) });
+      thoughtDates, limit: DESK_LIMIT(name), desc, doc, docPath, src });
+  }
+  // ROW 2 — SHARED SKILLS (separation law, 2026-09-21): opencode commands & app-provided
+  // skills that are NOT isekai minds. Veldora: the row does not "overload" the world's law
+  // with the host repo's tools; it names them plainly for what they are. Sourced from
+  // .opencode/commands/*.md and .claude/commands/*.md, merged by name (the same command
+  // ported to both hosts is one thing with two sources, not two things).
+  const commands = [];
+  for (const src of ['.opencode/commands', '.claude/commands']) {
+    const dir = path.join(root, ...src.split('/'));
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.md')).sort()) {
+      const name = path.basename(f, '.md');
+      const hit = commands.find(c => c.name === name);
+      if (hit) { hit.srcs.push(src); continue; }
+      const doc = rd(path.join(dir, f));
+      const desc = unquote((doc.match(/^description:\s*(.+)$/m) || [])[1] || '')
+        || ((doc.match(/^#\s+(.+)$/m) || [])[1] || '').trim();
+      commands.push({ name, srcs: [src], kb: +(Buffer.byteLength(doc) / 1024).toFixed(1), desc, docPath: path.join(dir, f) });
+    }
   }
 
   // operative /isekai + /genesis shape: .isekai/{elf,orc,slime}/<name>/*.md — no
@@ -673,7 +755,7 @@ function harvest(root) {
   const stressed = creatures.filter(c => c.thoughts > c.limit || c.dietPct > 100)
     .map(c => `${c.name} (thoughts ${c.thoughts}/${c.limit}, ${c.kb}KB/${DIET_KB}KB)`);
   return { root, world: worldName, home, canonFile, port: PORT, bodies, agentUse, when: new Date().toISOString(), canonV, chartV: chartV ? +chartV : null,
-    chartDebt: chartV !== null && +chartV !== +canonV, census, orcs, creatures, minds, days, models, tokens, live,
+    chartDebt: chartV !== null && +chartV !== +canonV, census, orcs, creatures, minds, commands, days, models, tokens, live,
     genesisWatch: creatures.filter(c => c.genesisSignal).map(c => c.name),
     ctxStress: harvestContextStress(root),
     health: stressed.length ? stressed.join(' · ') : 'all minds within budget' };
@@ -694,10 +776,35 @@ const aura = c => c.stressPct >= 100 ? 'hot' : c.stressPct >= 60 || c.dietPct >=
 // filename off the URL) from <root>/<home>/portraits/. 'plain' and 'mind' have none —
 // they keep their flat color-dot look, which is honest: they're not a named race/likeness.
 const PORTRAIT_FILE = { slime: 'slime.png', orc: 'orc.png', elf: 'elf.png', darkelf: 'dark_elf.png', highorc: 'high_orc.png', kijin: 'kijin.png' };
+// Word 19 (Veldora 2026-09-21): minds wear BRAINS, colored by their lane's reasoning.
+// Hand-drawn glyph (two lobes + crease); unit height ~12.4 → scale ≈ r*0.13 at render.
+// Lane colors reuse the ANIMA tints so a brain's hue answers "whose work does this mind do?"
+// The path is lifted verbatim from the photographed source; the tints ride CSS custom
+// properties (--l-*) instead of the source's raw hex, so light mode gets its own re-stepped
+// values (see the :root / body.light palette block) — same doctrine as RCOL above.
+const BRAIN_D = 'M0 -6 C-3.2 -6 -5.6 -4.4 -5.6 -1.6 C-7.2 -0.6 -7.2 1.8 -5.4 2.8 C-6 4.6 -4.2 6.2 -2.2 6.2 C-1.1 6.2 -0.4 5.4 0 4.4 C0.4 5.4 1.1 6.2 2.2 6.2 C4.2 6.2 6 4.6 5.4 2.8 C7.2 1.8 7.2 -0.6 5.6 -1.6 C5.6 -4.4 3.2 -6 0 -6 Z';
+const LANECOL = { smind: 'var(--l-smind)', omind: 'var(--l-omind)', gmind: 'var(--l-gmind)', shared: 'var(--l-shared)' };
+const LANE_NAME = { smind: 'zone', omind: 'verdict', gmind: 'global', shared: 'shared' };
+const brainIcon = (x, y, r, col) => `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(r * 0.13).toFixed(2)})"><path d="${BRAIN_D}" fill="${col}"/><path d="M0 -6 L0 4.4" stroke="var(--nodefill)" stroke-width="1.1" fill="none"/></g>`;
+// The court triad: who reads, who verdicts, who drafts — and WHICH MODEL rides each brain.
+// Mounts come from the minted bodies (.claude/agents / .opencode/agents frontmatter, the
+// same `bodies` harvest() already builds), matched by name family, never hand-typed. The
+// source's families (hayai / mon / kata) are its own body names; anchored here to a name
+// segment so a `slime-monitoring` body is never mistaken for RAPHAEL's mount.
+const TRIAD = [
+  { mind: 'GREAT-SAGE', role: 'reads', re: /(^|-)(great-sage|hayai)(-|$)/i },
+  { mind: 'RAPHAEL', role: 'verdicts', re: /(^|-)(raphael|mon)(-|$)/i },
+  { mind: 'CIEL', role: 'drafts', re: /(^|-)(ciel|kata)(-|$)/i },
+];
+const MODEL_COL = [{ re: /qwen/i, col: 'var(--r-slime)' }, { re: /glm/i, col: 'var(--r-orc)' }, { re: /kimi/i, col: 'var(--r-elf)' }, { re: /claude|opus|sonnet|haiku/i, col: 'var(--gd)' }];
 
 const PAGE_STYLE = `<style>
 :root{--bg:#03060c;--ink:#c9d4e3;--dim:#616b79;--cy:#2695bd;--vi:#7c5cd6;--em:#d6402a;--gd:#bd8c24;--nodefill:#05070d;
---r-slime:#2695bd;--r-orc:#7c5cd6;--r-elf:#bd8c24;--r-darkelf:#d6402a;--r-highorc:#8a7300;--r-kijin:#c53d34;--r-plain:#616b79;--r-mind:#9fb0c3}
+--r-slime:#2695bd;--r-orc:#7c5cd6;--r-elf:#bd8c24;--r-darkelf:#d6402a;--r-highorc:#8a7300;--r-kijin:#c53d34;--r-plain:#616b79;--r-mind:#9fb0c3;
+--l-smind:#4db8dd;--l-omind:#9a86e8;--l-gmind:#d4af37;--l-shared:#9fb0c3}
+/* --l-* are the ANIMA lane tints (word 15, 2026-09-21): zone / verdict / global / shared — one
+   per mind lane, lighter siblings of the race hue each lane serves, used for wear-edges and
+   the brain glyphs alike. Light mode re-steps them below. */
 /* Palette re-tuned 2026-09-20 against the dataviz skill's validate_palette.js (OKLCH
    lightness band, CVD/normal-vision Delta E, WCAG contrast) — see .isekai/tmp/palette-check/.
    Was: identical hex reused for both themes, several near the lightness ceiling for a
@@ -752,11 +859,47 @@ padding:12px 16px;border-radius:0 8px 8px 0;letter-spacing:.02em}
    re-stepped per theme (see the :root / body.light block) for exactly this legibility job —
    reusing it fixes both themes at once instead of hand-tuning a third hex. */
 line{stroke:var(--dim);stroke-width:1.3;opacity:.65}
-line.elfedge{stroke:var(--dim);stroke-width:1.3;stroke-dasharray:3 5;opacity:.65}
+/* 2026-09-21, Veldora: "add different color for each neural link" — the edge color now carries
+   its lane. Word 15: the bonds are TYPED — TRUTH-CURRENT (slime⇒orc) cyan, VERDICT-CURRENT
+   (orc⇒elf) gold, both SOLID; ANIMA-THREAD (body⇌worn mind) one DASHED shape tinted by the
+   lane it serves (zone / verdict / global / shared). Shape law, both views: solid = race bond,
+   dashed = mind bond. The .lit rule still wins when a node's attention field is up. */
+line.sgedge{stroke:var(--r-slime);stroke-width:1.2;opacity:.55}
+line.elfedge{stroke:var(--r-elf);stroke-width:1.3;opacity:.6}
 line.mindedge{stroke:var(--r-mind);stroke-width:1.2;stroke-dasharray:2 4;opacity:.75}
+line.mindedge.lan-smind,.arc.lan-smind{stroke:var(--l-smind)}
+line.mindedge.lan-omind,.arc.lan-omind{stroke:var(--l-omind)}
+line.mindedge.lan-gmind,.arc.lan-gmind{stroke:var(--l-gmind)}
 g.node{cursor:pointer;transition:transform .25s ease,opacity .25s ease;transform-box:fill-box;transform-origin:center}
 body.focused g.node{opacity:.16}body.focused g.node.focus{opacity:1;transform:scale(1.6)}
+/* attention halo: the focused node's 1-hop neighborhood holds at half-light instead of dimming
+   away — the path the signal actually travels stays visible, not just the queried node. */
+body.focused g.node.near{opacity:.6}
 body.focused line{opacity:.1}line.lit{opacity:1;stroke:var(--cy);stroke-width:1.4}
+/* Word 15/16 (Veldora 2026-09-21): "a button to switch display — a vertical neural net between
+   layers." Two views, ONE truth (same nodes, same edges, same rels): #laneView is the
+   interleaved grid; #netView stands the stack on end — rows root→crown, bonds drawn as
+   vertical bézier arcs, a pulse traveling each arc so truth is SEEN rising. The toggle never
+   forks data: both SVGs render from the same structures, page-load once. Net view is default. */
+#netView{display:none}
+body.netview #laneView{display:none}
+body.netview #netView{display:block}
+@keyframes synapse{0%{stroke-dashoffset:24}100%{stroke-dashoffset:-24}}
+.arc{stroke-dasharray:5 12;stroke-width:1.3;opacity:.6;fill:none}
+body.netview .arc{animation:synapse 1.15s linear infinite}
+/* Word 16: "relations clignote when selected" — the focused node's bonds never just stay lit,
+   they BLINK, so the eye finds the web, not the dot. Applies in both views. */
+@keyframes litblink{0%,100%{opacity:1}50%{opacity:.22}}
+body.focused line.lit,body.focused path.arc.lit,body.focused path.bond.lit{opacity:1;animation:litblink .85s ease-in-out infinite}
+body.focused .arc,body.focused .bond{opacity:.1}
+.bond{fill:none;stroke-width:1.6;opacity:.8}
+.bond.sgedge{stroke:var(--r-slime)}.bond.elfedge{stroke:var(--r-elf)}
+.arc.sgedge{stroke:var(--r-slime)}.arc.elfedge{stroke:var(--r-elf)}.arc.mindedge{stroke:var(--r-mind)}
+/* Word 18: every net layer gets its OWN background — body rows in their race family's tint,
+   mind rows echoing their lane's ANIMA color, ascended LIGHT RED (the divines burn apart even
+   in paint). The class keeps the stroke; fill travels per-row inline. */
+.netlayer{stroke:#101826}body.light .netlayer{stroke:#dbe2ee}
+@media (prefers-reduced-motion:reduce){body.netview .arc{animation:none}body.focused line.lit,body.focused path.arc.lit,body.focused path.bond.lit{animation:none;opacity:1}}
 .castface{width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:2px}
 .focusface{width:56px;height:56px;border-radius:50%;object-fit:cover;float:left;margin:0 12px 6px 0;
 border:1.6px solid var(--dim)}
@@ -776,6 +919,28 @@ color:var(--dim);font-size:22px;line-height:1;cursor:pointer;padding:4px 8px}
 .modal-close:hover{color:var(--ink)}
 .modal-box .docbox{max-height:none}
 body.light .modal-box{background:#fff;box-shadow:0 20px 60px rgba(20,30,50,.25)}
+/* Word 14 (Veldora 2026-09-21): clicking a creature opens the VIEWER — a tabbed inspector,
+   not a doc dump. Metrics first (relations, attention, desks), relations second, doc last.
+   Right-docked so the graph + halo stay visible behind it — inspection is reading WITH the
+   world in view, not instead of it. Replaces the centered modal; same open/close gestures. */
+.viewer-backdrop{position:fixed;inset:0;z-index:50;display:none}
+.viewer{position:absolute;top:58px;right:22px;width:430px;max-width:90vw;background:#0a0f18;
+border:1px solid #1a2436;border-radius:12px;padding:16px 18px;max-height:84vh;overflow:auto;
+box-shadow:0 24px 60px rgba(0,0,0,.55)}
+body.light .viewer{background:#fff;border-color:#dbe2ee;box-shadow:0 20px 60px rgba(20,30,50,.22)}
+.vtabs{display:flex;gap:6px;margin:10px 0 12px}
+.vtabs button{background:transparent;border:1px solid #1a2436;color:var(--dim);font:inherit;
+font-size:10px;letter-spacing:.16em;text-transform:uppercase;padding:5px 12px;border-radius:999px;cursor:pointer}
+.vtabs button.active{color:var(--cy);border-color:var(--cy);box-shadow:0 0 10px rgba(89,214,255,.35)}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.vstat{border:1px solid #1a2436;border-radius:8px;padding:8px 10px;background:rgba(13,20,32,.4)}
+.vstat b{font-size:16px;color:var(--ink)}.vstat .lbl{font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+body.light .vstat{background:rgba(255,255,255,.6);border-color:#cfdae9}
+.vrel a{color:var(--cy);cursor:pointer;text-decoration:none;display:block;padding:3px 0}
+.vrel a:hover{text-decoration:underline}
+.vlane{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:8px 0 2px}
+.vsec{display:block;padding:4px 0;color:var(--cy);cursor:pointer;text-decoration:none}
+.vsec:hover{text-decoration:underline}
 tr[data-name]:hover{background:rgba(89,214,255,.06)}
 .tbtns{float:right}.tbtns button{background:rgba(13,20,32,.6);border:1px solid #1a2436;color:var(--ink);
 font:inherit;font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:6px 14px;border-radius:999px;
@@ -787,7 +952,8 @@ body.stressmode .node.hot{animation:blink 1.05s ease-in-out infinite}
 body.stressmode .node.warn{animation:blink 1.9s ease-in-out infinite}
 body.light{--bg:#edf1f7;--ink:#1c2634;--dim:#4b5568;--nodefill:#ffffff;
 --cy:#1a7fa3;--vi:#5c3fc9;--em:#b8341f;--gd:#8a6600;
---r-slime:#1a7fa3;--r-orc:#5c3fc9;--r-elf:#8a6600;--r-darkelf:#b8341f;--r-highorc:#6b7400;--r-kijin:#a12e26;--r-plain:#4b5568;--r-mind:#546578}
+--r-slime:#1a7fa3;--r-orc:#5c3fc9;--r-elf:#8a6600;--r-darkelf:#b8341f;--r-highorc:#6b7400;--r-kijin:#a12e26;--r-plain:#4b5568;--r-mind:#546578;
+--l-smind:#1a7fa3;--l-omind:#5c3fc9;--l-gmind:#8a6600;--l-shared:#546578}
 /* Light steps are their own re-stepped values, not the dark hexes with the background
    flipped — the same ramps, validated separately against the light surface. */
 body.light::before{background:radial-gradient(900px 480px at 78% -8%,rgba(30,140,200,.10),transparent 62%),
@@ -818,97 +984,166 @@ body.fest main{animation:fest 2.6s ease}
 
 function render(d) {
   // --- neural-layer geometry ---
-  // The colony as a neural net: slimes = input layer, orcs = hidden layer,
-  // elf = output, dark elf burns beyond. Radius ∝ √(KB / 6KB law): an
-  // over-diet mind GROWS INTO its neighbors — collisions aren't layout bugs,
-  // they're the noise made visible (human doctrine 2026-09-14).
-  const W = 1180, H = 700;
+  // The colony as a neural net: slimes = input layer, orcs = hidden layer, elf = output, the
+  // ascended burn beyond. Radius ∝ √(KB / 6KB law): an over-diet mind GROWS INTO its neighbors
+  // — collisions aren't layout bugs, they're the noise made visible (human doctrine 2026-09-14).
+  const W = 1240; // H is no longer a constant — derived after the pack (below).
   const byName = {};
   for (const c of d.creatures) byName[c.name] = c;
   const resolve = n => byName[n] || byName[Object.keys(byName).find(k => n.endsWith(k) || k.endsWith(n)) || ''];
   const rad = c => Math.round(100 * 11 * Math.sqrt(Math.max(c.kb, 0.5) / 6)) / 100;
-  // Human 2026-09-21, full thread: "I want [minds] after slime like 4th level" → "only slime
-  // link[s] to skills so be relative" → "or after orc if orc orchester[s] skill to slime,
-  // match the architecture" — settled on slime → orc → minds → elf: the Orc is the one that
-  // "rules its domain; commands its Slimes; validates their work" (isekai.md), so it reads as
-  // Orc reaching for a Mind before results flow up to Elf. The harmony-link data itself still
-  // isn't race-restricted (a Mind links to *any* creature whose doc mentions it, never
-  // hand-assigned) — this is a visual/architectural framing choice, not a data constraint.
-  const X = { slime: 150, orc: 440, mind: 730, elf: 1020 };
-  // Every node type used a different label position before (slime left, orc above, elf right,
-  // mind below) — each individually safe, but inconsistent and still fragile. One rule now,
-  // for every node: centered, below, clearing the halo (r*1.7 + 8) — human 2026-09-21: "always
-  // load text below cercle so no collision happens for every thing."
+  // Veldora 2026-09-21 — the day's words on layout, each superseding the last, kept dated for
+  // the record: (1) slime → orc → minds → elf; (2) slime → minds → orc → elf; (3) three service
+  // lanes by service; (4) canonical interleaved order; (5) uniform grid; (6) two framed regions
+  // — JUDGED OFF; (7) "keep old formal minds between races, use a global grid system, and the
+  // parts are the NEXT ROW"; (8–12) stacked rows → strips → hats → adaptation loop → ascended
+  // lane; (13) "we should switch places of slime and zone minds — same for orc/elf": minds LEFT
+  // of the rank they serve. Tools before hands: zone minds | slime | verdict minds | orc |
+  // global minds | elf | ascended — each rank preceded by the hats it wears.
+  // Word 16b: "latest col colliding — use % css like bootstrap": percentage centers at
+  // (i+.5)/7 of W, so the grid re-balances itself at ANY lane count or width change.
+  const gx = i => Math.round((i + 0.5) / 7 * W);
+  const X = { smind: gx(0), slime: gx(1), omind: gx(2), orc: gx(3), gmind: gx(4), elf: gx(5), asc: gx(6) };
+  // One label rule for every node: centered, below, clearing the halo (r*1.7 + 8) — human
+  // 2026-09-21: "always load text below cercle so no collision happens for every thing."
   const below = (x, y, r) => ({ anch: 'middle', lx: x, ly: y + r * 1.7 + 8 });
-  // Human 2026-09-21: "prepare places for ascended races" — highorc/darkelf/kijin had NO
-  // placement logic at all before this (only darkelf got a fixed corner, and highorc/kijin
-  // never rendered in the graph even when present in the cast table). They're rare, "born in
-  // time" (isekai.md), and don't each anchor to one base column the way orc/elf do — so they
-  // share one reserved shelf below a dashed divider, visible and labeled even at zero
-  // population, instead of three separate speculative column slots.
-  const shelfDivider = H - 130, layerBottom = shelfDivider - 40, ascShelfY = shelfDivider + 55;
   const nodes = [], edges = [];
-  const spread = list => list.map((it, i) => ({ ...it, y: 74 + (layerBottom - 74) * (i + 1) / (list.length + 1) }));
+  // Server-side adjacency — the relation truth travels WITH the page (the viewer reads ONE
+  // structure, never a DOM-scrape shadow of the graph). relCls = bond type per unordered pair,
+  // which the net view tints its arcs by (word 15).
+  const relOf = {};
+  const relCls = {};
+  const relAdd = (a, b, cls) => { relCls[a < b ? a + '|' + b : b + '|' + a] = cls;
+    for (const [x, y] of [[a, b], [b, a]]) { const l = relOf[x] = relOf[x] || []; if (!l.includes(y)) l.push(y); } };
+  // 2026-09-21 collision fix (Veldora: "the text are colliding with slimes"): the old uniform
+  // spread gave every row an EQUAL pitch inside a fixed H=700 band, blind to radii. Columns
+  // now pack top-down from actual radii (Δy ≥ (rA+rB)*1.7 + 26 ⇒ a label band always clears
+  // the next halo), and the canvas GROWS in H to fit instead of squeezing creatures into each
+  // other. The 2026-09-14 growth doctrine stands for node art; it never licensed label
+  // collisions. layerBottom, sharedDivider and H itself are computed right after the pack.
+  const pack = items => { let y = 74, prev = null;
+    return items.map(it => { if (prev) y += Math.ceil((prev.r + it.r) * 1.7 + 26); prev = it; return { ...it, y }; }); };
   const slimeSeq = [];
   for (const o of d.orcs) for (const s of o.slimes) slimeSeq.push({ s, orc: o.orc });
-  const slimeNodes = spread(slimeSeq).map(({ s, orc, y }) => {
+  const slimeNodes = pack(slimeSeq.map(({ s, orc }) => {
     const c = resolve(s) || { kb: 6, stressPct: 0, race: 'slime', thoughts: 0, limit: 5, crosslinks: 0 };
-    const r = rad(c);
-    return { name: s, c, x: X.slime, y, r, orc, ...below(X.slime, y, r) };
-  });
-  const orcNodes = spread(d.orcs.map(o => ({ o }))).map(({ o, y }) => {
+    return { name: s, c, x: X.slime, r: rad(c), orc };
+  })).map(n => ({ ...n, ...below(n.x, n.y, n.r) }));
+  const orcNodes = pack(d.orcs.map(o => {
     const c = resolve(o.orc) || { kb: 6, stressPct: 0, race: 'orc', thoughts: 0, limit: 5, crosslinks: 0 };
-    const r = rad(c);
-    return { name: o.orc, c, x: X.orc, y, r, ...below(X.orc, y, r) };
-  });
+    return { name: o.orc, c, x: X.orc, r: rad(c) };
+  })).map(n => ({ ...n, ...below(n.x, n.y, n.r) }));
   const orcByName = {}; for (const n of orcNodes) orcByName[n.name] = n;
+  // TRUTH-CURRENT (slime⇒orc): ground facts flow up. Solid, slime-cyan (word 15).
   for (const sn of slimeNodes) { const oc = orcByName[sn.orc];
-    if (oc) edges.push(`<line class="e-${oc.name} e-${sn.name}" x1="${sn.x.toFixed(1)}" y1="${sn.y.toFixed(1)}" x2="${oc.x.toFixed(1)}" y2="${oc.y.toFixed(1)}"/>`); }
+    if (oc) { edges.push(`<line class="sgedge e-${esc(oc.name)} e-${esc(sn.name)}" x1="${sn.x.toFixed(1)}" y1="${sn.y.toFixed(1)}" x2="${oc.x.toFixed(1)}" y2="${oc.y.toFixed(1)}"/>`); relAdd(oc.name, sn.name, 'sgedge'); } }
   nodes.push(...slimeNodes, ...orcNodes);
-  // Minds (skills) — the 3rd column now, between orc and elf. Still not a layer, not raced:
-  // linked to whichever creature nodes the harmony pass above actually found a textual reason
-  // to connect (see harvest()'s "Mind ↔ creature harmony links") — never hand-assigned, and
-  // drawn with zero edges when nothing in the world actually names it yet, which is itself an
-  // honest reading, not a bug. Spread vertically exactly like the creature layers now that it
-  // has its own column — the old horizontal-shelf name truncation is gone with it; a vertical
-  // column doesn't fight its neighbor for the same row the way a tight horizontal shelf did.
-  const mindNodes = spread(d.minds || []).map(m => {
-    const mc = { race: 'mind', kb: m.kb, descTok: m.descTok, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1, crosslinks: m.links.length, genesisSignal: false, desc: m.desc, uses: m.uses };
-    const r = Math.max(9, Math.min(18, rad(mc) * 0.55 + Math.min(m.uses, 10) * 0.4));
-    return { name: m.name, c: mc, x: X.mind, y: m.y, r, ...below(X.mind, m.y, r), links: m.links };
-  });
+  // Minds (skills) — THREE service lanes (zone / verdict / global) plus the shared row. Not
+  // ranks — lanes of service; a mind still links to whichever creature nodes the harmony pass
+  // found a textual reason to connect (see harvest()'s "Mind ↔ creature harmony links"), never
+  // hand-assigned, and draws zero edges when nothing names it — honest reading, not bug.
+  // Lane assignment is DATA, no table to maintain (isekai.md: "a mind's place is whom it
+  // serves, derived from real wearers/links"): any linked wearer who is an elf or an ascended →
+  // GLOBAL lane (the voice's and divines' tools); uniform slime wearers → ZONE; uniform orc
+  // wearers → VERDICT; MIXED base-race wearers → SHARED row; zero wearers → race-prefix
+  // fallback (slime-* zone, orc-* verdict, elf-/darkelf-/… global), default shared — "a mind
+  // nobody wears is nobody's private tool."
+  const laneOf = m => {
+    const races = new Set();
+    for (const ln of m.links) { const c = resolve(ln); if (c && c.race) races.add(c.race); }
+    if ([...races].some(r => r === 'elf' || r === 'darkelf' || r === 'highorc' || r === 'kijin')) return 'gmind';
+    const base = [...races].filter(r => r === 'slime' || r === 'orc');
+    if (base.length === 1) return base[0] === 'slime' ? 'smind' : 'omind';
+    if (base.length > 1) return 'shared';
+    return /^slime-/.test(m.name) ? 'smind' : /^orc-/.test(m.name) ? 'omind'
+      : /^(elf|darkelf|highorc|kijin)-/.test(m.name) ? 'gmind' : 'shared';
+  };
+  // Creature = BODY + MIND (word 10: "break current creature into body and mind"). Every
+  // race-prefixed skill is BOTH: its body renders in its rank lane (above), and its worn hat
+  // renders here as a dashed mind in its service lane — slime's hat in ZONE, orc's hat in
+  // VERDICT, elf's + ascended divines' hats in GLOBAL. The hat carries exactly one harmony
+  // link (its body): the ANIMA-THREAD wear-edge, the two halves of one creature drawn apart,
+  // linked. This is also why the lanes were empty before: the know-how was counted only as
+  // body, never drawn as hat.
+  // Adaptation loop (word 11, isekai.md §Minds & Bodies): THE DESK LIVES IN THE HAT. The dated
+  // ## Thoughts count, its ~5 limit and the stress it implies are drawn on the mind that was
+  // worn when they were earned; the body keeps kb / diet / crosslinks / genesis — the durable
+  // facts that must adapt in the same change once the hat reads stressed.
+  const hatLane = race => race === 'slime' ? 'smind' : race === 'orc' ? 'omind' : 'gmind';
+  const hatOf = c => { const lane = hatLane(c.race);
+    const mc = { race: 'mind', kb: c.kb, descTok: Math.round((c.desc || '').length / 4), stressPct: c.stressPct, dietPct: 0,
+      thoughts: c.thoughts, limit: c.limit, crosslinks: 1, genesisSignal: false, desc: c.desc || '', uses: 0, lastThought: c.lastThought || null };
+    return { name: c.name + '@hat', base: c.name, label: c.name.replace(/^(slime|orc|elf|darkelf|highorc|kijin)-/, ''),
+      c: mc, lane, r: Math.max(9, Math.min(18, rad(mc) * 0.55)), links: [c.name] }; };
+  const hats = d.creatures.map(hatOf);
+  const mindBody = (m, lane) => { const mc = { race: 'mind', kb: m.kb, descTok: m.descTok, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1,
+    crosslinks: m.links.length, genesisSignal: false, desc: m.desc, uses: m.uses, src: m.src };
+    return { name: m.name, c: mc, lane, r: Math.max(9, Math.min(18, rad(mc) * 0.55 + Math.min(m.uses, 10) * 0.4)), links: m.links }; };
+  // One pack per lane, hats + free minds together — two packs in one lane would re-collide.
+  const laneNodes = lane => pack([...hats.filter(h => h.lane === lane),
+    ...(d.minds || []).filter(m => laneOf(m) === lane).map(m => mindBody(m, lane))]
+    .map(n => ({ ...n, x: X[lane] }))).map(n => ({ ...n, ...below(n.x, n.y, n.r) }));
+  const smindNodes = laneNodes('smind');
+  const omindNodes = laneNodes('omind');
+  const gmindNodes = laneNodes('gmind');
+  // SHARED skills are not a lane column — they own ROW 2, a full-width band of their own
+  // (word 7/8: stacked under the lanes row, never side-by-side with it; cells collided with
+  // row 1's lane x-slices). Two kinds ride it: Minds nobody wears (laneOf → 'shared') and the
+  // host commands (.opencode/commands, .claude/commands — `<name>@cmd`, no harmony links: a
+  // command is a procedure, not know-how a creature dons). Their harmony links, if any, still
+  // draw up into row 1 — wearing crosses rows.
+  const sharedList = (d.minds || []).filter(m => laneOf(m) === 'shared');
+  const cmdNode = k => ({ name: k.name + '@cmd', label: '/' + k.name, kind: 'command', lane: 'shared', links: [],
+    c: { race: 'mind', kb: k.kb, descTok: 0, stressPct: 0, dietPct: 0, thoughts: 0, limit: 1, crosslinks: 0, genesisSignal: false, desc: k.desc || '', uses: 0, srcs: k.srcs },
+    r: Math.max(9, Math.min(14, rad(k) * 0.5)) });
+  const sharedSeq = [...sharedList.map(m => mindBody(m, 'shared')), ...(d.commands || []).map(cmdNode)];
+  const sharedX = i => 100 + (W - 200) * (i + 1) / (sharedSeq.length + 1);
+  const sharedNodes = sharedSeq.map((n, i) => ({ ...n, x: sharedX(i) })); // y set after geometry is derived below
+  const mindNodes = [...smindNodes, ...omindNodes, ...gmindNodes, ...sharedNodes];
   nodes.push(...mindNodes);
-  // Elf(s): found generically by race, never by an assumed literal name — a world's Elf
-  // is not always named "elf-colony" (that was one demo world's own name, not a schema).
-  // Spread vertically like orcs/slimes if a world ever has more than one (Nature 6 — an
-  // elf-colony forming from 2+ elves thinking alike is a real possibility, not the default).
-  const elfNodes = spread(d.creatures.filter(c => c.race === 'elf').map(c => ({ c }))).map(({ c, y }) => {
-    const r = rad(c);
-    return { name: c.name, c, x: X.elf, y, r, ...below(X.elf, y, r) };
-  });
+  // Elf(s): found generically by race, never by an assumed literal name — a world's Elf is not
+  // always named "elf-colony" (that was one demo world's own name, not a schema). Packed like
+  // orcs/slimes if a world ever has more than one (Nature 6 — an elf-colony forming from 2+
+  // elves thinking alike is a real possibility, not the default).
+  const elfNodes = pack(d.creatures.filter(c => c.race === 'elf').map(c => ({ name: c.name, c, x: X.elf, r: rad(c) })))
+    .map(n => ({ ...n, ...below(n.x, n.y, n.r) }));
   nodes.push(...elfNodes);
-  for (const en of elfNodes) for (const oc of orcNodes)
-    edges.push(`<line class="elfedge e-${en.name} e-${oc.name}" x1="${oc.x.toFixed(1)}" y1="${oc.y.toFixed(1)}" x2="${en.x.toFixed(1)}" y2="${en.y.toFixed(1)}"/>`);
-  // Ascended shelf: highorc + darkelf + kijin together, spread across the same reserved band —
-  // rendered as real nodes (portrait, halo, label-below, same as any other race) if any exist,
-  // but the divider + caption + zone tint are drawn unconditionally below, so the place is
-  // visible and named even at zero population.
+  // VERDICT-CURRENT (orc⇒elf): rulings rise, wisdom descends. Solid, elf-gold (word 15).
+  for (const en of elfNodes) for (const oc of orcNodes) {
+    edges.push(`<line class="elfedge e-${esc(en.name)} e-${esc(oc.name)}" x1="${oc.x.toFixed(1)}" y1="${oc.y.toFixed(1)}" x2="${en.x.toFixed(1)}" y2="${en.y.toFixed(1)}"/>`); relAdd(en.name, oc.name, 'elfedge'); }
+  // Ascended — a full lane now (word 13, X.asc above), not an under-chart shelf: highorc +
+  // darkelf + kijin pack vertically in the seventh column like every other lane. Portrait,
+  // halo, label-below — bodies' dress ("the ascended are bodies of bodies"). Computed BEFORE
+  // the geometry so the ascended lane counts toward the deepest column. Drawn at zero
+  // population too: the lane tint + caption keep the place visible and named.
   const ascended = d.creatures.filter(c => c.race === 'highorc' || c.race === 'darkelf' || c.race === 'kijin');
-  const ascX = i => 40 + (W - 80) * (i + 1) / (ascended.length + 1);
-  const ascendedNodes = ascended.map((c, i) => {
-    const r = rad(c), x = ascX(i), y = ascShelfY;
-    return { name: c.name, c, x, y, r, ...below(x, y, r) };
-  });
+  const ascendedNodes = pack(ascended.map(c => ({ name: c.name, c, x: X.asc, r: rad(c) })))
+    .map(n => ({ ...n, ...below(n.x, n.y, n.r) }));
   nodes.push(...ascendedNodes);
-  // Mind-edge linking happens last, once every node type (including elf and the ascended
-  // shelf) actually exists in `nodes` — a Mind can link to a creature of *any* race (never
+  // Derived geometry — once all seven packed columns exist: the lanes row closes below the
+  // deepest column's label band; ONE remainder row (shared skills) hangs under it; H follows.
+  // Fixed-H uniform spread is the collision bug this family of fixes replaced — never return.
+  const deepest = Math.max(260, ...[slimeNodes, smindNodes, omindNodes, orcNodes, gmindNodes, elfNodes, ascendedNodes]
+    .map(col => col.length ? col[col.length - 1].y + col[col.length - 1].r * 1.7 + 26 : 74));
+  const layerBottom = Math.ceil(deepest), sharedDivider = layerBottom + 12,
+    sharedShelfY = sharedDivider + 65, H = sharedDivider + 132;
+  // Row 2 packs horizontally, so a crowded row (this world: 10 shared skills in 1240px) would
+  // stack ten labels on one baseline — zig-zag alternate labels one line lower when the pitch
+  // is tighter than a label is wide, and clip long names the way the net view already does.
+  const sharedPitch = sharedNodes.length > 1 ? (W - 200) / (sharedNodes.length + 1) : W;
+  sharedNodes.forEach((n, i) => { n.y = sharedShelfY; Object.assign(n, below(n.x, n.y, n.r));
+    if (sharedPitch < 140) { if (i % 2) n.ly += 12; n.label = (n.label || n.name).slice(0, 16); } });
+  // Mind-edge linking happens last, once every node type (including elf and the ascended lane)
+  // actually exists in `nodes` — a Mind can link to a creature of *any* race (never
   // race-restricted, see above), so building this lookup before elf/ascended existed would
-  // have silently dropped any edge pointing at one of them.
+  // have silently dropped any edge pointing at one of them. ANIMA-THREAD: dashed, lane-tinted.
   const nodeByName = {}; for (const n of nodes) nodeByName[n.name] = n;
   for (const mn of mindNodes) for (const linkName of mn.links) {
     const t = nodeByName[linkName];
     if (!t) continue;
-    edges.push(`<line class="mindedge e-${mn.name} e-${linkName}" x1="${mn.x.toFixed(1)}" y1="${mn.y.toFixed(1)}" x2="${t.x.toFixed(1)}" y2="${t.y.toFixed(1)}"/>`);
+    const cls = 'mindedge lan-' + (mn.lane || 'shared');
+    edges.push(`<line class="${cls} e-${esc(mn.name)} e-${esc(linkName)}" x1="${mn.x.toFixed(1)}" y1="${mn.y.toFixed(1)}" x2="${t.x.toFixed(1)}" y2="${t.y.toFixed(1)}"/>`);
+    relAdd(mn.name, linkName, cls);
     // Human 2026-09-21: "if slime used skill it will link to it with a variable of how much
     // time it used." Honest limit, named rather than guessed past: Claude Code's own
     // transcripts don't attribute a Skill invocation to which specific creature/subagent
@@ -922,34 +1157,51 @@ function render(d) {
     }
   }
   const zoneRects = [
-    { x: X.slime, race: 'slime' }, { x: X.orc, race: 'orc' },
-    { x: X.mind, race: 'mind' }, { x: X.elf, race: 'elf' },
-  ].map(({ x, race }) =>
-    `<rect x="${(x - 120).toFixed(1)}" y="48" width="240" height="${(layerBottom - 8).toFixed(1)}" rx="14" fill="${RCOL[race]}" fill-opacity="0.05"/>`
+    // One global grid, seven lanes (word 13 ordering). Bodies tint wide, mind lanes tint slim.
+    { x: X.smind, race: 'mind', half: 72 }, { x: X.slime, race: 'slime', half: 95 },
+    { x: X.omind, race: 'mind', half: 72 }, { x: X.orc, race: 'orc', half: 90 },
+    { x: X.gmind, race: 'mind', half: 72 }, { x: X.elf, race: 'elf', half: 95 },
+    { x: X.asc, race: 'darkelf', half: 82 }, // ascended tint = LIGHT RED in lanes too (word 18)
+  ].map(({ x, race, half }) =>
+    // lane tints stop 8px short of the row-2 divider (a fixed `layerBottom - 8` height read
+    // off the photographs overshot it by 28px once the divider moved to layerBottom + 12).
+    `<rect x="${(x - half).toFixed(1)}" y="48" width="${half * 2}" height="${(sharedDivider - 56).toFixed(1)}" rx="14" fill="${RCOL[race]}" fill-opacity="0.05"/>`
   ).join('') +
-    `<rect x="40" y="${shelfDivider}" width="${W - 80}" height="${(H - 20 - shelfDivider).toFixed(1)}" rx="14" fill="var(--dim)" fill-opacity="0.04"/>`;
-  const layerTags = `<text class="ax" x="${X.slime}" y="36" text-anchor="middle">INPUT — SLIMES</text>` +
-    `<text class="ax" x="${X.orc}" y="36" text-anchor="middle">ORCHESTRATES — ORCS</text>` +
-    `<text class="ax" x="${X.mind}" y="36" text-anchor="middle">TOOLING — MINDS</text>` +
-    `<text class="ax" x="${X.elf}" y="36" text-anchor="middle">OUTPUT — ELF ⋄ AWAKENED ABOVE</text>` +
-    `<line x1="40" y1="${shelfDivider}" x2="${W - 40}" y2="${shelfDivider}" stroke="#2a3a52" stroke-width="1" stroke-dasharray="7 5"/>` +
-    `<text class="ax" x="${W / 2}" y="${shelfDivider + 18}" text-anchor="middle">⋄ ASCENDED — HIGH ORC · DARK ELF · KIJIN${ascended.length ? '' : ' (none born yet — place reserved)'}</text>`;
-  const nodeSvg = layerTags + nodes.map(({ name, c, x, y, r, lx, ly, anch, label }) => {
+    // The one remainder row (shared skills) — strips per node, the column style rotated into
+    // the row (word 9); a faint blanket keeps the place named + present when empty (shelf law).
+    sharedNodes.map(n =>
+      `<rect x="${(n.x - 62).toFixed(1)}" y="${(sharedDivider + 34).toFixed(1)}" width="124" height="${(H - 20 - (sharedDivider + 34)).toFixed(1)}" rx="12" fill="${RCOL.mind}" fill-opacity="0.05"/>`
+    ).join('') +
+    (sharedNodes.length ? '' : `<rect x="40" y="${sharedDivider}" width="${W - 80}" height="${(H - 20 - sharedDivider).toFixed(1)}" rx="14" fill="${RCOL.mind}" fill-opacity="0.05"/>`);
+  const layerTags = `<text class="ax" x="${X.smind}" y="36" text-anchor="middle">ZONE MINDS</text>` +
+    `<text class="ax" x="${X.slime}" y="36" text-anchor="middle">INPUT — SLIMES</text>` +
+    `<text class="ax" x="${X.omind}" y="36" text-anchor="middle">VERDICT MINDS</text>` +
+    `<text class="ax" x="${X.orc}" y="36" text-anchor="middle">ORCS — GATE</text>` +
+    `<text class="ax" x="${X.gmind}" y="36" text-anchor="middle">GLOBAL MINDS</text>` +
+    `<text class="ax" x="${X.elf}" y="36" text-anchor="middle">OUTPUT — ELF · ABOVE</text>` +
+    `<text class="ax" x="${X.asc}" y="36" text-anchor="middle">⋄ ASCENDED</text>` +
+    (ascended.length ? '' : `<text class="ax" x="${X.asc}" y="${Math.round(layerBottom / 2 + 24)}" text-anchor="middle" opacity="0.7">none born yet</text><text class="ax" x="${X.asc}" y="${Math.round(layerBottom / 2 + 38)}" text-anchor="middle" opacity="0.7">place reserved</text>`) +
+    `<line x1="40" y1="${sharedDivider}" x2="${W - 40}" y2="${sharedDivider}" stroke="#2a3a52" stroke-width="1" stroke-dasharray="7 5"/>` +
+    `<text class="ax" x="${W / 2}" y="${sharedDivider + 18}" text-anchor="middle">ROW 2 ⋄ SHARED SKILLS — OPENCODE COMMANDS &amp; APP SKILLS, NOT ISEKAI MINDS${sharedNodes.length ? '' : ' (none yet — place reserved)'}</text>`;
+  const nodeSvg = layerTags + nodes.map(({ name, c, x, y, r, lx, ly, anch, label, base, lane, kind }) => {
     const col = RCOL[c.race] || RCOL.plain, au = aura(c);
     const tip = c.race === 'mind'
-      ? `${esc(name)} — Mind · ${c.kb}KB (≈${c.descTok} tok resident) · ${c.uses} use${c.uses === 1 ? '' : 's'} · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`
-      : `${esc(name)} — ${esc(c.race)} · ${c.kb}KB · desk ${c.thoughts}/${c.limit} · links ${c.crosslinks ?? '–'}${c.genesisSignal ? ' · ⋄ genesis watch' : ''}`;
+      ? (base ? `${esc(base)} — its worn MIND · the hat, not the head · desk ${c.thoughts}/${c.limit} (stress ${c.stressPct}%) · ${c.kb}KB (≈${c.descTok} tok resident in its wearer's context)`
+        : kind === 'command' ? `/${esc(name.replace(/@cmd$/, ''))} — host command (${esc((c.srcs || []).join(', '))}) · ${c.kb}KB · shared skill, not an isekai mind${c.desc ? ' — ' + esc(c.desc) : ''}`
+        : `${esc(name)} — Mind · ${LANE_NAME[lane] || 'shared'} lane · ${c.kb}KB (≈${c.descTok} tok resident) · ${c.uses} use${c.uses === 1 ? '' : 's'} · worn by ${c.crosslinks} creature${c.crosslinks === 1 ? '' : 's'}${c.desc ? ' — ' + esc(c.desc) : ''}`)
+      : `${esc(name)} — ${esc(c.race)} · ${c.kb}KB · desk ${c.thoughts}/${c.limit} (on its hat) · links ${c.crosslinks ?? '–'}${c.genesisSignal ? ' · ⋄ genesis watch' : ''}`;
     const portrait = PORTRAIT_FILE[c.race];
     // A portrait fills the node's face at ~0.85r (leaving the ring's own stroke visible) in
-    // place of the old flat color dot; races with no portrait (plain/mind) keep that dot —
-    // it's honest, they're not a named likeness. Radius still ∝ √(KB) either way, so a face
-    // grows into its neighbors exactly like the plain dot did (Nature law unchanged, art added).
+    // place of the old flat color dot; minds take the lane-colored brain glyph (word 19);
+    // anything else keeps the dot — honest, it's not a named likeness. Radius still ∝ √(KB)
+    // either way, so a face grows into its neighbors exactly like the plain dot did.
     const pr = r * 0.85;
     const core = portrait
       ? `<clipPath id="clip-${esc(name)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${pr.toFixed(1)}"/></clipPath>
       <image href="portrait/${c.race}" x="${(x - pr).toFixed(1)}" y="${(y - pr).toFixed(1)}" width="${(pr * 2).toFixed(1)}" height="${(pr * 2).toFixed(1)}"
         preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${esc(name)})" onerror="this.remove()"/>`
-      : `<circle class="core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 0.45).toFixed(1)}" fill="${col}"/>`;
+      : (c.race === 'mind' ? brainIcon(x, y, r, LANECOL[lane] || LANECOL.shared)
+        : `<circle class="core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 0.45).toFixed(1)}" fill="${col}"/>`);
     return `<g id="n-${esc(name)}" data-name="${esc(name)}" class="node ${au}${c.race === 'mind' ? ' mind' : ''}${c.genesisSignal ? ' gs' : ''}">
       <circle class="halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r * 1.7).toFixed(1)}" fill="${col}"/>
       <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="var(--nodefill)" stroke="${col}" stroke-width="1.6" stroke-dasharray="${c.race === 'mind' ? '3 2' : 'none'}"/>
@@ -957,6 +1209,82 @@ function render(d) {
       <text text-anchor="${anch}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${esc(label || name.replace(/^(slime|orc|elf|darkelf|highorc|kijin)-/, ''))}</text>
       <title>${tip}</title></g>`;
   }).join('');
+
+  // ---------- WORD 15/16: THE NET VIEW — vertical neural net between layers ----------
+  // Same truth, re-rooted geometry: lanes become ROWS stacked signal-root→crown (zone minds /
+  // slimes at root, elf at crown, ascended above all); bonds become vertical bézier synapses
+  // tinted per bond law (.arc + sgedge/elfedge/lan-*); each carries e- classes so focus lights
+  // and BLINKS the selected creature's web in this view too (Veldora: "relations clignote
+  // when selected"). Word 18: every row paints its own background — race family for bodies,
+  // ANIMA tint for mind rows, light red for the ascended.
+  const NETROWS = [
+    { label: '⋄ ASCENDED — born in time', nodes: ascendedNodes, fill: 'rgba(214,64,42,0.09)' },
+    { label: 'CROWN — ELF OUTPUT', nodes: elfNodes, fill: 'rgba(189,140,36,0.08)' },
+    { label: 'GLOBAL MINDS', nodes: gmindNodes, fill: 'rgba(212,175,55,0.06)' },
+    { label: 'ORCS — THE GATE', nodes: orcNodes, fill: 'rgba(124,92,214,0.08)' },
+    { label: 'VERDICT MINDS', nodes: omindNodes, fill: 'rgba(154,134,232,0.06)' },
+    { label: 'INPUT — SLIMES', nodes: slimeNodes, fill: 'rgba(38,149,189,0.08)' },
+    { label: 'ZONE MINDS', nodes: smindNodes, fill: 'rgba(77,184,221,0.06)' },
+    { label: '⋄ SHARED SKILLS — opencode commands & app skills, not isekai minds', nodes: sharedNodes, fill: 'rgba(159,176,195,0.06)' },
+  ];
+  const NETM = 96, NETR = 118, netTop = 44;
+  const netPos = {};
+  let netLayerSvg = '';
+  NETROWS.forEach((row, i) => {
+    const y = netTop + i * NETR, cy = y + NETR / 2;
+    netLayerSvg += `<rect class="netlayer" x="40" y="${y}" width="${W - 80}" height="${NETR - 14}" rx="14" fill="${row.fill}"/>` +
+      `<text class="ax" x="58" y="${y + 18}">${esc(row.label)}${row.nodes.length ? ' · ' + row.nodes.length : ' — place reserved'}</text>`;
+    row.nodes.forEach((n, j) => { netPos[n.name] = { x: NETM + (W - 2 * NETM) * (j + 0.5) / row.nodes.length, y: cy, n }; });
+  });
+  const netH = netTop + NETROWS.length * NETR + 8;
+  let netArcSvg = '';
+  for (const key of Object.keys(relCls)) {
+    const [a, b] = key.split('|'), A = netPos[a], B = netPos[b];
+    if (!A || !B) continue;
+    const cls = relCls[key];
+    // Word 17–17b (Veldora 2026-09-21): "continue lines" meant CONTINUOUS stroke, not straight
+    // — and the curved arcs won. Every bond is a bézier between layers; race bonds carry
+    // class .bond (solid, unbroken current), mind bonds carry .arc (dashed, pulsing thread).
+    const mx = (A.x + B.x) / 2;
+    const pth = `M${A.x.toFixed(1)} ${A.y.toFixed(1)} C ${mx.toFixed(1)} ${A.y.toFixed(1)} ${mx.toFixed(1)} ${B.y.toFixed(1)} ${B.x.toFixed(1)} ${B.y.toFixed(1)}`;
+    netArcSvg += (cls === 'sgedge' || cls === 'elfedge')
+      ? `<path class="bond ${cls} e-${esc(a)} e-${esc(b)}" d="${pth}"/>`
+      : `<path class="arc ${cls} e-${esc(a)} e-${esc(b)}" d="${pth}"/>`;
+  }
+  const netNodeSvg = Object.values(netPos).map(({ x, y, n }) => {
+    const c = n.c, col = RCOL[c.race] || RCOL.plain;
+    const pr = n.r * 0.8;
+    // Word 19: portraits clip via a real clipPath per NET node (nclip- prefix — the style=
+    // circle() trick is unreliable inside SVG); minds take the lane-colored brain glyph.
+    const core = PORTRAIT_FILE[c.race]
+      ? `<clipPath id="nclip-${esc(n.name)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${pr.toFixed(1)}"/></clipPath>
+        <image href="portrait/${c.race}" x="${(x - pr).toFixed(1)}" y="${(y - pr).toFixed(1)}" width="${(pr * 2).toFixed(1)}" height="${(pr * 2).toFixed(1)}"
+          preserveAspectRatio="xMidYMid slice" clip-path="url(#nclip-${esc(n.name)})" onerror="this.remove()"/>`
+      : (c.race === 'mind' ? brainIcon(x, y, n.r, LANECOL[n.lane] || LANECOL.shared)
+        : `<circle class="core" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(n.r * 0.45).toFixed(1)}" fill="${col}"/>`);
+    return `<g id="nn-${esc(n.name)}" data-name="${esc(n.name)}" class="node ${aura(c)}${c.race === 'mind' ? ' mind' : ''}">
+      <circle class="halo" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(n.r * 1.7).toFixed(1)}" fill="${col}"/>
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${n.r.toFixed(1)}" fill="var(--nodefill)" stroke="${col}" stroke-width="1.6" stroke-dasharray="${c.race === 'mind' ? '3 2' : 'none'}"/>
+      ${core}
+      <text text-anchor="middle" x="${x.toFixed(1)}" y="${(y + n.r * 1.7 + 8).toFixed(1)}" font-size="9">${esc((n.label || n.name).replace(/^(slime|orc|elf|darkelf|highorc|kijin)-/, '').slice(0, 16))}</text>
+    </g>`;
+  }).join('');
+  const netSvg = `<svg viewBox="0 0 ${W} ${netH}" class="panel">${netLayerSvg}${netArcSvg}${netNodeSvg}</svg>`;
+
+  // Word 19 continued — the triad with its actual mounts (bodies d.bodies carry .model from
+  // .claude/agents / .opencode/agents frontmatter): each reasoning role is answered by naming
+  // its mind AND its horse. Direction fixed: reads → verdicts → drafts. No body minted for a
+  // role → '—', drawn honestly (Nature 9), never a placeholder model name.
+  const brainMini = col => `<svg width="13" height="13" viewBox="-7 -7 14 14" style="vertical-align:-2px"><g transform="scale(0.86)"><path d="${BRAIN_D}" fill="${col}"/></g></svg>`;
+  const triad = TRIAD.map(t => {
+    const b = (d.bodies || []).find(b => t.re.test(b.name));
+    const model = b ? b.model : null;
+    const col = model ? ((MODEL_COL.find(m => m.re.test(model)) || {}).col || 'var(--ink)') : 'var(--dim)';
+    return { mind: t.mind, role: t.role, body: b ? b.name : null, model, col };
+  });
+  const triadHtml = triad.map(t =>
+    `<span style="color:${t.col}">${brainMini(t.col)} <b>${t.mind}</b> ${t.role}</span><span class="dim"> · ${t.model ? esc(t.body) + ' on ' + esc(t.model) : '—'}</span>`
+  ).join(' <span class="dim">→</span> ');
 
   // --- breath timeline: unified scale, real axes (human 2026-09-15 —
   // "xaxis should be in bottom of chart not there": the dates used to be
@@ -1001,7 +1329,7 @@ function render(d) {
     .sort((a, b) => b[1].mentions - a[1].mentions)
     .map(([id, v]) => `<tr><td><b>${esc(id)}</b></td><td class="dim">${esc(v.mounted.join(' · ') || '–')}</td><td class="num">${v.mentions}</td></tr>`).join('');
   const mindRows = (d.minds || []).slice().sort((a, b) => b.uses - a.uses)
-    .map(m => `<tr data-name="${esc(m.name)}" style="cursor:pointer"><td><b>${esc(m.name)}</b></td><td class="num">${m.uses}</td><td class="num">${m.kb}</td>
+    .map(m => `<tr data-name="${esc(m.name)}" style="cursor:pointer"><td><b>${esc(m.name)}</b></td><td class="dim" style="color:${LANECOL[laneOf(m)]}">${LANE_NAME[laneOf(m)]}</td><td class="num">${m.uses}</td><td class="num">${m.kb}</td>
       <td class="num" title="estimate — the description alone, the part that sits in context every turn; ~4 bytes/token">≈${m.descTok}</td>
       <td class="dim">${m.links.length ? esc(m.links.join(' · ')) : '–'}</td>
       <td class="desc" title="${esc(m.desc || '')}">${m.desc ? esc(brief(m.desc)) : '–'}</td></tr>`).join('');
@@ -1013,7 +1341,7 @@ function render(d) {
 
   return `<!doctype html><meta charset="utf-8"><title>tempest ⋄ ${esc(d.world)} — ${esc(path.basename(d.root))}</title>
 ${PAGE_STYLE}
-<body class="light">
+<body class="light netview">
 <main>
 <a href="/" class="allworlds">← all worlds</a>
 <h1><span class="sigil">⋄</span> TEMPEST <span style="letter-spacing:.1em;color:var(--dim);font-size:11px"> ${d.world.toUpperCase()} — THE WORLD, OBSERVED · /${d.world}/ · :${PORT}</span></h1>
@@ -1024,10 +1352,11 @@ ${PAGE_STYLE}
 <span class="chip">genesis watch: ${d.genesisWatch.length ? esc(d.genesisWatch.join(' · ')) : '<span class="ok">none</span>'}</span></div>
 
 <h2>⋄ cast — who holds what</h2>
-<table><tr><th>creature</th><th>race</th><th>KB</th><th>desk</th><th>links</th><th>stress</th><th>expertise (brief — full text on hover)</th></tr>${castRows}</table>
+<table><tr><th>creature (body — its hat rides the graph as <i>@hat</i>)</th><th>race</th><th>KB</th><th>desk (on its hat)</th><th>links</th><th>stress</th><th>expertise (brief — full text on hover)</th></tr>${castRows || '<tr><td colspan="7" class="dim">no bodies yet — zero population is drawn as zero, not guessed (Nature 9); /genesis births from observed need</td></tr>'}</table>
 
 <h2>⋄ minds — worn, not raced</h2>
-<table><tr><th>mind</th><th>uses</th><th>KB</th><th>≈ ctx tok</th><th>worn by</th><th>purpose (brief — full text on hover)</th></tr>${mindRows || '<tr><td colspan="6" class="dim">no Minds in this world yet — /don brings one in from .opencode/skills/</td></tr>'}</table>
+<table><tr><th>mind</th><th>lane (whom it serves)</th><th>uses</th><th>KB</th><th>≈ ctx tok</th><th>worn by</th><th>purpose (brief — full text on hover)</th></tr>${mindRows || '<tr><td colspan="7" class="dim">no Minds in this world yet — /don brings one in from .opencode/skills/ or .claude/skills/</td></tr>'}</table>
+<div class="dim">lane = derived from real wearers (elf/ascended → global · slimes → zone · orcs → verdict · mixed or nobody → shared row) — never hand-assigned. Shared row also carries the host commands (${(d.commands || []).length ? (d.commands || []).map(k => '/' + esc(k.name)).join(' · ') : 'none'}) — procedures, not know-how a creature dons.</div>
 <div class="dim">uses = Skill tool_use invocations counted from this world's own Claude Code transcripts (~/.claude/projects/) — a Mind that exists but reads 0 has never actually been invoked here, only referenced. ≈ ctx tok = estimated tokens the <b>description alone</b> costs every turn it's installed (~4 bytes/token) — not the KB column, which is the full body, loaded only when actually donned.</div>
 
 <h2>⋄ models — mounted &amp; mentioned</h2>
@@ -1071,69 +1400,180 @@ ${Object.entries(U.perDay).sort().map(([k, v]) => `<tr><td>${esc(k)}</td><td cla
 <script type="application/json" id="tokAgents">${esc(JSON.stringify(Object.fromEntries(Object.entries(d.live.perModel).map(([k, v]) => [k, v.agents]))))}</script>
 <div class="dim" style="margin-top:6px">source: ${withSrc}${d.live.rows && d.tokens.rows ? ` + manual ledger (${d.tokens.rows} rows beside it)` : ''} — USD still lives in gateway telemetry.</div>`; })()}
 
-<h2>⋄ the colony — size is weight, glow is stress</h2>
-<svg viewBox="0 0 ${W} ${H}" class="panel">${zoneRects}${edges.join('')}${nodeSvg}</svg>
+<h2>⋄ the colony — size is weight, glow is stress <span class="tbtns" style="float:none;margin-left:10px"><button id="netBtn" class="active" title="switch diagram: vertical neural net (default) ⇄ lanes grid — same truth, both views">▤ lane view</button></span></h2>
+<div id="laneView"><svg viewBox="0 0 ${W} ${H}" class="panel">${zoneRects}${edges.join('')}${nodeSvg}</svg></div>
+<div id="netView">${netSvg}</div>
+<div class="dim" style="margin:8px 2px 0">
+how to read it — one grid, two rows, seven lanes: <b>ROW 1</b> — <b>zone minds</b> · <b>input slimes</b> (ground truth) · <b>verdict minds</b> · <b>orcs</b> (the gate) · <b>global minds</b> · <b>output elf</b> (the voice) · <b>ascended</b>; each rank preceded by the minds that serve it — tools before hands. <b>ROW 2</b> — shared skills (opencode commands &amp; app skills — not isekai minds), full width.
+Two planes read by dress: bodies carry portraits, halos, wide tints; minds are dashed rings on slim tints — worn, never raced. A race-prefixed creature is drawn twice on purpose: its <b>body</b> in its rank lane, its worn <b>hat</b> (<i>@hat</i>) in the lane its race is served by — the desk of dated thoughts lives on the hat.
+<br><b>The bonds</b> (each relation has its own color):
+<span style="color:var(--r-slime)">— TRUTH-CURRENT</span> slime⇒orc — ground facts flow up ·
+<span style="color:var(--r-elf)">— VERDICT-CURRENT</span> orc⇒elf — rulings rise, wisdom descends ·
+<span style="color:var(--l-smind)">╌ ANIMA-THREAD · zone</span>, <span style="color:var(--l-omind)">╌ verdict</span>, <span style="color:var(--l-gmind)">╌ global</span>, <span style="color:var(--l-shared)">╌ shared</span> — body⇌its worn mind: one dashed shape, tinted by the lane it serves. A thread with no creature at either end would be a lie; none exists.
+<br><b>The brains</b> — colored by their lane's reasoning: <span style="color:var(--l-smind)">● zone</span> gathers facts · <span style="color:var(--l-omind)">● verdict</span> weighs rulings · <span style="color:var(--l-gmind)">● global</span> arms the voice · <span style="color:var(--l-shared)">● shared</span> app/toolbox.
+<br><b>The triad</b> — one reasoning chain, three minds, three mounts: ${triadHtml}. End to end: reads → verdicts → drafts — a draft that skipped the read's eye would be writing blind. Mounts resolve from minted bodies (${(d.bodies || []).length ? (d.bodies || []).length + ' minted' : 'none minted here — all three ride nothing yet'}).
+<br><b>Attention:</b> click any creature — it steps forward, its edges light and blink, its 1-hop neighborhood holds at half-light, and the inspector opens: metrics first, relations with jump links, doc last (lazy by section — the wire carries a map, never a dump). Click again, or the void, to release.
+</div>
 <div id="focusPanel" class="panel" style="margin-top:10px"></div>
-<div id="docModal" class="modal-backdrop" style="display:none">
-  <div id="docModalBox" class="modal-box">
+<div id="docModal" class="viewer-backdrop" style="display:none">
+  <div id="docModalBox" class="viewer">
     <button id="docModalClose" class="modal-close" aria-label="close" title="close (Esc)">×</button>
-    <div id="docModalHead" style="margin-bottom:8px"></div>
+    <div id="docModalHead" style="margin-bottom:4px"></div>
+    <div id="docModalTabs" class="vtabs"><button data-t="metrics" class="active">metrics</button><button data-t="relations">relations</button><button data-t="doc">doc</button></div>
     <div id="docModalBody"></div>
   </div>
 </div>
-<script type="application/json" id="zdata">${esc(JSON.stringify({ creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null, desc: c.desc || '' }])), minds: Object.fromEntries((d.minds || []).map(m => [m.name, { race: 'mind', kb: m.kb, descTok: m.descTok, uses: m.uses, links: m.links.length, desc: m.desc || '' }])), orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))) }))}</script>
+<script type="application/json" id="zdata">${esc(JSON.stringify({
+    creatures: Object.fromEntries(d.creatures.map(c => [c.name, { race: c.race, kb: c.kb, dietPct: c.dietPct, thoughts: c.thoughts, limit: c.limit, stressPct: c.stressPct, links: c.crosslinks, g: !!c.genesisSignal, last: c.lastThought || null, desc: c.desc || '', src: c.src || '' }])),
+    minds: Object.fromEntries((d.minds || []).map(m => [m.name, { race: 'mind', kb: m.kb, descTok: m.descTok, uses: m.uses, links: m.links.length, wearers: m.links, lane: laneOf(m), desc: m.desc || '', src: m.src || '' }])),
+    hats: Object.fromEntries(hats.map(h => [h.name, { race: 'mind', hatOf: h.base, lane: h.lane, kb: h.c.kb, descTok: h.c.descTok, thoughts: h.c.thoughts, limit: h.c.limit, stressPct: h.c.stressPct, last: h.c.lastThought, uses: 0, links: 1, desc: h.c.desc || '' }])),
+    commands: Object.fromEntries((d.commands || []).map(k => [k.name + '@cmd', { race: 'mind', kind: 'command', lane: 'shared', kb: k.kb, srcs: k.srcs, desc: k.desc || '' }])),
+    orcOf: Object.fromEntries(d.orcs.flatMap(o => o.slimes.map(s => { const c = (byName[s] || byName[Object.keys(byName).find(k => s.endsWith(k) || k.endsWith(s))] || ''); return c ? [c.name, o.orc] : null; }).filter(Boolean))),
+    rels: relOf, relCls,
+    triad: triad.map(t => ({ mind: t.mind, role: t.role, body: t.body, model: t.model })),
+  }))}</script>
 <script>
 (function(){
 var Z=JSON.parse(document.getElementById('zdata').textContent);
+var BRAIN_D_CLIENT='${BRAIN_D}';
+var LANE_NAME={smind:'zone',omind:'verdict',gmind:'global',shared:'shared'};
+var LANE_VAR={smind:'var(--l-smind)',omind:'var(--l-omind)',gmind:'var(--l-gmind)',shared:'var(--l-shared)'};
 var P=document.getElementById('focusPanel');
 P.addEventListener('click',function(ev){ev.stopPropagation();}); // reading/selecting the loaded doc must not self-clear
 function esc2(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-// doc modal (human 2026-09-21: "load like on screen ... like a popup", not buried in the
-// panel at the bottom of the page — a cast row click near the top used to update a panel
-// far below the fold, invisible without scrolling). Fixed-position overlay, opens on the
-// same click that focuses a node or cast row, closes on ×, backdrop click, or Escape.
+// The viewer (word 14, 2026-09-21): right-docked tabbed inspector — metrics / relations / doc —
+// opens on the same click that focuses a node or cast row; closes on ×, backdrop click, or Escape.
+// Lineage: the centered doc modal (human 2026-09-21: "load like on screen ... like a popup").
 var DM=document.getElementById('docModal'), DMbox=document.getElementById('docModalBox'),
     DMhead=document.getElementById('docModalHead'), DMbody=document.getElementById('docModalBody'),
     DMclose=document.getElementById('docModalClose');
 DMbox.addEventListener('click',function(ev){ev.stopPropagation();});
-function closeDocModal(){DM.style.display='none';}
+function closeDocModal(){DM.style.display='none';window._viewer=null;}
 DMclose.addEventListener('click',function(ev){ev.stopPropagation();closeDocModal();});
 DM.addEventListener('click',closeDocModal);
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape')closeDocModal();});
 function clearAll(){document.body.classList.remove('focused');closeDocModal();
-  document.querySelectorAll('.node.focus,.lit').forEach(function(e){e.classList.remove('focus','lit');});
+  document.querySelectorAll('.node.focus,.node.near,.lit').forEach(function(e){e.classList.remove('focus','near','lit');});
   P.innerHTML='<span class="dim">click a creature — node or cast row — and it steps forward; click again (or the void) to release. Nothing moves on its own: calm is ambient, attention is yours.</span>';}
-var DOCCACHE={}; // name -> {text} | {error} — fetched once per page life, never re-read on re-focus
+var DOCCACHE={}; // name -> {map} | {error}; sections cached inside as .secData[n]
+// Lazy by anchor (Veldora 2026-09-21): the doc tab fetches only the SECTION MAP (@S:'MAP',
+// @F titles+bytes), renders it as an index, and a section's body loads when — and only when —
+// its anchor is clicked. Whole-file dumps stay forbidden on the wire; the map is the surface.
 function loadDoc(name,mount){
- if(DOCCACHE[name]){paintDoc(DOCCACHE[name],mount);return;}
- mount.innerHTML='<span class="dim">loading doc…</span>';
+ if(DOCCACHE[name]){paintDoc(DOCCACHE[name],mount,name);return;}
+ mount.innerHTML='<span class="dim">loading section map…</span>';
  fetch('doc?name='+encodeURIComponent(name)).then(function(r){return r.json();}).then(function(j){
-  DOCCACHE[name]=j;paintDoc(j,mount);
- }).catch(function(){paintDoc({error:'failed to load — is the board alive?'},mount);});}
-function paintDoc(j,mount){
- if(j.text)mount.innerHTML='<div class="dim" style="margin-bottom:4px">'+esc2(j.path)+'</div><pre class="docbox">'+esc2(j.text)+'</pre>';
- else mount.innerHTML='<span class="dim">'+esc2(j.error||'no doc file for this creature.')+'</span>';}
+  DOCCACHE[name]=j;paintDoc(j,mount,name);
+ }).catch(function(){paintDoc({error:'failed to load — is the board alive?'},mount,name);});}
+function paintDoc(j,mount,name){
+ if(j['@S']!=='MAP'){mount.innerHTML='<span class="dim">'+esc2(j.error||j['@?']||'no doc file for this creature.')+'</span>';return;}
+ var html='<div class="dim" style="margin-bottom:4px">'+esc2(j['@P']||'')+' · '+j['@E']+'B · '+(j['@F']?j['@F'].length:0)+' sections — click a section to load its body</div>';
+ if(j.preamble&&j.preamble.trim())html+='<pre class="docbox" style="max-height:120px">'+esc2(j.preamble.trim())+'</pre>';
+ html+=(j['@F']||[]).map(function(s){
+  return '<a class="vsec" data-sec="'+s.n+'">▸ '+esc2(s.t)+' <span class="dim">· '+s.b+'B</span></a><div class="vsecbody" id="vs-'+esc2(name)+'-'+s.n+'" style="display:none"></div>';}).join('');
+ mount.innerHTML=html;
+ mount.querySelectorAll('a.vsec').forEach(function(a){
+  a.addEventListener('click',function(ev){ev.stopPropagation();
+   var n=a.getAttribute('data-sec'),box=document.getElementById('vs-'+name+'-'+n);
+   if(!box)return;
+   if(box.style.display!=='none'){box.style.display='none';a.firstChild.textContent='▸ ';return;}
+   var cached=DOCCACHE[name].secData&&DOCCACHE[name].secData[n];
+   if(cached){box.innerHTML='<pre class="docbox">'+esc2(cached.text)+'</pre>';box.style.display='block';a.firstChild.textContent='▾ ';return;}
+   box.innerHTML='<span class="dim">loading §'+n+'…</span>';box.style.display='block';
+   fetch('doc?name='+encodeURIComponent(name)+'&sec='+n).then(function(r){return r.json();}).then(function(s){
+    (DOCCACHE[name].secData=DOCCACHE[name].secData||{})[n]=s;
+    if(s['@S']==='SEC'){box.innerHTML='<pre class="docbox">'+esc2(s.text)+'</pre><div class="dim">§'+esc2(s['@T']||'')+' · '+s['@E']+'B</div>';a.firstChild.textContent='▾ ';}
+    else box.innerHTML='<span class="dim">'+esc2(s.error||s['@?']||'section missing')+'</span>';
+   }).catch(function(){box.innerHTML='<span class="dim">failed to load section</span>';});});});}
 var PORTRAIT_RACES={slime:1,orc:1,elf:1,darkelf:1,highorc:1,kijin:1};
+function kindOf(name){return name.slice(-4)==='@hat'?'hat':name.slice(-4)==='@cmd'?'command':Z.creatures[name]?'creature':Z.minds[name]?'mind':null;}
+function lookup(name){var k=kindOf(name);return k==='hat'?Z.hats[name]:k==='command'?Z.commands[name]:k==='creature'?Z.creatures[name]:k==='mind'?Z.minds[name]:null;}
+function neighborsOf(name){
+ // Adjacency arrives WITH the page (server-side relOf), not scraped from the DOM at click
+ // time — the DOM-scrape version answered "no relations" for orc/elf because sgedges point
+ // creature→creature with e- classes, but the hat-pass edges carry @hat names; reading one
+ // true structure (Z.rels) ends the shadow-structure bug for good.
+ return ((Z.rels&&Z.rels[name])||[]).slice();}
+function brainSvg(col){return '<svg width="22" height="22" viewBox="-7 -7 14 14" style="vertical-align:middle;margin-right:8px"><g transform="scale(1.4)"><path d="'+BRAIN_D_CLIENT+'" fill="'+col+'"/></g></svg>';}
 function openDocModal(name,c){
- DMhead.innerHTML=(PORTRAIT_RACES[c.race]?'<img class="focusface" src="portrait/'+c.race+'" alt="" onerror="this.remove()">':'')
-  +'<b>'+esc2(name)+'</b> <span class="dim">'+esc2(c.race)+'</span>';
- DM.style.display='flex';
- loadDoc(name,DMbody);}
-function focus(name){var c=Z.creatures[name],isMind=false;
-  if(!c){c=Z.minds[name];isMind=true;}
+ var k=kindOf(name),isHat=k==='hat',isCmd=k==='command';
+ var shown=isHat||isCmd?name.slice(0,-4):name;
+ DMhead.innerHTML=(c.race==='mind'
+  ?'<span style="display:inline-block;vertical-align:middle">'+brainSvg(LANE_VAR[c.lane]||LANE_VAR.shared)+'</span>'
+  :(PORTRAIT_RACES[c.race]?'<img class="focusface" src="portrait/'+c.race+'" alt="" onerror="this.remove()">':''))
+  +'<b>'+esc2(isCmd?'/'+shown:shown)+'</b> <span class="dim">'+(isHat?'worn mind — the hat speaks for itself':isCmd?'host command — shared skill, not an isekai mind':esc2(c.race))+'</span>';
+ DM.style.display='block';
+ window._viewer={name:name,c:c,tab:'metrics'};
+ renderViewerTab('metrics');}
+function renderViewerTab(tab){
+ var v=window._viewer;if(!v)return;v.tab=tab;
+ document.querySelectorAll('#docModalTabs button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-t')===tab);});
+ var c=v.c,name=v.name,neis=neighborsOf(name),k=kindOf(name),html='';
+ if(tab==='metrics'){
+  var laneOfNode=c.race==='slime'?'zone':c.race==='orc'?'verdict':c.race==='elf'?'global':c.race==='mind'?(LANE_NAME[c.lane]||'shared'):'ascended';
+  var hat=k==='creature'?Z.hats[name+'@hat']:null;
+  html='<div class="vgrid">'
+   +'<div class="vstat"><b>'+(c.kb!=null?c.kb:'–')+'</b><div class="lbl">KB docweight</div></div>'
+   +(c.dietPct!=null?'<div class="vstat"><b>'+c.dietPct+'%</b><div class="lbl">diet · of 6KB law</div></div>':'')
+   +(c.stressPct!=null?'<div class="vstat"><b>'+c.stressPct+'%</b><div class="lbl">stress aura</div></div>':'')
+   +(c.thoughts!=null?'<div class="vstat"><b>'+c.thoughts+'/'+c.limit+'</b><div class="lbl">desk thoughts'+(k==='creature'?' (on its hat)':'')+'</div></div>':'')
+   +(c.uses!=null?'<div class="vstat"><b>'+c.uses+'</b><div class="lbl">real uses counted</div></div>':'')
+   +(c.descTok!=null?'<div class="vstat"><b>≈'+c.descTok+'</b><div class="lbl">tok resident (desc)</div></div>':'')
+   +'<div class="vstat"><b>'+neis.length+'</b><div class="lbl">relations · 1-hop</div></div>'
+   +'<div class="vstat"><b>'+(c.links!=null?c.links:'–')+'</b><div class="lbl">doc links</div></div>'
+   +'</div>'
+   +'<div class="vlane">state</div><div class="dim">'
+   +(c.race==='mind'
+     ?(k==='hat'?'the worn mind of <b>'+esc2(c.hatOf)+'</b> · lane: '+laneOfNode+' · desk '+c.thoughts+'/'+c.limit+(c.thoughts>c.limit?' — <span class="pill hot">STRESSED</span> an instrument reading: distill (rule / trait / ascension / wrap-up) AND adapt the body\\'s doc in the same change; the same stress twice = adaptation failed → escalate the form':c.thoughts>=c.limit?' — at the limit: next thought is stress':'')
+      :k==='command'?'host command · sources: '+esc2((c.srcs||[]).join(', '))+' · row 2, shared — a procedure, not know-how a creature dons'
+      :'worn by '+c.links+' creature'+(c.links===1?'':'s')+(c.wearers&&c.wearers.length?' ('+esc2(c.wearers.join(', '))+')':' — nobody\\'s private tool')+' · lane: '+laneOfNode+(c.src?' · '+esc2(c.src):''))
+     :'rank '+esc2(c.race)+(Z.orcOf[name]?' (under '+esc2(Z.orcOf[name])+')':'')+' · lane: '+laneOfNode+(hat?' · its worn mind is drawn @hat — desk '+hat.thoughts+'/'+hat.limit+(hat.thoughts>hat.limit?' <span class="pill hot">STRESSED</span> → this body\\'s doc must adapt in the same change':''):' · no hat drawn (unprefixed)'))
+   +(c.g?' · <span class="gs">⋄ genesis watch</span>':'')+'</div>'
+   +(c.last?'<div class="vlane">last thought</div><div class="dim">'+esc2(c.last)+'</div>':'')
+   +(c.desc?'<div class="vlane">purpose</div><div class="dim">'+esc2(c.desc)+'</div>':'');
+ }else if(tab==='relations'){
+  if(!neis.length)html='<span class="dim">no relations drawn — an isolated node is itself a finding (Nature 9).</span>';
+  else html='<div class="dim" style="margin-bottom:6px">'+neis.length+' direct relation'+(neis.length===1?'':'s')+'. Click to jump.</div><div class="vrel">'
+   +neis.map(function(n){var key=name<n?name+'|'+n:n+'|'+name,cls=(Z.relCls&&Z.relCls[key])||'';
+    var kind=cls==='sgedge'?'TRUTH-CURRENT':cls==='elfedge'?'VERDICT-CURRENT':cls.indexOf('mindedge')===0?'ANIMA-THREAD · '+(LANE_NAME[cls.replace('mindedge lan-','')]||'shared'):'';
+    return '<a data-jump="'+esc2(n)+'">'+esc2(n)+(n.slice(-4)==='@hat'?' <span class="dim">· worn mind</span>':'')+(kind?' <span class="dim">· '+kind+'</span>':'')+'</a>';}).join('')+'</div>';
+ }else{
+  // hats have no doc of their own — the mind's SKILL.md IS the body's doc desk; open the base
+  loadDoc(k==='hat'?name.replace(/@hat$/,''):name,DMbody);return;}
+ DMbody.innerHTML=html;
+ DMbody.querySelectorAll('a[data-jump]').forEach(function(a){a.addEventListener('click',function(ev){ev.stopPropagation();focus(a.getAttribute('data-jump'));});});}
+document.getElementById('docModalTabs').addEventListener('click',function(ev){var t=ev.target.getAttribute&&ev.target.getAttribute('data-t');if(t){ev.stopPropagation();renderViewerTab(t);}});
+function focus(name){
+  var c=lookup(name),k=kindOf(name),isMind=c&&c.race==='mind';
   if(!c)return;clearAll();
-  var g=document.getElementById('n-'+name);if(g){document.body.classList.add('focused');g.classList.add('focus');}
+  // word 19+: a clicked HAT stays lit as itself — hats are first-class nodes now (Z.hats).
+  // Its anima-thread edge carries e-<hat>, so the wear-link lights; the halo covers both views.
+  ['n-','nn-'].forEach(function(p){var g=document.getElementById(p+name);
+   if(g){document.body.classList.add('focused');g.classList.add('focus');}});
+  // cross-view: lanes-view g#n-<name> AND net-view g#nn-<name> both carry data-name; edge
+  // .lit travels via the shared e- classes, which is why arcs blink in the net view too.
   document.querySelectorAll('.e-'+CSS.escape(name)).forEach(function(e){e.classList.add('lit');});
+  // Attention halo (Veldora 2026-09-21 — "is there an attention mechanism we can add"):
+  // every edge carries its endpoints as e-<name> classes, so the focused creature's 1-hop
+  // neighborhood is *computable from the graph itself*, not hand-listed. Lit edges give the
+  // signal path style; their other endpoints hold at half-light via the CSS .near rule — the
+  // shape of "what does this node touch" stays visible while the rest of the field dims.
+  document.querySelectorAll('.e-'+CSS.escape(name)).forEach(function(e){
+   (e.getAttribute('class')||'').split(/\\s+/).forEach(function(kk){
+    if(kk.indexOf('e-')!==0)return;var other=kk.slice(2);if(other===name)return;
+    ['n-','nn-'].forEach(function(p){var og=document.getElementById(p+other);
+     if(og&&!og.classList.contains('focus'))og.classList.add('near');});});});
   if(isMind){
-   P.innerHTML='<b>'+esc2(name)+'</b> <span class="dim">mind · worn by '+c.links+' creature'+(c.links===1?'':'s')+'</span><br>'
+   var shown=(k==='hat'||k==='command')?name.slice(0,-4):name;
+   P.innerHTML='<b>'+esc2(k==='command'?'/'+shown:shown)+'</b> <span class="dim">'+(k==='hat'?'worn mind of '+esc2(c.hatOf)+' · desk '+c.thoughts+'/'+c.limit+' (stress '+c.stressPct+'%)':k==='command'?'host command · '+esc2((c.srcs||[]).join(', '))+' · shared row':'mind · '+(LANE_NAME[c.lane]||'shared')+' lane · worn by '+c.links+' creature'+(c.links===1?'':'s'))+'</span><br>'
     +(c.desc?'<span class="focusdesc">'+esc2(c.desc)+'</span><br>':'')
-    +c.kb+'KB <span class="dim">(≈'+c.descTok+' tok resident — description only, always in context)</span> · '+c.uses+' use'+(c.uses===1?'':'s');
+    +c.kb+'KB'+(c.descTok!=null?' <span class="dim">(≈'+c.descTok+' tok resident — description only, always in context)</span>':'')+(c.uses!=null?' · '+c.uses+' use'+(c.uses===1?'':'s'):'');
   }else{
    P.innerHTML=(PORTRAIT_RACES[c.race]?'<img class="focusface" src="portrait/'+c.race+'" alt="" onerror="this.remove()">':'')
     +'<b>'+esc2(name)+'</b> <span class="dim">'+esc2(c.race)+(Z.orcOf[name]?' under '+esc2(Z.orcOf[name]):'')+'</span><br>'
     +(c.desc?'<span class="focusdesc">'+esc2(c.desc)+'</span><br>':'')
     +'doc '+c.kb+'KB <span class="dim">(diet '+c.dietPct+'% of the 6KB law)</span> · desk '+c.thoughts+'/'+c.limit
-    +' <span class="dim">(stress '+c.stressPct+'%)</span> · crosslinks '+c.links
+    +' <span class="dim">(stress '+c.stressPct+'% — read on its hat)</span> · crosslinks '+c.links
     +(c.g?' · <span class="gs">⋄ genesis watch</span>':'')
     +'<br><span class="dim">last thought written: '+esc2(c.last||'none yet')+'</span>';
   }
@@ -1146,6 +1586,9 @@ document.body.addEventListener('click',clearAll);
 var tb=document.getElementById('themeBtn');
 if(tb)tb.addEventListener('click',function(ev){ev.stopPropagation();
  var l=document.body.classList.toggle('light');tb.textContent=l?'◑ dark':'◐ light';});
+var nb=document.getElementById('netBtn');
+if(nb)nb.addEventListener('click',function(ev){ev.stopPropagation();
+ var on=document.body.classList.toggle('netview');nb.textContent=on?'▤ lane view':'⧉ net view';nb.classList.toggle('active',on);});
 var sb=document.getElementById('stressBtn');
 if(sb)sb.addEventListener('click',function(ev){ev.stopPropagation();
  var s=document.body.classList.toggle('stressmode');sb.classList.toggle('active',s);
@@ -1180,13 +1623,12 @@ clearAll();
 setInterval(function(){fetch('pulse').catch(function(){});},60000);
 })();
 </script>
-<div class="meta">layers <span style="color:var(--cy)">slimes →</span> <span style="color:var(--vi)">orcs →</span> <span style="color:var(--gd)">elf</span>, <span style="color:var(--em)">darkelf</span> burns apart. Size = doc weight
-(radius ∝ √(KB/6KB) — an over-fed mind <i>leans on its neighbors</i>: that crowding is the disharmony, drawn true). Glow + ember core = stress. Click a node to focus; <b>⚡ stress detect</b> arms the clignotement. ⋄ = genesis watch
+<div class="meta">Size = doc weight (radius ∝ √(KB/6KB) — an over-fed mind <i>leans on its neighbors</i>: that crowding is the disharmony, drawn true). Glow + ember core = stress — on a body, its diet; on a hat, its desk. Click a node to focus; <b>⚡ stress detect</b> arms the clignotement. ⋄ = genesis watch
 (stress ≥80% ∧ crosslinks ≥1.5× median — heuristic; a birth still needs its need named twice).</div>
 
 <h2>⋄ evolution — the breath of days</h2><div id="breathBox">${breath}</div><script type="application/json" id="breathData">${esc(JSON.stringify(d.days))}</script>
 
-<h2>⋄ provenance</h2><div class="meta">harvested live at request time from .opencode/skills/* · ${d.canonFile} stamps · AGENTS.md routing table · the ${d.home} journal · git log — nothing stored. stdlib node, zero scripts, zero CDN; the tooling law (nature law 8). <span class="dim">port ${PORT}</span></div>
+<h2>⋄ provenance</h2><div class="meta">harvested live at request time from .opencode/skills/* + .claude/skills/* · ${d.home}/{elf,orc,slime}/* · .opencode/commands + .claude/commands (row 2) · .opencode/agents + .claude/agents (mounts) · ${d.canonFile} stamps · AGENTS.md routing table · the ${d.home} journal · git log — nothing stored. stdlib node, zero scripts, zero CDN; the tooling law (nature law 8). <span class="dim">port ${PORT}</span></div>
 <script>
 // consolidated client runtime: range filter drives BOTH charts + token tables
 // (human order 2026-09-15). No backticks or interpolation markers allowed in
@@ -1554,7 +1996,9 @@ if (STOP) {
   });
   probe.listen(PORT, '127.0.0.1');
 } else if (JSON_MODE) {
-  process.stdout.write(JSON.stringify(harvest(COLONY), null, 2) + '\n');
+  // One line, parse-clean (payload B definition of done, 2026-09-21): a machine mouth reads
+  // this — the wire's economy, not an eye's — so no pretty-print indentation.
+  process.stdout.write(JSON.stringify(harvest(COLONY)) + '\n');
 } else if (JSON_GLOBAL_MODE) {
   // One-shot, no daemon needed — for scripts/tests to verify the global panel's own
   // numbers directly instead of scraping rendered HTML (Nature 9: compute it, check it).
@@ -1635,16 +2079,41 @@ if (STOP) {
     // ever reads the docPath harvest() itself resolved for a name in *this* world's own
     // creature/mind list — the query string is a lookup key into that trusted list, never a
     // path. Extended to Minds ("do same for skills") — same SKILL.md read, same safety.
+    //
+    // 2026-09-21 (payload B, changelog 6): DOCS RIDE THE WIRE, LAZY BY ANCHOR. The route no
+    // longer dumps the whole file. Its default answer is the SECTION MAP — the wire's own
+    // envelope as JSON keys: `@S:'MAP'`, `@P` path, `@E` measured bytes, `@F` one entry per
+    // heading `{n, t, b}` (index, title, bytes) — the compass's "point, don't carry". `&sec=N`
+    // answers ONE section body: `@S:'SEC'`, `@T` title, `@E` bytes, `text`. Failure is
+    // `@S:'FAIL'` + `@?` (a hole, named). The pipe-dense raw form (`S|MAP|…`) was considered
+    // and REJECTED for this route under the anti-wire clause: JSON.parse is the client's
+    // native decoder, a bespoke pipe grammar would cost more to decode than it saves in bytes
+    // — tokens, not eyes. Names: `<creature>`, `<mind>`, `<creature>@hat` (the hat's doc IS its
+    // body's doc), `<command>@cmd` (row 2's host commands). The sender's server-side body for
+    // this route was never photographed; this is rebuilt from the (fully visible) client
+    // contract — loadDoc/paintDoc in render() — and the changelog.
     if (req.method === 'GET' && action === 'doc') {
       const nm = url.searchParams.get('name') || '';
+      const secQ = url.searchParams.get('sec');
       const d = harvest(root);
-      const c = d.creatures.find(x => x.name === nm) || d.minds.find(x => x.name === nm);
-      if (!c || !c.docPath) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown creature or no doc file' })); return; }
+      const base = nm.replace(/@hat$/, '');
+      const c = nm.endsWith('@cmd')
+        ? (d.commands || []).find(x => x.name === nm.slice(0, -4))
+        : d.creatures.find(x => x.name === base) || d.minds.find(x => x.name === base);
+      const wire = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+      if (!c || !c.docPath) return wire(404, { '@S': 'FAIL', '@?': 'unknown creature or no doc file' });
       let text;
       try { text = fs.readFileSync(c.docPath, 'utf8'); }
-      catch (e) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'doc file unreadable: ' + e.message })); return; }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ name: c.name, path: path.relative(root, c.docPath), text })); return;
+      catch (e) { return wire(404, { '@S': 'FAIL', '@?': 'doc file unreadable: ' + e.message }); }
+      const map = sectionMap(text);
+      if (secQ !== null) {
+        const n = parseInt(secQ, 10);
+        const s = map.sections[n - 1];
+        if (!s) return wire(404, { '@S': 'FAIL', '@?': `no section ${esc(secQ)} — the map has ${map.sections.length}` });
+        return wire(200, { '@S': 'SEC', '@N': s.n, '@T': s.t, '@E': s.b, text: s.text });
+      }
+      return wire(200, { '@S': 'MAP', '@P': path.relative(root, c.docPath), '@E': Buffer.byteLength(text),
+        '@F': map.sections.map(s => ({ n: s.n, t: s.t, b: s.b })), preamble: map.preamble });
     }
     res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('not found');
   });
