@@ -21,6 +21,27 @@ Evolution, Genesis, Memory, Swarm, Containment, The Wire, Perception — govern 
 are born, how they remember, how they talk to each other economically, and how nothing lands
 without a gate check. The full text lives in [`.isekai/isekai.md`](.isekai/isekai.md).
 
+## The nine natures, as nature already does them
+
+Each law is borrowed from a real phenomenon — the convention didn't invent these rules,
+biology did. One per nature, chosen for the closest *structural* match, not just the name:
+
+| | Nature | Phenomenon | What nature does — and what the law borrows |
+|:---:|---|---|---|
+| <img src=".isekai/natures/01-vitality-dna-checkpoint.png" width="40" alt=""> | **1 · Vitality** | **DNA replication checkpoints & apoptosis** | A cell never divides before its genome is fully copied and repaired (the G2/M checkpoint). A copy that can't be repaired triggers apoptosis via p53: the cell removes itself rather than pass on a stale record. *Change and record land together, or the stale one is sacrificed.* |
+| <img src=".isekai/natures/02-symbiosis-lichen.png" width="40" alt=""> | **2 · Symbiosis** | **Lichen** | A fungus builds the body, holds water and mines minerals from bare rock; an alga or cyanobacterium photosynthesizes and feeds them both. Neither does the other's job, and together they live where neither could alone. (For the "merge" verdict: mitochondria were once free-living bacteria — endosymbiosis.) *Each race does exactly its role.* |
+| <img src=".isekai/natures/03-evolution-crispr.png" width="40" alt=""> | **3 · Evolution** | **CRISPR–Cas immunity in bacteria** | A bacterium that survives a phage cuts a snippet of the invader's DNA and stores it in its own genome as a CRISPR spacer — immediately, in the same event. The next time that phage arrives, Cas proteins recognise and destroy it, and every daughter cell inherits the spacer. *The mistake literally mutates the genome, at once; the same mistake never repeats.* |
+| <img src=".isekai/natures/04-genesis-quorum-sensing.png" width="40" alt=""> | **4 · Genesis** | **Quorum sensing** (*Vibrio fischeri*) | Every cell secretes a small signal molecule (an autoinducer). One cell's signal is noise. Only when the concentration crosses a threshold — many cells naming the same need — does the population switch on a costly behaviour such as bioluminescence in the bobtail squid's light organ. *One naming is an observation; a quorum is a pattern.* |
+| <img src=".isekai/natures/05-memory-sleep-consolidation.png" width="40" alt=""> | **5 · Memory** | **Sleep-dependent memory consolidation** | The hippocampus holds the day's experiences in a small, fast buffer (working memory itself holds only about four chunks). During slow-wave sleep it replays them to the neocortex, which distils them into durable schemas; the hippocampal traces are then cleared. Cortical schemas in turn shape what gets encoded next. *Thoughts kept to ~5, distilled, let go; analysis flows up, wisdom flows down.* |
+| <img src=".isekai/natures/06-swarm-slime-mold.png" width="40" alt=""> | **6 · Swarm** | ***Dictyostelium discoideum***, the cellular slime mold | Tens of thousands of solitary amoebae live alone while food lasts. When it runs out they pulse cAMP, converge into a single migrating slug, raise a fruiting body, and disperse as spores. Nobody declares the slug; it forms only when convergence actually happens and is gone when it ends. *A colony is observed, not declared* — a fitting phenomenon for a convention whose ground-truth creatures are Slimes. |
+| <img src=".isekai/natures/07-containment-blood-brain-barrier.png" width="40" alt=""> | **7 · Containment** | **The blood–brain barrier** | Tight junctions seal the endothelial cells of the brain's capillaries: nothing crosses by default. Glucose, amino acids and everything else the brain needs pass only through specific gated transporters. *Consent is the tissue's shape, not a step someone can forget.* |
+| <img src=".isekai/natures/08-the-wire-waggle-dance.png" width="40" alt=""> | **8 · The Wire** | **The honeybee waggle dance** | A returning forager doesn't carry the field home — she points to it in a fixed schema: the angle of the waggle run relative to vertical encodes direction relative to the sun, its duration encodes distance, its vigour encodes quality. *Point, don't carry; fix the schema so the field names disappear.* |
+| <img src=".isekai/natures/09-perception-proprioception.png" width="40" alt=""> | **9 · Perception** | **Proprioception** | Muscle spindles and Golgi tendon organs continuously measure the body's own stretch and tension, so limb position is read, never guessed. When that instrument goes silent — as in Ian Waterman's sensory neuronopathy — the body can't be trusted from memory and every move has to be checked by eye. *The world measures itself; a silent instrument is itself a finding.* |
+
+The icons are locally built glyphs (`.isekai/natures/`), not photographs — Nature 7 forbids
+fetching anything from the network without the human's agreement, and the descriptions carry
+the content. The same nine appear as slide 5 of the deck under `presentations/`.
+
 ## What's in this repo
 
 ```
@@ -29,6 +50,7 @@ without a gate check. The full text lives in [`.isekai/isekai.md`](.isekai/iseka
 ├── log.md          # append-only chronicle of changes made under this convention
 ├── LICENSE         # this project's license
 ├── portraits/      # one portrait per race (rimuru, elf, orc, slime, kijin, high_elf, high_orc, dark_elf)
+├── natures/        # one glyph per nature law's real-world phenomenon (see the table above)
 ├── instruments/    # raw signals the world watches itself with
 └── elf/ orc/ slime/ tmp/   # where creatures and scratch work live as the world grows
 
@@ -95,12 +117,12 @@ convention's own lore or creature system:
 
 ## Presentations
 
-- **`presentations/isekai-opencode-overview.pptx`** — a 12-slide overview of the convention
+- **`presentations/isekai-opencode-overview.pptx`** — a 16-slide overview of the convention
   from OpenCode's perspective (the ecosystem Minds and Bodies are natively authored for),
-  closing with an appendix on Claude Code compatibility (`/don`/`/mint`, the shared
-  `palette-audit` Mind, `tempest.js` reading both ecosystems' session usage). Built with
-  `pptxgenjs`; file-structure and content validated, visual render QA not run in this
-  environment (no LibreOffice / no passwordless sudo to install it here).
+  including the nine natures and their real-world phenomena (slides 4–5), and closing with an
+  appendix on Claude Code compatibility (`/don`/`/mint`, the shared `palette-audit` Mind,
+  `tempest.js` reading both ecosystems' session usage). Built with `pptxgenjs`; rendered
+  through LibreOffice and visually checked slide by slide.
 
 ## Using it elsewhere
 
