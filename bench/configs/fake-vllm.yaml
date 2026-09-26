@@ -1,0 +1,20 @@
+# Bench config for the €0 plumbing test: isekai against the fake vLLM on the Docker host.
+# Inside a task container the container is the sandbox, and nobody is there to answer the gate.
+providers:
+  vllm:
+    type: openai
+    baseURL: http://172.17.0.1:18000/v1
+    apiKeyEnv: VLLM_API_KEY
+    toolCalls: native
+    contextWindow: auto
+models:
+  default: vllm/fake/vllm-coder
+tools:
+  profile: minimal
+  bash: { sandbox: none }
+law:
+  humanGate: { enabled: false }
+budgets:
+  session: { tokens: 200000 }
+ui:
+  board: { autostart: false }
