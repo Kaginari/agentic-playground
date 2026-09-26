@@ -176,10 +176,10 @@ document is JSON here; the same keys in YAML are the same config.
     "edit":      { "enabled": true },
     "multiedit": { "enabled": true },
     "patch":     { "enabled": true },
-    "bash":      { "enabled": true, "shell": "", "timeoutMs": 120000, "maxTimeoutMs": 600000, "background": true, "jobsDir": "[dist-dir]/tmp/jobs", "sandbox": "bwrap", "envAllow": [] },
-    "git":       { "enabled": true, "timeoutMs": 120000 },   // classified per subcommand, like bash
-    "webfetch":  { "enabled": true, "maxBytes": 5242880, "timeoutMs": 60000 },
-    "websearch": { "enabled": true, "timeoutMs": 60000 },
+    "bash":      { "enabled": true, "shell": "", "timeout": "2m", "maxTimeout": "10m", "background": true, "jobsDir": "[dist-dir]/tmp/jobs", "sandbox": "bwrap", "envAllow": [] },
+    "git":       { "enabled": true, "timeout": "2m" },   // classified per subcommand, like bash
+    "webfetch":  { "enabled": true, "maxBytes": 5242880, "timeout": "1m" },
+    "websearch": { "enabled": true, "timeout": "1m" },
     "ask":       { "enabled": true },                 // `question` is accepted as an alias
     "dispatch":  { "enabled": true, "maxDepth": 1, "background": false },
     "recall":    { "enabled": true },
@@ -192,7 +192,9 @@ document is JSON here; the same keys in YAML are the same config.
     "output":    { "maxLines": 2000, "maxBytes": 51200, "dumpDir": "[dist-dir]/tmp/tool-out", "keepDays": 7 },
     "missing":   { "doomLoopRepeats": 2, "proposeOnSecondNaming": true, "liveReload": true }
   },
-  // every builtin takes { enabled, description (override), class (tighten-only), timeoutMs };
+  // every builtin takes { enabled, description (override), class (tighten-only), timeout };
+  // `timeout` is a duration ("30s", "2m") or a number of seconds; `timeoutMs` (milliseconds)
+  // is accepted anywhere as an alias, and setting both in one block is a load error.
   // bash also { sandbox: bwrap | none, envAllow: [...], background }.
 
   // ---------------------------------------------------------------- the law, as code paths
@@ -256,7 +258,7 @@ document is JSON here; the same keys in YAML are the same config.
   // ---------------------------------------------------------------- hooks (shell)
   "hooks": {
     "enabled": true,
-    "timeoutMs": 10000,
+    "timeout": "10s",
     "preTool":      [ /* { "match": "bash|write|edit", "command": "…" } */ ],
     "postTool":     [],
     "sessionStart": [],
@@ -267,7 +269,7 @@ document is JSON here; the same keys in YAML are the same config.
   // ---------------------------------------------------------------- MCP
   "mcp": {
     "enabled": true,
-    "timeoutMs": 5000,
+    "timeout": "5s",
     "import": { "claudeCode": { "enabled": true, "path": ".mcp.json" }, "opencode": { "enabled": true } },
     "servers": {
       // "<name>": { "enabled": true, "type": "stdio", "command": ["npx", "-y", "@x/server"], "args": [], "env": {}, "envAllow": [], "cwd": "", "network": false, "sandbox": "inherit", "inward": false, "tools": {}, "timeout": "5s" }
@@ -548,7 +550,7 @@ providers:
 
 tools:
   profile: max
-  bash: {timeoutMs: 180000, sandbox: bwrap, envAllow: [GOFLAGS, PATH]}
+  bash: {timeout: 3m, sandbox: bwrap, envAllow: [GOFLAGS, PATH]}
   webfetch: {enabled: false}
   websearch: {class: outward}
   custom:

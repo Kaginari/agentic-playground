@@ -181,20 +181,20 @@ type Tools struct {
 
 // BuiltinTool is the union of every builtin's knobs; a knob a tool does not use is ignored.
 type BuiltinTool struct {
-	Enabled      bool     `json:"enabled"`
-	Description  string   `json:"description"` // override; "" keeps the builtin text
-	Class        string   `json:"class"`       // tighten-only against the builtin floor
-	TimeoutMs    int      `json:"timeoutMs"`
-	MaxTimeoutMs int      `json:"maxTimeoutMs"`
-	MaxLines     int      `json:"maxLines"`
-	MaxBytes     int      `json:"maxBytes"`
-	Limit        int      `json:"limit"`
-	Shell        string   `json:"shell"`
-	Background   bool     `json:"background"`
-	JobsDir      string   `json:"jobsDir"`
-	Sandbox      string   `json:"sandbox"`  // bash: bwrap | none
-	EnvAllow     []string `json:"envAllow"` // bash: env vars that survive scrubbing
-	MaxDepth     int      `json:"maxDepth"` // dispatch
+	Enabled     bool     `json:"enabled"`
+	Description string   `json:"description"` // override; "" keeps the builtin text
+	Class       string   `json:"class"`       // tighten-only against the builtin floor
+	Timeout     Duration `json:"timeout"`
+	MaxTimeout  Duration `json:"maxTimeout"`
+	MaxLines    int      `json:"maxLines"`
+	MaxBytes    int      `json:"maxBytes"`
+	Limit       int      `json:"limit"`
+	Shell       string   `json:"shell"`
+	Background  bool     `json:"background"`
+	JobsDir     string   `json:"jobsDir"`
+	Sandbox     string   `json:"sandbox"`  // bash: bwrap | none
+	EnvAllow    []string `json:"envAllow"` // bash: env vars that survive scrubbing
+	MaxDepth    int      `json:"maxDepth"` // dispatch
 }
 
 // CustomTool is a tool declared in config: argv with {{param}} placeholders, or a shell
@@ -398,13 +398,13 @@ type Rule struct {
 }
 
 type Hooks struct {
-	Enabled      bool    `json:"enabled"`
-	TimeoutMs    int     `json:"timeoutMs"`
-	PreTool      []*Hook `json:"preTool"`
-	PostTool     []*Hook `json:"postTool"`
-	SessionStart []*Hook `json:"sessionStart"`
-	PreCompact   []*Hook `json:"preCompact"`
-	Stop         []*Hook `json:"stop"`
+	Enabled      bool     `json:"enabled"`
+	Timeout      Duration `json:"timeout"`
+	PreTool      []*Hook  `json:"preTool"`
+	PostTool     []*Hook  `json:"postTool"`
+	SessionStart []*Hook  `json:"sessionStart"`
+	PreCompact   []*Hook  `json:"preCompact"`
+	Stop         []*Hook  `json:"stop"`
 }
 
 type Hook struct {
@@ -414,10 +414,10 @@ type Hook struct {
 
 // MCP is the client: servers by name, imports from the other harnesses.
 type MCP struct {
-	Enabled   bool                  `json:"enabled"`
-	TimeoutMs int                   `json:"timeoutMs"`
-	Import    MCPImports            `json:"import"`
-	Servers   map[string]*MCPServer `json:"servers"`
+	Enabled bool                  `json:"enabled"`
+	Timeout Duration              `json:"timeout"`
+	Import  MCPImports            `json:"import"`
+	Servers map[string]*MCPServer `json:"servers"`
 }
 
 type MCPImports struct {

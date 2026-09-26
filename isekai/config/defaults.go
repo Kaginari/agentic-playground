@@ -29,10 +29,10 @@ const defaultsJSON = `{
     "edit":      { "enabled": true },
     "multiedit": { "enabled": true },
     "patch":     { "enabled": true },
-    "bash":      { "enabled": true, "shell": "", "timeoutMs": 120000, "maxTimeoutMs": 600000, "background": true, "jobsDir": "[dist-dir]/tmp/jobs", "sandbox": "bwrap", "envAllow": [] },
-    "git":       { "enabled": true, "timeoutMs": 120000 },
-    "webfetch":  { "enabled": true, "maxBytes": 5242880, "timeoutMs": 60000 },
-    "websearch": { "enabled": true, "timeoutMs": 60000 },
+    "bash":      { "enabled": true, "shell": "", "timeout": "2m", "maxTimeout": "10m", "background": true, "jobsDir": "[dist-dir]/tmp/jobs", "sandbox": "bwrap", "envAllow": [] },
+    "git":       { "enabled": true, "timeout": "2m" },
+    "webfetch":  { "enabled": true, "maxBytes": 5242880, "timeout": "1m" },
+    "websearch": { "enabled": true, "timeout": "1m" },
     "ask":       { "enabled": true },
     "dispatch":  { "enabled": true, "maxDepth": 1, "background": false },
     "recall":    { "enabled": true },
@@ -78,10 +78,10 @@ const defaultsJSON = `{
     "import": { "claudeCode": { "enabled": true }, "opencode": { "enabled": true } }
   },
   "rules": [],
-  "hooks": { "enabled": true, "timeoutMs": 10000, "preTool": [], "postTool": [], "sessionStart": [], "preCompact": [], "stop": [] },
+  "hooks": { "enabled": true, "timeout": "10s", "preTool": [], "postTool": [], "sessionStart": [], "preCompact": [], "stop": [] },
   "mcp": {
     "enabled": true,
-    "timeoutMs": 5000,
+    "timeout": "5s",
     "import": { "claudeCode": { "enabled": true, "path": ".mcp.json" }, "opencode": { "enabled": true } },
     "servers": {}
   },

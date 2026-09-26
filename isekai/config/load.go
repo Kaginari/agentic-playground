@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Kaginari/agentic-playground/isekai/config/yaml"
@@ -160,6 +161,9 @@ func finishLoad(c *Config, layers []Layer, o Options) (*Config, error) {
 		}
 		if l.Node.Kind != yaml.Map {
 			return nil, fmt.Errorf("%s: a config document must be a map, got %s", l.Node.Where(), l.Node.Kind)
+		}
+		if err := foldTimeouts(l.Node); err != nil {
+			return nil, err
 		}
 		l.Node = normalize(l.Node)
 		tree = merge(tree, l.Node)
@@ -474,6 +478,44 @@ func normalize(n *yaml.Node) *yaml.Node {
 		}
 	}
 	return n
+}
+
+// foldTimeouts makes `timeout` the one spelling: anywhere in the tree, `timeoutMs` and
+// `maxTimeoutMs` (a number of milliseconds) become `timeout` / `maxTimeout` durations. Both
+// spellings in one map is an error, never a silent pick.
+func foldTimeouts(n *yaml.Node) error {
+	if n == nil {
+		return nil
+	}
+	switch n.Kind {
+	case yaml.List:
+		for _, it := range n.Items {
+			if err := foldTimeouts(it); err != nil {
+				return err
+			}
+		}
+	case yaml.Map:
+		for _, pair := range [][2]string{{"timeoutMs", "timeout"}, {"maxTimeoutMs", "maxTimeout"}} {
+			ms := n.Get(pair[0])
+			if ms == nil {
+				continue
+			}
+			if n.Get(pair[1]) != nil {
+				return fmt.Errorf("%s: both %s and %s are set; use %s", ms.Where(), pair[0], pair[1], pair[1])
+			}
+			if ms.Kind != yaml.Int {
+				return fmt.Errorf("%s: %s is a whole number of milliseconds, got %s", ms.Where(), pair[0], ms.Kind)
+			}
+			n.Set(pair[0], yaml.StringNode(strconv.FormatInt(ms.Int, 10)+"ms", ms.File, ms.Line))
+			renameKey(n, pair[0], pair[1])
+		}
+		for _, v := range n.Vals {
+			if err := foldTimeouts(v); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // officeAliases and rankAliases fold agent-zero's words (lexicon triad.*, rank.*) to the

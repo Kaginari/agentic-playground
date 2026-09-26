@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPatchReload(t *testing.T) {
@@ -52,7 +53,7 @@ func TestPatchReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(changes) != 7 || next.Tools.Bash.TimeoutMs != 30000 || next.Tools.Webfetch.Enabled || next.Tools.Custom["lsl"] == nil {
+	if len(changes) != 7 || next.Tools.Bash.Timeout.D() != 30*time.Second || next.Tools.Webfetch.Enabled || next.Tools.Custom["lsl"] == nil {
 		var s []string
 		for _, ch := range changes {
 			s = append(s, ch.String())

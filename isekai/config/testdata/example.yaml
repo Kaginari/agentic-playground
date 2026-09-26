@@ -38,7 +38,7 @@ providers:
 
 tools:
   profile: max
-  bash: {timeoutMs: 180000, sandbox: bwrap, envAllow: [GOFLAGS, PATH]}
+  bash: {timeout: 3m, sandbox: bwrap, envAllow: [GOFLAGS, PATH]}
   webfetch: {enabled: false}
   websearch: {class: outward}
   custom:

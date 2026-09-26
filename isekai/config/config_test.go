@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // world builds a temp world and home; files maps world-relative or "~/"-relative paths.
@@ -198,7 +199,7 @@ func TestExampleJSONYAMLEquivalent(t *testing.T) {
 		if m.Provider != "vllm" || m.ID != "meta-llama/Llama-3.1-70B-Instruct" || m.Entry == nil {
 			t.Errorf("bench model: %+v", m)
 		}
-		if c.Tools.Webfetch.Enabled || c.Tools.Bash.TimeoutMs != 180000 || len(c.Tools.Custom) != 2 {
+		if c.Tools.Webfetch.Enabled || c.Tools.Bash.Timeout.D() != 3*time.Minute || len(c.Tools.Custom) != 2 {
 			t.Errorf("tools: %+v", c.Tools.Bash)
 		}
 		if c.MCP.Servers["files"].Type != "stdio" || !c.MCP.Servers["files"].Inward || c.MCP.Servers["docs"].HeadersEnv["Authorization"] != "DOCS_MCP_TOKEN" {
@@ -397,5 +398,20 @@ func TestSelftest(t *testing.T) {
 	}
 	if n < 40 {
 		t.Errorf("only %d checks", n)
+	}
+}
+
+func TestTimeoutSpellings(t *testing.T) {
+	w := newWorld(t, map[string]string{".isekai/config.yaml": "tools:\n  git: {timeoutMs: 1500}\n  bash: {timeout: 45s}\nhooks: {timeoutMs: 2000}\n"})
+	c, err := LoadWith(w.opts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Tools.Git.Timeout.D() != 1500*time.Millisecond || c.Tools.Bash.Timeout.D() != 45*time.Second || c.Hooks.Timeout.D() != 2*time.Second {
+		t.Fatalf("got git %v bash %v hooks %v", c.Tools.Git.Timeout, c.Tools.Bash.Timeout, c.Hooks.Timeout)
+	}
+	w2 := newWorld(t, map[string]string{".isekai/config.yaml": "tools:\n  bash: {timeoutMs: 1000, timeout: 2s}\n"})
+	if _, err := LoadWith(w2.opts()); err == nil || !strings.Contains(err.Error(), "both timeoutMs and timeout") {
+		t.Fatalf("want both-spellings error, got %v", err)
 	}
 }
