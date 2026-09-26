@@ -1,0 +1,56 @@
+# The isekai ontology — one prefix, the world's own bonds.
+# Read by the isekai binary (package onto); the copy in .isekai/ontology/schema.ttl is the world's.
+@prefix is: <isekai:> .
+
+# ---- meta: the vocabulary the reasoner understands
+is:Class a is:Class .
+is:Property a is:Class .
+is:Transitive a is:Class ; is:subClassOf is:Property .
+is:Shape a is:Class .
+is:subClassOf a is:Property, is:Transitive .
+is:subPropertyOf a is:Property, is:Transitive .
+is:domain a is:Property .
+is:range a is:Property .
+is:inverseOf a is:Property .
+
+# ---- classes
+is:Creature a is:Class .
+is:Rimuru a is:Class ; is:subClassOf is:Creature .
+is:Elf a is:Class ; is:subClassOf is:Creature .
+is:Orc a is:Class ; is:subClassOf is:Creature .
+is:Slime a is:Class ; is:subClassOf is:Creature .
+is:Kijin a is:Class ; is:subClassOf is:Creature .
+is:Mind a is:Class .
+is:Doc a is:Class .
+is:Fact a is:Class .
+is:Law a is:Class ; is:subClassOf is:Fact .
+is:Colony a is:Class ; is:subClassOf is:Fact .
+is:Territory a is:Class ; is:subClassOf is:Fact .
+
+# ---- bonds: the chain analysis climbs and wisdom descends
+is:above a is:Transitive ; is:domain is:Creature ; is:range is:Creature .
+is:below a is:Property ; is:inverseOf is:above .
+is:truth a is:Property ; is:subPropertyOf is:above ; is:domain is:Slime ; is:range is:Orc .
+is:verdict a is:Property ; is:subPropertyOf is:above ; is:domain is:Orc ; is:range is:Elf .
+is:reports a is:Property ; is:subPropertyOf is:above ; is:domain is:Creature ; is:range is:Rimuru .
+
+# ---- the other bonds
+is:wears a is:Property ; is:domain is:Creature ; is:range is:Mind .
+is:wornBy a is:Property ; is:inverseOf is:wears .
+is:owns a is:Property ; is:domain is:Creature .
+is:knows a is:Property ; is:domain is:Creature ; is:range is:Fact .
+is:knownBy a is:Property ; is:inverseOf is:knows .
+is:about a is:Property ; is:domain is:Fact .
+is:doc a is:Property ; is:range is:Doc .
+
+# ---- attributes (literal-valued)
+is:name a is:Property .
+is:path a is:Property ; is:domain is:Doc .
+is:text a is:Property ; is:domain is:Fact .
+is:said a is:Property ; is:domain is:Fact .
+
+# ---- shapes: what check enforces
+is:SlimeTruth a is:Shape ; is:on is:Slime ; is:property is:truth ; is:minCount 1 ; is:maxCount 1 .
+is:SlimeTerritory a is:Shape ; is:on is:Slime ; is:property is:owns ; is:disjoint true .
+is:MindWorn a is:Shape ; is:on is:Mind ; is:property is:wornBy ; is:minCount 1 .
+is:BondTarget a is:Shape ; is:on is:Creature ; is:property is:above ; is:valuesHave is:doc .

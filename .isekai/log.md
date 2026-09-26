@@ -608,3 +608,32 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Human prefers work built by Fable Court Bodies and validated by a fresh Fable one.
   - The vendored tree carries upstream's large media (~146 MB incl. mp4s); pruning it is a
     future question, named once here (Nature 4).
+
+### [2026-09-26T11:43:34+02:00] rimuru — isekai Go binary, wave 1: core, memory/toolbox port, ontology; agent-zero law; parity spec
+- **Task:** Human: drop the OpenCode fork for "a minimalist version with go that contains all we
+  need for convention"; in parallel "agent-zero = isekai but in IT/AI terms"; "use the compacting
+  mechanism in a smart way"; everything toggleable by config; "what claude and opencode have";
+  reviewed by Fable; a pptx at the end.
+- **Files:** isekai/ (Go module, stdlib only: provider{,/anthropic,/openai,/mock}, tool, gate,
+  loop, instrument, wire, memory, toolbox, onto, cmd/isekai) · .isekai/ontology/{schema.ttl,
+  graph/,README.md} · .isekai/canon/{binary.md,harness-parity.md} + README index ·
+  agent-zero/{AGENT-ZERO.md,lexicon.json,README.md}. cli/ (OpenCode subtree) removed by a plain
+  commit, history kept; bun uninstalled; Go 1.27.1 installed to ~/.local (outward, consented).
+- **Gate:** n/a (no orcs). Instruments: `go vet` + `go test ./...` green on every package;
+  selftests core 78 · memory 46 · toolbox 50 · onto 23; memory/toolbox interop vs node
+  byte-identical both directions. No live provider call (no key on the machine; httptest only).
+- **Result:** wave 1 done; config (yaml/json) in progress; wave 2 (world, dispatch, drain,
+  parity features, two distributions) and the Fable validator to follow.
+- **Learned:**
+  - Five Fable Court Bodies, disjoint territories, zero collisions; one late order (compaction,
+    toggles) delivered mid-flight by message, not by re-dispatch.
+  - Wire slip: the ontology Court's report ran 3480 bytes against @CAP 2048 — the binary's
+    wire package now enforces @CAP (cuts Other→@T→@F→@V, never @S/@?/@U).
+  - A Court wrote `claude-opus-5` as the default model — not a real id; Rimuru corrected it to
+    `claude-opus-5-5`. Model ids are checked, never recalled.
+  - `onto check` fails on this world: the six .opencode/skills are host tools, not isekai
+    minds; the law's "shared skills" row already says so → derive `shared` for skills with no
+    race prefix (wave 2).
+  - Decisions: disk stores `law|colony|territory`, agent-zero speaks `policy|team|domain`;
+    Veldora → Operator; a permission rule may loosen one command (e.g. `bash:git push*`) — a
+    bare `*` allow on outward/destructive is refused at load.

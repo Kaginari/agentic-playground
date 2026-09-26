@@ -43,6 +43,13 @@ unambiguous enough to build directly.
 - [`toolbox.md`](toolbox.md) — the two-level toolbox: a priced registry of Minds, commands, tools,
   Bodies and externals; level 1 injects only the manifest that fits the turn and the budget, level 2
   loads a body on the creature's own decision — **implemented** at [`../tools/toolbox.js`](../tools/toolbox.js)
+- [`binary.md`](binary.md) — the `isekai` Go binary: the law as a harness — native ranks and
+  Court dispatch, the gate and Vitality in code, the human gate, the wire, and the ontology that
+  passes knowledge along creature relations — **source** at [`../../isekai/`](../../isekai/)
+- [`harness-parity.md`](harness-parity.md) — what Claude Code and OpenCode ship, what the binary
+  ships in v0, what it defers, what it refuses, and how each capability meets the law
+- [`config.md`](config.md) — the binary's config: locations, precedence, the full schema with every
+  feature switchable, per-distribution defaults, and the rule that a switched-off law is a finding
 - [`agents/great-sage.md`](agents/great-sage.md), [`agents/raphael.md`](agents/raphael.md),
   [`agents/ciel.md`](agents/ciel.md) — templates for all three "court triad" bodies
   (perceive / judge / speak); `ciel.md` is complete, the other two have small gaps (see below)
