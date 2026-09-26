@@ -586,3 +586,25 @@ Append-only. Newest entries at the bottom. One entry per change.
     memory tiers implement, with the DB path kept in canon rather than built ahead of need.
   - **Instrument honesty pays**: the validator found `git check-ignore` reports a `!`-re-included
     `.gitkeep` as ignored; the first colony note in shared memory is that fact.
+
+### [2026-09-26T11:09:03+02:00] rimuru — OpenCode vendored as cli/, the base for an isekai-native binary
+- **Task:** Human: "rebuild a binary like opencode but works on isekai by default — adding isekai
+  on top doesn't work properly on opencode"; all four pains named (law not enforced, no native
+  ranks/bodies, instruments/memory outside the harness, human gate/wire not first-class), plus
+  "use an ontology to pass knowledge along the graph of relations between agents". Chose: fork
+  OpenCode, live inside this repo, do the install.
+- **Files:** cli/ (squashed `git subtree` of github.com/sst/opencode dev@696f41b, MIT; update
+  with `git subtree pull --prefix=cli https://github.com/sst/opencode dev --squash`).
+- **Outward acts (Nature 7, consented by Veldora):** shallow clone of sst/opencode; `npm i -g
+  bun@1.3.14` (the version upstream pins); `bun install` in cli/ (4689 packages, gitignored).
+- **Gate:** n/a (no orcs). Instrument: `bun run --cwd packages/opencode src/index.ts --version`
+  → `local` — the fork runs from source.
+- **Result:** done (milestone 0 only; no isekai code yet).
+- **Learned:**
+  - Seams for the law: `src/agent/` (ranks/bodies as native agent types), `src/session/
+    processor.ts`·`system.ts`·`compaction.ts` (gate, Vitality, stress inside the loop),
+    `src/permission/` (human gate), `packages/plugin` hooks. Plan: isekai lives in its own
+    `packages/isekai`, touching core only where a hook cannot reach — keeps upstream pullable.
+  - Human prefers work built by Fable Court Bodies and validated by a fresh Fable one.
+  - The vendored tree carries upstream's large media (~146 MB incl. mp4s); pruning it is a
+    future question, named once here (Nature 4).
