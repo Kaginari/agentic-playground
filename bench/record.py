@@ -28,7 +28,8 @@ def summarize(job_dir: Path, purpose: str) -> dict:
     (name, ev), *more = r["stats"]["evals"].items()
     if more:
         raise SystemExit(f"{job_dir}: one agent/dataset per job expected, got {len(more) + 1}")
-    agent, _, dataset = name.partition("__")
+    parts = name.split("__")  # agent__dataset, or agent__model__dataset when a model is set
+    agent, dataset = parts[0], parts[-1] if len(parts) > 1 else ""
     model = None
     cfg = job_dir / "config.json"
     if cfg.exists():

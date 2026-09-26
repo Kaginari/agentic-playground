@@ -8,13 +8,14 @@ Host environment it reads:
   BENCH_BIN             path to the linux/amd64 static binary to install (required)
   BENCH_DIST            the binary's name (required); its world dir is .<dist>, its env prefix
                         the name upper-cased with - → _ (my-agent → MY_AGENT_)
-  BENCH_CONFIG          path to the bench config (YAML/JSON), passed in as <PREFIX>CONFIG_CONTENT
+  BENCH_CONFIG          path to the bench config (YAML), written into the world as config.local.yaml
   BENCH_FORWARD_ENV     comma-separated env var names to forward (API keys by name, never values
                         written to disk), e.g. VLLM_API_KEY
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shlex
@@ -56,9 +57,6 @@ class HarborAgent(BaseInstalledAgent):
 
     def _run_env(self) -> dict[str, str]:
         env: dict[str, str] = {}
-        cfg = os.environ.get("BENCH_CONFIG")
-        if cfg:
-            env[self._env_prefix() + "CONFIG_CONTENT"] = Path(cfg).read_text()
         for name in filter(None, (n.strip() for n in os.environ.get("BENCH_FORWARD_ENV", "").split(","))):
             if name in os.environ:
                 env[name] = os.environ[name]
@@ -68,9 +66,16 @@ class HarborAgent(BaseInstalledAgent):
     async def run(self, instruction: str, environment: BaseEnvironment, context: AgentContext) -> None:
         env = self._run_env()
         d, dist = self._dist_dir(), self._dist()
+        # The bench config is a file inside the world (the project-local layer): only a config file
+        # is the human's written word for the gate, never an env var.
+        cfg = os.environ.get("BENCH_CONFIG")
+        write_cfg = ""
+        if cfg:
+            b64 = base64.b64encode(Path(cfg).read_bytes()).decode()
+            write_cfg = f" && echo {b64} | base64 -d > {WORLD}/{d}/config.local.yaml"
         await self.exec_as_agent(
             environment,
-            command=f"mkdir -p {WORLD}/{d} && cd {WORLD} && {dist} init --bench 2>&1 | tee /logs/agent/init.txt || true",
+            command=f"mkdir -p {WORLD}/{d} && cd {WORLD} && {dist} init --bench > /logs/agent/init.txt 2>&1{write_cfg}",
             env=env,
             timeout_sec=60,
         )

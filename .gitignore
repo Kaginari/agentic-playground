@@ -37,3 +37,4 @@
 .isekai/toolbox/registry.json
 .isekai/instruments/toolbox/*
 !.isekai/instruments/toolbox/.gitkeep
+bin/
