@@ -14,12 +14,13 @@ jobs:
   release:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false   # stdlib only: no go.sum, nothing to cache
       - name: Tests must pass on the tagged commit
         run: go test ./...
       - name: Release notes — the tag's section of CHANGELOG.md goes on top of the generated list

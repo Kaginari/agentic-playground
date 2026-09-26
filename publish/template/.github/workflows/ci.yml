@@ -16,10 +16,11 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false   # stdlib only: no go.sum, nothing to cache
       - name: gofmt
         run: |
           out=$(gofmt -l .)
@@ -40,16 +41,17 @@ jobs:
         goos: [linux, darwin]
         goarch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false   # stdlib only: no go.sum, nothing to cache
       - run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath -o /dev/null ./cmd/__DIST__
 
   goreleaser-check:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -62,10 +64,11 @@ jobs:
     needs: test
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false   # stdlib only: no go.sum, nothing to cache
       - name: Build the agent and the fake vLLM
         run: |
           CGO_ENABLED=0 go build -trimpath -o bin/__DIST__ ./cmd/__DIST__
