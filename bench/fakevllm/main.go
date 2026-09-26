@@ -47,7 +47,7 @@ func main() {
 	if mode == "" {
 		mode = "right"
 	}
-	answer := map[string]string{"right": "hello isekai", "wrong": "goodbye"}[mode]
+	answer := map[string]string{"right": "hello bench", "wrong": "goodbye"}[mode]
 	if answer == "" {
 		log.Fatalf("FAKE_MODE must be right or wrong, got %q", mode)
 	}

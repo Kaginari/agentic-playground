@@ -1,2 +1,2 @@
 #!/bin/bash
-echo "hello isekai" > /app/hello.txt
+echo "hello bench" > /app/hello.txt

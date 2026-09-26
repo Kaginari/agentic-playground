@@ -1,4 +1,4 @@
-# Bench config for the €0 plumbing test: isekai against the fake vLLM on the Docker host.
+# Bench config for the €0 plumbing test: the agent against the fake vLLM on the Docker host.
 # Inside a task container the container is the sandbox, and nobody is there to answer the gate.
 providers:
   vllm:

@@ -62,7 +62,7 @@ cp "$SRC/.isekai/LICENSE" "$OUT/LICENSE"
 
 say "bench"
 mkdir -p "$OUT/bench"
-rsync -a --exclude jobs/ --exclude '.smoke-config.yaml' --exclude '.fakevllm-*.log' --exclude runs.jsonl \
+rsync -a --exclude jobs/ --exclude __pycache__/ --exclude '.smoke-config.yaml' --exclude '.fakevllm-*.log' --exclude runs.jsonl \
   --exclude RESULTS.md "$SRC/bench/" "$OUT/bench/"
 # this distribution's launches only (validation launches of the shared task travel with both)
 python3 - "$SRC/bench/runs.jsonl" "$OUT/bench/runs.jsonl" "$DIST" <<'EOF'
@@ -71,7 +71,7 @@ src, dst, dist = sys.argv[1:]
 keep = [l for l in open(src) if l.strip() and json.loads(l).get("agent") in (dist, "oracle", "nop", "harbor_agent")]
 open(dst, "w").writelines(keep)
 EOF
-python3 - "$OUT/bench" <<'EOF'
+PYTHONDONTWRITEBYTECODE=1 python3 - "$OUT/bench" <<'EOF'
 import json, sys
 sys.path.insert(0, sys.argv[1])
 import record
@@ -97,7 +97,15 @@ __pycache__/
 EOF
 
 say "checks"
-( cd "$OUT" && "$GO" mod tidy && test -z "$(gofmt -l .)" && "$GO" vet ./... && "$GO" test ./... >/dev/null && "$GO" run "./cmd/$DIST" selftest )
+(
+  set -euo pipefail
+  cd "$OUT"
+  "$GO" mod tidy
+  unformatted=$(gofmt -l .); [ -z "$unformatted" ] || { echo "gofmt: $unformatted" >&2; exit 1; }
+  "$GO" vet ./...
+  "$GO" test ./... > "$OUT.test.log" 2>&1 || { grep -v '^ok\|no test files' "$OUT.test.log" >&2; exit 1; }
+  "$GO" run "./cmd/$DIST" selftest
+)
 grep -q '__HIGHLIGHTS__' "$OUT/CHANGELOG.md" && { echo "CHANGELOG.md still has the __HIGHLIGHTS__ placeholder — write publish/$DIST/CHANGELOG.md" >&2; exit 1; }
 docker run --rm -v "$OUT:/w" -w /w goreleaser/goreleaser:latest check
 

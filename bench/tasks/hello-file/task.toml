@@ -2,9 +2,9 @@ schema_version = "1.4"
 artifacts = []
 
 [task]
-name = "isekai/hello-file"
+name = "local/hello-file"
 version = "1.0.0"
-description = "Plumbing smoke task for the isekai Harbor adapter"
+description = "Plumbing smoke task for the Harbor agent adapter"
 authors = []
 keywords = []
 
