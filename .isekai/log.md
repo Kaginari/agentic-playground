@@ -667,3 +667,20 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Decisions: the human gate may be switched off only from a config file (never env/flag) and
     is always in the off-list; a rule may loosen one command; offices resolving to one model
     need no tiers; a Court's writes are gated by the Court itself, not propagated upward.
+
+### [2026-09-26T12:32:17+02:00] rimuru — wave 2b: sandbox, persistent shell, full toolset, MCP client, discovery
+- **Task:** Human: bwrap by default; "can you use claude bash tool"; "most used by default, config
+  enables/disables"; "what if it can't find a tool"; MCP; custom tools like `ls`.
+- **Files:** isekai/{sandbox,shell,mcp,discover}/ (new) · isekai/tool/ (Anthropic-defined
+  declarations bash_20250124 / text_editor_20250728 via Def.Declare, bash on a persistent shell,
+  editor, ls, multiedit, patch, git, webfetch, websearch, ask, custom tools, missing-tool help).
+- **Gate:** n/a (no orcs). Instruments: staged tree alone passes `go vet` + `go test ./...`
+  (-race green per the Court); bwrap probed usable on this machine (ro bind + --unshare-net).
+- **Result:** done; the integrator starts next; the board is still building.
+- **Learned:**
+  - bwrap's `--tmpfs /tmp` hides everything under /tmp, including a test's temp dir and binary —
+    a world root under /tmp works only because its bind is laid after the tmpfs.
+  - A classifier reading argv *data* (git args, custom-tool params) may tighten only to
+    outward/destructive, never unknown→write — else a read table is overruled by its own input.
+  - A shell timeout kills the command's descendants but spares the session; the rest of a `;`
+    list may still run within the grace — chosen over losing the session's state.
