@@ -36,10 +36,14 @@ func (w *World) Validate() []Finding {
 		max, hasMax := intOf(g, shape, pMaxCount)
 		disjoint := boolOf(g, shape, pDisjoint)
 		valuesHave := first(g.Objects(shape, pValuesHave))
+		unless := first(g.Objects(shape, pUnless))
 		insts := g.Instances(*on)
 		var owners []Term
 		var paths []string
 		for _, x := range insts {
+			if unless != nil && boolOf(g, x, *unless) {
+				continue
+			}
 			vals := g.Objects(x, *prop)
 			n := len(vals)
 			switch {

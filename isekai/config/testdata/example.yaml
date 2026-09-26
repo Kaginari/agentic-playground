@@ -1,0 +1,130 @@
+# .isekai/config.yaml — a full project file. The same document in JSON is example.json.
+models:
+  default: anthropic/claude-sonnet-5            # the mount: the human's choice, never routed
+  offices:                                      # the court triad; tiers must not descend
+    great-sage: anthropic/claude-haiku-4-5      # agent-zero may write analyst:
+    raphael: anthropic/claude-opus-5            # judge:
+    ciel: {model: anthropic/claude-fable-5-1, effort: high, fallback: anthropic/claude-opus-5}  # drafter:
+  ranks:
+    slime: anthropic/claude-sonnet-5
+    kijin: anthropic/claude-opus-5
+  creatures:
+    slime-changelog: anthropic/claude-haiku-4-5  # a genuinely mechanical zone
+  tasks:
+    log: anthropic/claude-haiku-4-5
+    bench: vllm/meta-llama/Llama-3.1-70B-Instruct
+smallModel: ollama/qwen2.5:7b
+
+providers:
+  anthropic:
+    models:                                     # price: USD per 1M tokens; absent = unpriced
+      claude-haiku-4-5: {tier: 1, contextWindow: 200000, price: {input: 1, output: 5}}
+      claude-sonnet-5: {tier: 2, contextWindow: 200000, price: {input: 2, output: 10}}
+      claude-opus-5: {tier: 3, contextWindow: 200000, price: {input: 5, output: 25}}
+      claude-fable-5-1: {tier: 3, contextWindow: 200000, price: {input: 10, output: 50}}
+  ollama: {enabled: true}
+  vllm:                                         # a hosted vLLM is an openai-compatible endpoint
+    type: openai
+    baseURL: http://gpu-box:8000/v1
+    apiKeyEnv: VLLM_API_KEY                     # the key lives in the environment, never here
+    headers: {X-Team: platform}
+    timeout: 5m
+    tls: {insecureSkipVerify: false, caFile: /etc/ssl/internal-ca.pem}
+    toolCalls: native                           # needs --enable-auto-tool-choice on the server
+    guidedDecoding: true
+    contextWindow: auto                         # read from /v1/models max_model_len
+    models:
+      meta-llama/Llama-3.1-70B-Instruct: {tier: 2}
+
+tools:
+  profile: max
+  bash: {timeoutMs: 180000, sandbox: bwrap, envAllow: [GOFLAGS, PATH]}
+  webfetch: {enabled: false}
+  websearch: {class: outward}
+  custom:
+    lsl:                                        # an `ls` wrapper: argv, one element per placeholder
+      description: long listing of one directory
+      class: read
+      params:
+        path: {type: string, description: directory, required: true}
+      run: [ls, -la, "{{path}}"]
+    kget:                                       # `kubectl get` as a read tool
+      description: kubectl get <kind> in a namespace
+      class: read
+      params:
+        kind: {type: string, required: true, enum: [pods, svc, deploy]}
+        ns: {type: string, default: default}
+      run: [kubectl, get, "{{kind}}", -n, "{{ns}}", -o, wide]
+      timeout: 30s
+      sandbox: none
+      profiles: [anthropic, openai]
+  missing: {doomLoopRepeats: 2, proposeOnSecondNaming: true, liveReload: true}
+
+law:
+  humanGate: {strict: false, approve: []}
+  wire: {cap: 4096}
+  budget: {steps: 60}
+
+permissions:
+  rules:
+    - {match: "bash:git push*", action: allow}          # one outward pattern, pre-approved
+    - {match: "bash:git push --force*", action: deny}   # more specific: deny wins
+    - {match: "edit:**/*.lock", action: deny}
+    - {match: "read:**/.env*", action: ask}
+
+rules:
+  - id: no-force
+    text: |
+      Never force-push a shared branch.
+    scope: all
+  - file: rules/slime-zone.md                           # relative to this file's directory
+    scope: rank:slime
+  - id: vet
+    check: go vet ./...
+    scope: all
+    timeout: 60s
+
+hooks:
+  postTool:
+    - {match: "write|edit", command: "gofmt -l -w \"$FILE\" >/dev/null 2>&1 || true"}
+
+mcp:
+  servers:
+    files:                                      # a stdio server, sandboxed like bash
+      type: stdio
+      command: [npx, -y, "@modelcontextprotocol/server-filesystem", "."]
+      env: {LOG_LEVEL: warn}
+      envAllow: [PATH]
+      network: false
+      inward: true                              # never leaves the machine: class write at most
+      tools:
+        read_file: {class: read}
+    docs:                                       # a remote streamable-http server
+      type: http
+      url: https://mcp.example.com/docs
+      headersEnv: {Authorization: DOCS_MCP_TOKEN}   # header value from the env var, never inline
+      timeout: 20s
+      tools:
+        search: {description: search the docs}
+
+budgets:
+  session: {tokens: 2000000, usd: 20}           # honest stop lines; 0 = off
+  court: {tokens: 400000, usd: 4}
+ui: {statusLine: true, announceCourts: true}
+
+ranks:
+  orc: {model: anthropic/claude-opus-5}           # same slot as models.ranks.orc
+  scribe:                                         # a new rank, added to the law's table
+    reportsTo: orc                                # an authoring rank needs a gate above it
+    job: keeps the world's changelog
+    authors: true
+    body: court
+    office: ciel
+    tools: [read, write, edit, git]
+
+compaction:
+  trigger: {tokens: 150000, fraction: 0.8}
+  keepRecentTurns: 6
+
+sessions: {keepDays: 90}
+output: {format: text, thinking: false}

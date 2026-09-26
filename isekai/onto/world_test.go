@@ -94,8 +94,11 @@ func TestDeriveAndValidate(t *testing.T) {
 		t.Error("schema triples should be asserted")
 	}
 	fs := w.Validate()
-	if len(fs) != 1 || fs[0].Shape != "MindWorn" || !strings.Contains(fs[0].String(), ".claude/skills/raphael/SKILL.md:1: mind-raphael has 0 wornBy edges, wants at least 1 (MindWorn)") {
+	if len(fs) != 1 || fs[0].Shape != "MindWorn" || !strings.Contains(fs[0].String(), ".claude/skills/slime-lonely/SKILL.md:1: mind-slime-lonely has 0 wornBy edges, wants at least 1 (MindWorn)") {
 		t.Errorf("healthy world findings: %v", fs)
+	}
+	if !g.Has(Triple{Is("mind-raphael"), pShared, Bool(true)}) || !g.Has(Triple{Is("mind-ciel"), pShared, Bool(true)}) || g.Has(Triple{Is("mind-slime-lonely"), pShared, Bool(true)}) {
+		t.Error("shared: a skill with no race prefix is a shared host tool; a race-prefixed one is a mind")
 	}
 	if w.Docs[Is("slime-auth")].Lines["parent"] != 5 {
 		t.Errorf("field line: %v", w.Docs[Is("slime-auth")].Lines)
@@ -109,7 +112,7 @@ func TestValidateBroken(t *testing.T) {
 		got = append(got, f.String())
 	}
 	want := []string{
-		".claude/skills/raphael/SKILL.md:1: mind-raphael has 0 wornBy edges, wants at least 1 (MindWorn)",
+		".claude/skills/slime-lonely/SKILL.md:1: mind-slime-lonely has 0 wornBy edges, wants at least 1 (MindWorn)",
 		".isekai/slime/auth/README.md:4: slime-auth owns src/auth, overlapping src/auth/login of slime-orphan (SlimeTerritory)",
 		".isekai/slime/orphan/README.md:1: slime-orphan has 0 truth edges, wants exactly 1 (SlimeTruth)",
 	}
@@ -228,7 +231,7 @@ func TestCLI(t *testing.T) {
 		return code, o.String(), e.String()
 	}
 	code, out, _ := run("check")
-	if code != 1 || !strings.HasPrefix(out, "@S FAIL 1 findings · 5 creatures · 3 minds · 0 facts") || !strings.Contains(out, "@F .claude/skills/raphael/SKILL.md:1: mind-raphael") || !strings.Contains(out, "@? .isekai/ontology/schema.ttl missing") {
+	if code != 1 || !strings.HasPrefix(out, "@S FAIL 1 findings · 5 creatures · 4 minds · 0 facts") || !strings.Contains(out, "@F .claude/skills/slime-lonely/SKILL.md:1: mind-slime-lonely") || strings.Contains(out, "mind-raphael") || !strings.Contains(out, "@? .isekai/ontology/schema.ttl missing") {
 		t.Errorf("check: %d\n%s", code, out)
 	}
 	if !strings.HasSuffix(strings.TrimSpace(out), "@E "+itoa(strings.LastIndex(out, "@E "))) {
@@ -270,6 +273,50 @@ func TestCLI(t *testing.T) {
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
+func TestLayoutAgentZero(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		".agent-zero/AGENT-ZERO.md":             "# rules\n",
+		".agent-zero/coord/core/README.md":      "# coord-core\n\n- **Owns:** `src/`\n",
+		".agent-zero/domain/security/README.md": "# domain-security\n\n- **Owns:** `src/auth/`\n- **Reports to:** coord-core\n",
+		".agent-zero/zone/auth/README.md":       "# zone-auth\n\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n- **Minds:** ciel\n",
+		".claude/skills/ciel/SKILL.md":          "---\nname: ciel\n---\ndrafts\n",
+	}
+	for p, body := range files {
+		full := filepath.Join(dir, filepath.FromSlash(p))
+		os.MkdirAll(filepath.Dir(full), 0o755)
+		os.WriteFile(full, []byte(body), 0o644)
+	}
+	l := Layout{WorldDir: ".agent-zero", Law: "AGENT-ZERO.md", Ranks: []RankDir{{"elf", "coord", "rimuru"}, {"orc", "domain", "elf"}, {"slime", "zone", "orc"}, {"kijin", "service", "rimuru"}}}
+	if r, err := FindRootIn(filepath.Join(dir, "src"), l); err != nil || r != dir {
+		t.Fatalf("FindRootIn: %q %v", r, err)
+	}
+	if _, err := FindRoot(dir); err == nil {
+		t.Error("the isekai layout must not find an agent-zero world")
+	}
+	w, err := LoadLayout(dir, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := w.Graph
+	for _, want := range []Triple{
+		{Is("zone-auth"), rdfType, cSlime}, {Is("zone-auth"), pTruth, Is("domain-security")},
+		{Is("domain-security"), pVerdict, Is("coord-core")}, {Is("coord-core"), pReports, tRimuru},
+		{Is("zone-auth"), pOwns, L("src/auth")}, {Is("zone-auth"), pWears, Is("mind-ciel")},
+		{Is("doc-rimuru"), pPath, L(".agent-zero/AGENT-ZERO.md")}, {Is("doc-zone-auth"), pPath, L(".agent-zero/zone/auth/README.md")},
+	} {
+		if !g.Has(want) {
+			t.Errorf("not derived: %v", want)
+		}
+	}
+	if fs := w.Validate(); len(fs) != 0 {
+		t.Errorf("findings: %v", fs)
+	}
+	if _, err := w.Project("zone-auth", 500); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestSelftest(t *testing.T) {
 	n, err := Selftest()
 	if err != nil {
@@ -277,5 +324,55 @@ func TestSelftest(t *testing.T) {
 	}
 	if n < 20 {
 		t.Errorf("only %d checks", n)
+	}
+}
+
+func TestLayoutCustomRanks(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		".isekai/isekai.md":             "# law\n",
+		".isekai/lead/main/README.md":   "# lead-main\n\n- **Territory:** `src/`\n",
+		".isekai/keeper/core/README.md": "# keeper-core\n\n- **Territory:** `src/`\n- **Reports to:** lead-main\n",
+		".isekai/coder/auth/README.md":  "# coder-auth\n\n- **Territory:** `src/auth/`\n- **Reports to:** keeper-core\n- **Minds:** ciel\n",
+		".isekai/writer/docs/README.md": "# writer-docs\n\n- **Territory:** `docs/`\n- keeper-core rules here\n",
+		".isekai/auditor/eye/README.md": "# auditor-eye\n\n- **Territory:** `.isekai/log.md`\n",
+		".claude/skills/ciel/SKILL.md":  "---\nname: ciel\n---\ndrafts\n",
+	}
+	for p, body := range files {
+		full := filepath.Join(dir, filepath.FromSlash(p))
+		os.MkdirAll(filepath.Dir(full), 0o755)
+		os.WriteFile(full, []byte(body), 0o644)
+	}
+	l := Layout{Ranks: []RankDir{{"lead", "lead", "rimuru"}, {"keeper", "keeper", "lead"}, {"coder", "coder", "keeper"}, {"writer", "writer", "keeper"}, {"auditor", "auditor", "rimuru"}}}
+	w, err := LoadLayout(dir, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := w.Graph
+	for _, want := range []Triple{
+		{Is("Coder"), pSubClassOf, cCreature}, {Is("coder-auth"), rdfType, Is("Coder")}, {Is("coder-auth"), rdfType, cCreature},
+		{Is("coder-auth"), pAbove, Is("keeper-core")}, {Is("writer-docs"), pAbove, Is("keeper-core")}, {Is("keeper-core"), pAbove, Is("lead-main")},
+		{Is("lead-main"), pReports, tRimuru}, {Is("auditor-eye"), pReports, tRimuru}, {Is("coder-auth"), pAbove, tRimuru},
+		{Is("coder-auth"), pWears, Is("mind-ciel")}, {Is("auditor-eye"), pOwns, L(".isekai/log.md")},
+	} {
+		if !g.Has(want) {
+			t.Errorf("not derived: %v", want)
+		}
+	}
+	if g.Has(Triple{Is("coder-auth"), pTruth, Is("keeper-core")}) || len(g.Instances(cSlime)) != 0 {
+		t.Error("custom ranks take the generic bond, never a law rank's class")
+	}
+	if fs := w.Validate(); len(fs) != 0 {
+		t.Errorf("findings: %v", fs)
+	}
+	if _, err := w.AssertUnsaid("coder-auth", "territory", "auth uses argon2"); err != nil {
+		t.Fatal(err)
+	}
+	lines, _ := w.Project("lead-main", 1000)
+	if j := strings.Join(lines, "\n"); !strings.Contains(j, "coder-auth ⇒above keeper-core ⇒above lead-main · auth uses argon2 (territory)") {
+		t.Errorf("flow along custom bonds:\n%s", j)
+	}
+	if ClassOf("dark_elf") != Is("DarkElf") || ClassOf("slime") != cSlime || ClassOf("") != cCreature {
+		t.Error("ClassOf")
 	}
 }

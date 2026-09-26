@@ -347,6 +347,13 @@ protocol (the same beats, followed by hand when the work is not scriptable); the
   them the run ends with `@?` to its dispatcher (Absolute Rule III), never a guess, never a
   loop forever. Every beat is journaled (`.agent-zero/instruments/loop/`) and a cut run resumes
   from its journal — an interrupted outward act is gated again, not replayed.
+- **Layered delivery — one layer at a time.** Work that builds in layers is planned bottom-up.
+  A layer is done only when its own tests pass against mocks of the layer below; the next layer
+  starts only then, and its first act is an integration test of the two layers together — the
+  real lower layer, no mock — before anything new is built on top. Each interface is proven the
+  moment it is formed, so a failure always sits in the newest layer or the newest interface.
+  Building several layers and testing at the end is the anti-pattern: the defect could be
+  anywhere, and every layer above it is paid for twice.
 
 ## Skills & Agents
 

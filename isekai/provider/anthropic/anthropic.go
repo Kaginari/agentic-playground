@@ -18,7 +18,7 @@ import (
 
 const (
 	DefaultBaseURL = "https://api.anthropic.com"
-	DefaultModel   = "claude-opus-5-5"
+	DefaultModel   = "claude-opus-5"
 	Version        = "2023-06-01"
 	defaultMax     = 16000
 )

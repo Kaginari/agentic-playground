@@ -329,6 +329,13 @@ beats, followed by hand when the work is not scriptable); the shape is one.
   them the run ends with `@?` to its dispatcher (Absolute Rule III), never a guess, never a
   loop forever. Every beat is journaled (`.isekai/instruments/loop/`) and a cut run resumes
   from its journal — an interrupted outward act is gated again, not replayed.
+- **The ladder — climb one rung at a time.** Work that builds in layers is planned as rungs,
+  lowest first. A rung is done only when its own tests pass against mocks of the rung below it;
+  the next rung starts only then, and its first act is an integration test of the two rungs
+  together — the real lower rung, no mock — before anything new is built on top. Up the ladder,
+  each junction is proven the moment it is formed, so a failure always sits in the newest rung
+  or the newest junction, never somewhere below. Building several rungs and testing at the end
+  is the anti-pattern: the error could be anywhere, and every rung above it is spent twice.
 
 ## Minds & Bodies
 

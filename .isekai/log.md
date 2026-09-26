@@ -637,3 +637,33 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Decisions: disk stores `law|colony|territory`, agent-zero speaks `policy|team|domain`;
     Veldora → Operator; a permission rule may loosen one command (e.g. `bash:git push*`) — a
     bare `*` allow on outward/destructive is refused at load.
+
+### [2026-09-26T12:23:09+02:00] rimuru — wave 2a: config (yaml/json), world, dispatch, drain; the ladder enters the law; UI law; Bootstrap vendored
+- **Task:** Human, across the wave: config in YAML or JSON; per-command permissions ("disable only
+  git push"); a hosted-vLLM backend; injected laws/rules; custom tools; everything on by default and
+  switchable; models per office (Great Sage / Raphael / Ciel), rank and task; ranks definable in
+  config, "5 ranks → it uses them"; MCP; live court with consumption tracking; "inject the sub-goal:
+  mock-test a layer, pass, integration-test two layers, go on"; a real responsive UI on the
+  Bootstrap grid instead of tempest's single page; "fetch bootstrap and go ahead".
+- **Files:** isekai/{config,world,compact}/ (new) · isekai/onto (shared skills, custom ranks,
+  Layout) · isekai/tool/{dispatch.go,tool.go} · isekai/board/assets (Bootstrap 5.3.8 CSS + JS
+  bundle + MIT LICENSE + SHA256SUMS, from cdn.jsdelivr.net — outward, consented) ·
+  .isekai/isekai.md §The loop "The ladder" (Law 6: on Veldora's order) + agent-zero/AGENT-ZERO.md
+  "Layered delivery" · .isekai/canon/{binary.md,config.md,ui.md,README.md} · .isekai/ontology.
+- **Gate:** n/a (no orcs). Instruments: the staged tree, exported alone, passes `go vet` and
+  `go test ./...`; config selftest 47; `onto check` on this repo PASS 0 findings; the 5-rank
+  replace-mode world proven with zero built-in rank names.
+- **Result:** wave 2a done; tools/sandbox/MCP/discovery and the board are building; then the
+  integrator (by the ladder), the Fable validator, the pptx.
+- **Learned:**
+  - **Correction, Rimuru's own mistake:** the previous entry says a Court wrote `claude-opus-5`
+    as "not a real id" and Rimuru "corrected it to claude-opus-5-5". Wrong: `claude-opus-5` is
+    the right default; Opus 5.5 is used only when the human names it. Reverted. The Court was
+    right; the model id was recalled, not checked — the lesson the entry itself preached.
+  - A session limit cut two Courts mid-write; resumed by message with context intact, nothing
+    lost. Partial work is re-checked before continuing, never assumed whole.
+  - Late orders reach a running Court as deltas by message; each delta also lands in canon first,
+    so the Court and the next session read the same spec (Vitality over chat).
+  - Decisions: the human gate may be switched off only from a config file (never env/flag) and
+    is always in the off-list; a rule may loosen one command; offices resolving to one model
+    need no tiers; a Court's writes are gated by the Court itself, not propagated upward.

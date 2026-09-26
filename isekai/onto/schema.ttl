@@ -42,6 +42,7 @@ is:knows a is:Property ; is:domain is:Creature ; is:range is:Fact .
 is:knownBy a is:Property ; is:inverseOf is:knows .
 is:about a is:Property ; is:domain is:Fact .
 is:doc a is:Property ; is:range is:Doc .
+is:shared a is:Property ; is:domain is:Mind .
 
 # ---- attributes (literal-valued)
 is:name a is:Property .
@@ -49,8 +50,9 @@ is:path a is:Property ; is:domain is:Doc .
 is:text a is:Property ; is:domain is:Fact .
 is:said a is:Property ; is:domain is:Fact .
 
-# ---- shapes: what check enforces
+# ---- shapes: what check enforces (is:unless names a boolean property that exempts an instance)
+is:unless a is:Property ; is:domain is:Shape .
 is:SlimeTruth a is:Shape ; is:on is:Slime ; is:property is:truth ; is:minCount 1 ; is:maxCount 1 .
 is:SlimeTerritory a is:Shape ; is:on is:Slime ; is:property is:owns ; is:disjoint true .
-is:MindWorn a is:Shape ; is:on is:Mind ; is:property is:wornBy ; is:minCount 1 .
+is:MindWorn a is:Shape ; is:on is:Mind ; is:property is:wornBy ; is:minCount 1 ; is:unless is:shared .
 is:BondTarget a is:Shape ; is:on is:Creature ; is:property is:above ; is:valuesHave is:doc .

@@ -9,19 +9,20 @@ import (
 	"time"
 )
 
-// fixture writes a small world under dir: one elf, one orc, two slimes, a
-// worn mind and an unworn one. broken adds a slime with no orc and an
-// overlapping territory.
+// fixture writes a small world under dir: one elf, one orc, two slimes, worn
+// minds, a shared (unprefixed, unworn) skill and a race-prefixed unworn mind.
+// broken adds a slime with no orc and an overlapping territory.
 func fixture(dir string, broken bool) error {
 	files := map[string]string{
-		".isekai/isekai.md":                  "# law\n",
-		".isekai/elf/core/README.md":         "# elf-core\n\n- **Rank:** Elf\n- **Territory:** `src/`\n- **Purpose:** the shared mind\n",
-		".isekai/orc/security/README.md":     "# orc-security\n\n- **Rank:** Orc\n- **Territory:** `src/auth/`, `src/api/`\n- **Reports to:** elf-core\n- **Purpose:** rules the security domain; wears great-sage\n",
-		".isekai/slime/auth/README.md":       "# slime-auth\n\n- **Rank:** Slime\n- **Territory:** `src/auth/`\n- **Reports to:** orc-security\n- **Minds:** ciel\n\n## Traits\n- tokens expire after one hour\n",
-		".isekai/slime/api/README.md":        "# slime-api\n\n- **Rank:** Slime\n- **Territory:** `src/api/`\n- **Orc:** orc-security\n",
-		".claude/skills/great-sage/SKILL.md": "---\nname: great-sage\n---\nreads\n",
-		".claude/skills/ciel/SKILL.md":       "---\nname: ciel\n---\ndrafts\n",
-		".claude/skills/raphael/SKILL.md":    "---\nname: raphael\n---\nverdicts, worn by nobody here\n",
+		".isekai/isekai.md":                    "# law\n",
+		".isekai/elf/core/README.md":           "# elf-core\n\n- **Rank:** Elf\n- **Territory:** `src/`\n- **Purpose:** the shared mind\n",
+		".isekai/orc/security/README.md":       "# orc-security\n\n- **Rank:** Orc\n- **Territory:** `src/auth/`, `src/api/`\n- **Reports to:** elf-core\n- **Purpose:** rules the security domain; wears great-sage\n",
+		".isekai/slime/auth/README.md":         "# slime-auth\n\n- **Rank:** Slime\n- **Territory:** `src/auth/`\n- **Reports to:** orc-security\n- **Minds:** ciel\n\n## Traits\n- tokens expire after one hour\n",
+		".isekai/slime/api/README.md":          "# slime-api\n\n- **Rank:** Slime\n- **Territory:** `src/api/`\n- **Orc:** orc-security\n",
+		".claude/skills/great-sage/SKILL.md":   "---\nname: great-sage\n---\nreads\n",
+		".claude/skills/ciel/SKILL.md":         "---\nname: ciel\n---\ndrafts\n",
+		".claude/skills/raphael/SKILL.md":      "---\nname: raphael\n---\nverdicts, worn by nobody here — a shared host skill, not a creature's mind\n",
+		".claude/skills/slime-lonely/SKILL.md": "---\nname: slime-lonely\n---\na race-prefixed mind worn by nobody\n",
 	}
 	if broken {
 		files[".isekai/slime/orphan/README.md"] = "# slime-orphan\n\n- **Rank:** Slime\n- **Territory:** `src/auth/login/`\n"
@@ -122,7 +123,10 @@ func Selftest() (passed int, err error) {
 		return fail(e)
 	}
 	fs := w.Validate()
-	if e := check(len(fs) == 1 && fs[0].Shape == "MindWorn" && fs[0].Subject == Is("mind-raphael"), "healthy world: only the unworn mind is a finding"); e != nil {
+	if e := check(len(fs) == 1 && fs[0].Shape == "MindWorn" && fs[0].Subject == Is("mind-slime-lonely"), "healthy world: only the unworn race-prefixed mind is a finding"); e != nil {
+		return fail(e)
+	}
+	if e := check(w.Graph.Has(Triple{Is("mind-raphael"), pShared, Bool(true)}) && !w.Graph.Has(Triple{Is("mind-slime-lonely"), pShared, Bool(true)}), "a skill with no race prefix is shared and exempt from MindWorn"); e != nil {
 		return fail(e)
 	}
 	if e := check(len(w.Graph.Asserted()) > 0 && !w.Graph.Derived(w.Graph.Asserted()[0]) && w.Graph.Derived(Triple{Is("slime-auth"), pTruth, Is("orc-security")}), "derived triples are marked, never asserted"); e != nil {

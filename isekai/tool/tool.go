@@ -116,6 +116,10 @@ type Tool struct {
 	Class       Class
 	Classify    func(env Env, input json.RawMessage) Classification
 	Run         func(ctx context.Context, env Env, input json.RawMessage) Result
+	// Declare carries a provider-specific declaration keyed by provider type ("anthropic"):
+	// e.g. {"type":"bash_20250124","name":"bash"} — a provider that finds its key sends that
+	// object instead of Name/Description/Schema; every other provider sees the custom schema.
+	Declare map[string]json.RawMessage
 }
 
 // Settle reads a call and returns its effective class with the reason: the tool's declared
@@ -154,7 +158,7 @@ func (t *Tool) Def() Def {
 	if len(s) == 0 {
 		s = json.RawMessage(`{"type":"object","properties":{}}`)
 	}
-	return Def{Name: t.Name, Description: t.Description, Schema: s}
+	return Def{Name: t.Name, Description: t.Description, Schema: s, Declare: t.Declare}
 }
 
 // Def mirrors provider.ToolDef without importing it; the loop converts.
@@ -162,6 +166,13 @@ type Def struct {
 	Name        string
 	Description string
 	Schema      json.RawMessage
+	Declare     map[string]json.RawMessage // provider-specific declarations, by provider type
+}
+
+// DeclareFor returns the provider-specific declaration for a provider type, if the tool has one.
+func (d Def) DeclareFor(provider string) (json.RawMessage, bool) {
+	raw, ok := d.Declare[provider]
+	return raw, ok && len(raw) > 0
 }
 
 // Registry is an ordered set of tools. Later packages (world: dispatch) add to it.
