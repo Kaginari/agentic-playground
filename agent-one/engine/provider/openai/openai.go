@@ -589,23 +589,35 @@ func (c *Client) doRetry(ctx context.Context, body []byte) (*http.Response, erro
 func errorText(body []byte) string {
 	type e struct {
 		Error *struct {
-			Message string `json:"message"`
-			Type    string `json:"type"`
-			Status  string `json:"status"`
+			Message  string `json:"message"`
+			Type     string `json:"type"`
+			Status   string `json:"status"`
+			Metadata struct {
+				Raw          string `json:"raw"`           // OpenRouter: the upstream's own words
+				ProviderName string `json:"provider_name"` // OpenRouter: which upstream answered
+			} `json:"metadata"`
 		} `json:"error"`
 	}
 	pick := func(x e) string {
 		if x.Error == nil || x.Error.Message == "" {
 			return ""
 		}
+		msg := x.Error.Message
+		if md := x.Error.Metadata; md.Raw != "" || md.ProviderName != "" {
+			raw := strings.TrimSpace(md.Raw)
+			if len(raw) > 200 {
+				raw = raw[:200] + "…"
+			}
+			msg = strings.TrimSpace(fmt.Sprintf("%s (upstream %s: %s)", msg, md.ProviderName, raw))
+		}
 		kind := x.Error.Type
 		if kind == "" {
 			kind = x.Error.Status
 		}
 		if kind != "" {
-			return kind + ": " + x.Error.Message
+			return kind + ": " + msg
 		}
-		return x.Error.Message
+		return msg
 	}
 	var one e
 	if json.Unmarshal(body, &one) == nil {
