@@ -2,7 +2,7 @@
 models:
   default: anthropic/claude-sonnet-5            # the mount: the human's choice, never routed
   offices:                                      # the court triad; tiers must not descend
-    great-sage: anthropic/claude-haiku-4-5      # agent-zero may write analyst:
+    great-sage: anthropic/claude-haiku-4-5      # agent-one may write analyst:
     raphael: anthropic/claude-opus-5            # judge:
     ciel: {model: anthropic/claude-fable-5-1, effort: high, fallback: anthropic/claude-opus-5}  # drafter:
   ranks:

@@ -131,6 +131,32 @@ type Hooks struct {
 	// before the engine checkpoints. Returning true means the context was drained and the run
 	// may continue; false (or nil hook) means checkpoint.
 	Drain func(ctx context.Context, s *Session, c instrument.Context) (bool, error)
+	// Missing answers a call to a tool the registry does not hold (binary.md §When a tool is
+	// missing): the error the model reads and whether the turn stops here (the doom-loop
+	// guard). nil: "unknown tool" and never a stop.
+	Missing func(ctx context.Context, s *Session, call provider.ToolCall) (content string, stop bool)
+	// Decide is the permission rule before the gate (config.Decide): allow silences the gate
+	// for this act (logged as pre-approved by rule), deny refuses it, ask forces the gate even
+	// for a read or a write. An empty Action leaves the class default.
+	Decide func(s *Session, st *StepRecord, cls tool.Classification) Decision
+	// PreTool runs before an act; a non-empty string blocks it with that reason (a hook's
+	// stderr). PostTool runs after a done act.
+	PreTool  func(ctx context.Context, s *Session, st *StepRecord) string
+	PostTool func(ctx context.Context, s *Session, st *StepRecord)
+	// State reports the body's state for the live court: thinking · tool · waiting on gate ·
+	// done.
+	State func(s *Session, state string)
+	// Inbox hands lines typed by the human mid-turn; they ride the next tool-result message.
+	Inbox func(s *Session) []string
+	// Budget reads the session and court budgets before a model call; a non-empty reason
+	// checkpoints the run honestly.
+	Budget func(s *Session) string
+}
+
+// Decision is a permission rule's word on an act.
+type Decision struct {
+	Action string // allow | ask | deny | ""
+	Why    string // the rule and its origin
 }
 
 // Lexicon holds every user-facing word a distribution may rename.
@@ -176,6 +202,8 @@ type Engine struct {
 	Unsaid   bool      // the commission asked +unsaid: a report with no @U is a hole
 	Cap      int       // @CAP on the final report; 0 means no ceiling
 	IsRecord func(rel string) bool
+	Wire     bool              // the answer is expected on the wire (a Court): providers with guided decoding constrain it
+	OnDelta  func(text string) // streamed text, as it arrives
 }
 
 // Session is a running conversation on an Engine: the messages, the readings, the journal.
@@ -341,7 +369,7 @@ func (s *Session) defs() []provider.ToolDef {
 	}
 	var out []provider.ToolDef
 	for _, d := range s.Engine.Tools.Defs() {
-		out = append(out, provider.ToolDef{Name: d.Name, Description: d.Description, Schema: d.Schema})
+		out = append(out, provider.ToolDef{Name: d.Name, Description: d.Description, Schema: d.Schema, Declare: d.Declare})
 	}
 	return out
 }
@@ -395,14 +423,22 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 			s.saveTranscript()
 		}
 		s.Journal.Log(Event{"t": "end", "status": status, "turns": s.Turns, "steps": s.Steps, "ms": time.Since(s.Started).Milliseconds(), "holes": r.Holes})
+		s.state("done")
 		return r, nil
 	}
 	resumeHint := func() string { return "resume: isekai resume " + s.RunID }
 
+	pauses := 0
 	for {
 		// PERCEIVE (the turn): budgets before the provider call
 		if over, why := s.overWallClock(); over {
 			return end(Checkpoint, why+" before the next model call — "+resumeHint())
+		}
+		if e.Hooks.Budget != nil {
+			if why := e.Hooks.Budget(s); why != "" {
+				s.Journal.Log(Event{"t": "budget", "why": why, "before": "turn"})
+				return end(Checkpoint, why+" — "+resumeHint())
+			}
 		}
 		c := s.perceive()
 		if c.Stressed() {
@@ -429,11 +465,12 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 				r.hole("recall: " + h)
 			}
 		}
-		req := provider.Request{System: s.system(), Messages: s.Messages, Tools: s.defs(), MaxTokens: e.Budget.MaxTokens}
+		req := provider.Request{System: s.system(), Messages: s.Messages, Tools: s.defs(), MaxTokens: e.Budget.MaxTokens, Wire: e.Wire, OnDelta: e.OnDelta}
 		if len(rc.Anchors)+len(rc.Tools) > 0 {
-			req.System += "\n" + recallBlock(rc)
+			req.SystemTail = recallBlock(rc)
 		}
 		// PLAN: the model's turn
+		s.state("thinking")
 		resp, err := e.Provider.Complete(ctx, req)
 		s.Turns++
 		if err != nil {
@@ -449,6 +486,12 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 			s.trace("  %s", strings.TrimSpace(resp.Message.Text))
 		}
 		if len(resp.Message.ToolCalls) == 0 {
+			if resp.Stop == provider.StopPause && pauses < 3 {
+				// the server paused a long turn: resend to continue, a bounded number of times
+				pauses++
+				s.Messages = append(s.Messages, provider.Message{Role: provider.User, Text: "continue"})
+				continue
+			}
 			return s.finish(ctx, r, resp, end)
 		}
 		// each tool call is a step
@@ -469,10 +512,23 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 				stop, stopWhy = status, why
 			}
 		}
-		s.Messages = append(s.Messages, provider.Message{Role: provider.User, ToolResults: results})
+		next := provider.Message{Role: provider.User, ToolResults: results}
+		if e.Hooks.Inbox != nil {
+			if lines := e.Hooks.Inbox(s); len(lines) > 0 {
+				next.Text = strings.Join(lines, "\n")
+				s.Journal.Log(Event{"t": "inbox", "n": len(lines)})
+			}
+		}
+		s.Messages = append(s.Messages, next)
 		if stop != "" {
 			return end(stop, stopWhy)
 		}
+	}
+}
+
+func (s *Session) state(st string) {
+	if s.Engine.Hooks.State != nil {
+		s.Engine.Hooks.State(s, st)
 	}
 }
 
@@ -483,6 +539,7 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 	s.Steps++
 	st := &StepRecord{ID: fmt.Sprintf("s%d", s.Steps), N: s.Steps, Tool: call.Name, Input: call.Input, Status: "pending"}
 	deny := func(msg string) provider.ToolResult {
+		st.Result = tool.Result{Output: msg, Err: true} // the record keeps what the model read
 		return provider.ToolResult{ID: call.ID, Content: msg, IsError: true}
 	}
 	// PERCEIVE: budgets before the step
@@ -497,8 +554,20 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 	t, ok := e.Tools.Get(call.Name)
 	if !ok {
 		st.Status = "failed"
-		s.Journal.Log(Event{"t": "record", "id": st.ID, "status": "failed", "attempts": 0, "why": "unknown tool"})
-		return st, deny(fmt.Sprintf("unknown tool %q", call.Name)), "", ""
+		msg, stop := fmt.Sprintf("unknown tool %q", call.Name), false
+		if call.Name == "_malformed" {
+			var f struct{ Fault, Raw string }
+			_ = json.Unmarshal(call.Input, &f)
+			msg = "malformed tool call: " + f.Fault + " — write one <tool_call>{\"name\", \"input\"}</tool_call> per call"
+		} else if e.Hooks.Missing != nil {
+			msg, stop = e.Hooks.Missing(ctx, s, call)
+		}
+		s.Journal.Log(Event{"t": "record", "id": st.ID, "status": "failed", "attempts": 0, "why": "missing tool", "msg": msg})
+		s.trace("✗ %s %s missing: %s", st.ID, call.Name, lastLine(msg))
+		if stop {
+			return st, deny(msg), Escalate, msg
+		}
+		return st, deny(msg), "", ""
 	}
 	// PLAN: the class, then the gate
 	env := e.env()
@@ -517,9 +586,38 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 		}
 	}
 	dry := g.DryRun
-	ans := g.Ask(gate.Request{ID: st.ID, Tool: t.Name, Class: cls.Class, Why: cls.Why, Summary: summary(call)})
+	greq := gate.Request{ID: st.ID, Tool: t.Name, Class: cls.Class, Why: cls.Why, Summary: summary(call)}
+	var ans gate.Answer
+	rule := Decision{}
+	if e.Hooks.Decide != nil {
+		rule = e.Hooks.Decide(s, st, cls)
+	}
+	switch rule.Action {
+	case "deny":
+		st.Status = "refused"
+		s.Journal.Log(Event{"t": "gate", "id": st.ID, "tool": t.Name, "effective": st.Effective, "why": rule.Why, "needed": true, "decision": "refused", "by": "rule"})
+		s.Journal.Log(Event{"t": "record", "id": st.ID, "status": "refused", "attempts": 0})
+		s.trace("✗ %s %s [%s] denied by rule (%s)", st.ID, t.Name, st.Effective, rule.Why)
+		return st, deny("denied by permission rule: " + rule.Why), "", ""
+	case "allow":
+		ans = gate.Answer{Needed: g.Needs(cls.Class), Decision: gate.Approved, By: "rule", Why: rule.Why}
+		if !ans.Needed {
+			ans.Decision = gate.NotNeeded
+		}
+		if dry && cls.Class > tool.Read {
+			ans.Decision, ans.By = gate.WouldAsk, "dry-run"
+		}
+	case "ask":
+		greq.Force = true
+		fallthrough
+	default:
+		if g.Needs(cls.Class) || greq.Force {
+			s.state("waiting on gate")
+		}
+		ans = g.Ask(greq)
+	}
 	st.Gate = ans
-	s.Journal.Log(Event{"t": "gate", "id": st.ID, "tool": t.Name, "heuristic": st.Effective, "effective": st.Effective, "why": cls.Why, "needed": ans.Needed, "decision": string(ans.Decision), "by": ans.By})
+	s.Journal.Log(Event{"t": "gate", "id": st.ID, "tool": t.Name, "heuristic": st.Effective, "effective": st.Effective, "why": cls.Why, "needed": ans.Needed, "decision": string(ans.Decision), "by": ans.By, "rule": rule.Why})
 	switch ans.Decision {
 	case gate.Denied:
 		st.Status = "denied"
@@ -537,13 +635,26 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 		return st, deny(fmt.Sprintf("not run (dry run): would run — %s: %s", st.Effective, cls.Why)), "", ""
 	}
 	// ACT
+	if e.Hooks.PreTool != nil {
+		if why := e.Hooks.PreTool(ctx, s, st); why != "" {
+			st.Status = "refused"
+			s.Journal.Log(Event{"t": "hook", "id": st.ID, "kind": "preTool", "blocked": true, "why": why})
+			s.Journal.Log(Event{"t": "record", "id": st.ID, "status": "refused", "attempts": 0})
+			s.trace("✗ %s %s [%s] blocked by a preTool hook: %s", st.ID, t.Name, st.Effective, lastLine(why))
+			return st, deny("blocked by a preTool hook: " + why), "", ""
+		}
+	}
 	s.trace("→ %s %s [%s] %s", st.ID, t.Name, st.Effective, summary(call))
 	st.Attempts = 1
 	s.Journal.Log(Event{"t": "act", "id": st.ID, "attempt": 1, "start": true, "tool": t.Name, "summary": summary(call)})
+	s.state("tool")
 	t0 := time.Now()
 	res := t.Run(ctx, env, call.Input)
 	st.Ms = time.Since(t0).Milliseconds()
 	st.Result = res
+	if e.Hooks.PostTool != nil {
+		e.Hooks.PostTool(ctx, s, st)
+	}
 	s.Journal.Log(Event{"t": "act", "id": st.ID, "attempt": 1, "ok": !res.Err, "ms": st.Ms, "out": tail(res.Output), "wrote": res.Wrote})
 	// VERIFY: the tool's own reading — an error result is a failed act
 	s.Journal.Log(Event{"t": "verify", "id": st.ID, "attempt": 1, "code": map[bool]int{false: 0, true: 1}[res.Err]})

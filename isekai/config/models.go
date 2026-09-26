@@ -200,7 +200,7 @@ func (c *Config) checkModels() error {
 	}
 	for _, o := range sortedKeys(c.Models.Offices) {
 		if canonicalOffice(o) != o || !contains(Offices, o) {
-			return fmt.Errorf("%s: models.offices.%s: offices are %s (agent-zero: analyst, judge, drafter)", c.Where("models.offices."+o), o, strings.Join(Offices, ", "))
+			return fmt.Errorf("%s: models.offices.%s: offices are %s (agent-one: analyst, judge, drafter)", c.Where("models.offices."+o), o, strings.Join(Offices, ", "))
 		}
 		if err := check("models.offices."+o, c.Models.Offices[o]); err != nil {
 			return err
@@ -307,6 +307,12 @@ func (c *Config) checkProviders() error {
 		}
 		if p.ToolCalls != "" && p.ToolCalls != "native" && p.ToolCalls != "text" {
 			return fmt.Errorf("%s: providers.%s.toolCalls: %q is not native or text", at("toolCalls"), name, p.ToolCalls)
+		}
+		if p.Thinking != "" && p.Thinking != "adaptive" && p.Thinking != "off" {
+			return fmt.Errorf("%s: providers.%s.thinking: %q is not adaptive or off", at("thinking"), name, p.Thinking)
+		}
+		if p.Fallbacks != "" && p.Fallbacks != "default" && p.Fallbacks != "off" {
+			return fmt.Errorf("%s: providers.%s.fallbacks: %q is not default or off", at("fallbacks"), name, p.Fallbacks)
 		}
 		if p.Type != "mock" && p.Enabled && p.BaseURL == "" {
 			return fmt.Errorf("%s: providers.%s.baseURL is required", c.Where("providers."+name), name)

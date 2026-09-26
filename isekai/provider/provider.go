@@ -21,10 +21,20 @@ const (
 )
 
 // ToolDef is a tool as the model sees it: a name, a description and a JSON Schema for its input.
+// Declare carries a vendor-defined declaration keyed by provider type (e.g. "anthropic" →
+// {"type":"bash_20250124","name":"bash"}); a provider that finds its key sends that object
+// instead of the schema, so the model drives the tool it was trained on.
 type ToolDef struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Schema      json.RawMessage `json:"schema"`
+	Name        string                     `json:"name"`
+	Description string                     `json:"description"`
+	Schema      json.RawMessage            `json:"schema"`
+	Declare     map[string]json.RawMessage `json:"declare,omitempty"`
+}
+
+// DeclareFor returns the vendor declaration for a provider type, if the tool has one.
+func (d ToolDef) DeclareFor(provider string) (json.RawMessage, bool) {
+	raw, ok := d.Declare[provider]
+	return raw, ok && len(raw) > 0
 }
 
 // ToolCall is the model asking for a tool to run; ID pairs it with its ToolResult.
@@ -42,12 +52,15 @@ type ToolResult struct {
 }
 
 // Message is one turn of the conversation. An assistant message may carry ToolCalls; a user
-// message may carry ToolResults (then Text, if any, follows them).
+// message may carry ToolResults (then Text, if any, follows them). Opaque holds vendor blocks
+// the provider that produced the message must see again on replay (Anthropic's thinking
+// blocks with their signatures); every other provider ignores them.
 type Message struct {
-	Role        Role         `json:"role"`
-	Text        string       `json:"text,omitempty"`
-	ToolCalls   []ToolCall   `json:"tool_calls,omitempty"`
-	ToolResults []ToolResult `json:"tool_results,omitempty"`
+	Role        Role              `json:"role"`
+	Text        string            `json:"text,omitempty"`
+	ToolCalls   []ToolCall        `json:"tool_calls,omitempty"`
+	ToolResults []ToolResult      `json:"tool_results,omitempty"`
+	Opaque      []json.RawMessage `json:"opaque,omitempty"`
 }
 
 // Usage is what the provider reported for one call. Context() is the occupancy reading the
@@ -69,11 +82,29 @@ func (u Usage) Add(o Usage) Usage {
 }
 
 // Request is one chat turn: the system prompt, the conversation so far, the tools on offer.
+// System is the stable prefix (crest, identity, rules) a provider may cache; SystemTail is
+// what changes per call (the recall manifest) and is never cached. OnDelta, when set, receives
+// text as it streams in; Wire says the answer is expected on the envelope (a provider with
+// guided decoding constrains the output to its schema and renders the wire itself).
 type Request struct {
-	System    string
-	Messages  []Message
-	Tools     []ToolDef
-	MaxTokens int // 0 means the provider's default
+	System     string
+	SystemTail string
+	Messages   []Message
+	Tools      []ToolDef
+	MaxTokens  int // 0 means the provider's default
+	OnDelta    func(text string)
+	Wire       bool
+}
+
+// SystemText is the whole system prompt as one string (providers without block prompts).
+func (r Request) SystemText() string {
+	if r.SystemTail == "" {
+		return r.System
+	}
+	if r.System == "" {
+		return r.SystemTail
+	}
+	return r.System + "\n" + r.SystemTail
 }
 
 // StopReason is why the model stopped, normalised across vendors.
@@ -84,6 +115,7 @@ const (
 	StopToolUse   StopReason = "tool_use"   // the model wants tools run
 	StopMaxTokens StopReason = "max_tokens" // cut by the output ceiling
 	StopRefusal   StopReason = "refusal"    // the provider's safety layer declined
+	StopPause     StopReason = "pause_turn" // the server paused a long turn; resend to continue
 	StopOther     StopReason = "other"
 )
 

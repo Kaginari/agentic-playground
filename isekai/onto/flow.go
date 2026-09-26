@@ -241,7 +241,7 @@ func (w *World) AssertUnsaid(body, kind, text string) (Term, error) {
 		{fact, pAbout, who},
 		{who, pKnows, fact},
 	}
-	dir := filepath.Join(OntologyDir(w.Root), "graph")
+	dir := filepath.Join(OntologyDirIn(w.Root, w.Layout), "graph")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Term{}, err
 	}

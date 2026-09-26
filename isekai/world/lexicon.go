@@ -15,7 +15,7 @@ import (
 	"github.com/Kaginari/agentic-playground/isekai/onto"
 )
 
-// lexiconJSON is the binary's copy of agent-zero/lexicon.json; a test keeps the two equal.
+// lexiconJSON is the binary's copy of agent-one/lexicon.json; a test keeps the two equal.
 //
 //go:embed lexicon.json
 var lexiconJSON []byte
@@ -25,7 +25,7 @@ var Races = []string{"elf", "orc", "slime", "kijin"}
 
 // Lexicon is every word a distribution renames, read from lexicon.json for one vocabulary.
 type Lexicon struct {
-	Vocab     string            // "isekai" | "agent-zero"
+	Vocab     string            // "isekai" | "agent-one"
 	Binary    string            // tool.binary
 	WorldDir  string            // dir.root: ".isekai"
 	Machine   string            // dir.machine: "~/.isekai"
@@ -49,11 +49,11 @@ type Lexicon struct {
 // Isekai is the canonical vocabulary.
 func Isekai() Lexicon { l, _ := ParseLexicon(lexiconJSON, "isekai"); return l }
 
-// AgentZero is the IT vocabulary.
-func AgentZero() Lexicon { l, _ := ParseLexicon(lexiconJSON, "agent-zero"); return l }
+// AgentOne is the IT vocabulary.
+func AgentOne() Lexicon { l, _ := ParseLexicon(lexiconJSON, "agent-one"); return l }
 
 // Lexicons lists both, isekai first — the order Discover tries them in.
-func Lexicons() []Lexicon { return []Lexicon{Isekai(), AgentZero()} }
+func Lexicons() []Lexicon { return []Lexicon{Isekai(), AgentOne()} }
 
 type lexFile struct {
 	Schema       int                                   `json:"schema"`

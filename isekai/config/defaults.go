@@ -13,7 +13,7 @@ const defaultsJSON = `{
   "smallModel": "",
   "mode": "build",
   "providers": {
-    "anthropic":  { "enabled": true,  "type": "anthropic", "apiKeyEnv": "ANTHROPIC_API_KEY", "baseURL": "https://api.anthropic.com", "maxOutputTokens": 8192, "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "models": {} },
+    "anthropic":  { "enabled": true,  "type": "anthropic", "apiKeyEnv": "ANTHROPIC_API_KEY", "baseURL": "https://api.anthropic.com", "maxOutputTokens": 8192, "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "thinking": "adaptive", "fallbacks": "default", "models": {} },
     "openai":     { "enabled": true,  "type": "openai", "apiKeyEnv": "OPENAI_API_KEY", "baseURL": "https://api.openai.com/v1", "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "models": {} },
     "openrouter": { "enabled": false, "type": "openai", "apiKeyEnv": "OPENROUTER_API_KEY", "baseURL": "https://openrouter.ai/api/v1", "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "models": {} },
     "ollama":     { "enabled": false, "type": "openai", "apiKeyEnv": "", "baseURL": "http://127.0.0.1:11434/v1", "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "models": {} },
@@ -32,7 +32,7 @@ const defaultsJSON = `{
     "bash":      { "enabled": true, "shell": "", "timeout": "2m", "maxTimeout": "10m", "background": true, "jobsDir": "[dist-dir]/tmp/jobs", "sandbox": "bwrap", "envAllow": [] },
     "git":       { "enabled": true, "timeout": "2m" },
     "webfetch":  { "enabled": true, "maxBytes": 5242880, "timeout": "1m" },
-    "websearch": { "enabled": true, "timeout": "1m" },
+    "websearch": { "enabled": true, "timeout": "1m", "backend": "" },
     "ask":       { "enabled": true },
     "dispatch":  { "enabled": true, "maxDepth": 1, "background": false },
     "recall":    { "enabled": true },
@@ -78,7 +78,7 @@ const defaultsJSON = `{
     "import": { "claudeCode": { "enabled": true }, "opencode": { "enabled": true } }
   },
   "rules": [],
-  "hooks": { "enabled": true, "timeout": "10s", "preTool": [], "postTool": [], "sessionStart": [], "preCompact": [], "stop": [] },
+  "hooks": { "enabled": true, "timeout": "10s", "preTool": [], "postTool": [], "sessionStart": [], "preCompact": [], "stop": [], "userPrompt": [] },
   "mcp": {
     "enabled": true,
     "timeout": "5s",
@@ -109,6 +109,6 @@ const defaultsJSON = `{
   "undo":   { "enabled": true, "dir": "~/.local/share/[dist]/undo", "keepDays": 7 },
   "output": { "format": "text", "stream": true, "thinking": false, "color": "auto" },
   "budgets": { "session": { "tokens": 0, "usd": 0 }, "court": { "tokens": 0, "usd": 0 } },
-  "ui": { "statusLine": true, "announceCourts": true },
+  "ui": { "statusLine": true, "announceCourts": true, "board": { "autostart": true, "port": 7411 } },
   "logLevel": "WARN"
 }`

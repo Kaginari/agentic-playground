@@ -31,6 +31,7 @@ type Request struct {
 	Class   tool.Class // the settled class
 	Why     string     // the classifier's reason
 	Summary string     // the act, one line (the command, the path)
+	Force   bool       // a permission rule said ask: the gate asks whatever the class
 }
 
 // Answer is the decision with its provenance.
@@ -89,14 +90,14 @@ var yes = regexp.MustCompile(`^(?i)y(es)?$`)
 // Ask puts an act to the gate. It never returns Approved without a human's word: a pre-approval
 // given on the command line, or an answer on a TTY.
 func (g *Gate) Ask(r Request) Answer {
-	if !g.Needs(r.Class) {
+	if !g.Needs(r.Class) && !r.Force {
 		return Answer{Decision: NotNeeded}
 	}
 	flag := g.Flag
 	if flag == "" {
 		flag = "--approve"
 	}
-	if g.Approve[r.Class] {
+	if g.Approve[r.Class] && !r.Force {
 		return Answer{Needed: true, Decision: Approved, By: "pre-approved", Why: r.Why}
 	}
 	if g.DryRun {

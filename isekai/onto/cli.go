@@ -18,6 +18,9 @@ const usage = `usage: isekai onto [--root DIR] <command>
 
 // CLI runs `isekai onto …` and returns the exit code: 0 ok / PASS, 1 FAIL or
 // refused, 2 usage or load error. Answers speak the wire.
+// CLILayout is the layout the CLI walks and loads; a distribution's binary sets it.
+var CLILayout = DefaultLayout()
+
 func CLI(args []string, stdout, stderr io.Writer) int {
 	root := ""
 	for len(args) > 0 && strings.HasPrefix(args[0], "--") {
@@ -37,14 +40,14 @@ func CLI(args []string, stdout, stderr io.Writer) int {
 	}
 	if root == "" {
 		cwd, _ := os.Getwd()
-		r, err := FindRoot(cwd)
+		r, err := FindRootIn(cwd, CLILayout)
 		if err != nil {
 			fmt.Fprintf(stderr, "@? %s\n", err)
 			return 2
 		}
 		root = r
 	}
-	w, err := Load(root)
+	w, err := LoadLayout(root, CLILayout)
 	if err != nil {
 		fmt.Fprintf(stderr, "@S FAIL load\n@F %s\n@E 0\n", err)
 		return 2

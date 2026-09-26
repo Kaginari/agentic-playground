@@ -240,7 +240,7 @@ func TestHooks(t *testing.T) {
 			t.Fatalf("missing %q in %q", want, holes)
 		}
 	}
-	sys := m.Requests[0].System
+	sys := m.Requests[0].SystemText()
 	if !strings.HasPrefix(sys, "CUSTOM SYSTEM") || !strings.Contains(sys, "@RECALL README.md#top") || !strings.Contains(sys, "@TOOLS\n@T mind x") {
 		t.Fatalf("system %q", sys)
 	}
@@ -297,7 +297,7 @@ func TestUnsaidAndEmit(t *testing.T) {
 	}
 	// journaling off and lexicon
 	e.Journal = "-"
-	e.Lexicon = Lexicon{Body: "worker", Human: "the operator", WorldDir: ".agent-zero"}
+	e.Lexicon = Lexicon{Body: "worker", Human: "the operator", WorldDir: ".agent-one"}
 	e.As = ""
 	e.Provider = mock.New(mock.Text("ok"))
 	m := e.Provider.(*mock.Provider)

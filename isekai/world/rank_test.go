@@ -23,7 +23,7 @@ func TestRankTable(t *testing.T) {
 	if r, ok := rs.Get("orc"); !ok || r.Authors || !r.HoldsGate || !r.Sideways {
 		t.Errorf("orc row %+v", r)
 	}
-	if r, _ := rs.Get(Rimuru); len(r.Tools) != len(AllTools) {
+	if r, _ := rs.Get(Rimuru); len(r.Tools) != 1 || r.Tools[0] != "*" {
 		t.Error("rimuru holds everything")
 	}
 	if rs.Of("slime-x") != "slime" || rs.Of("dark-elf-y") != "dark_elf" || rs.Of("rimuru") != "" || rs.Of("elf-z") != "elf" {
@@ -38,9 +38,9 @@ func TestRankTable(t *testing.T) {
 	if strings.Join(rs.Tools("slime"), ",") != "read,write,edit,bash,glob,grep,law" || strings.Join(rs.Tools("high_orc"), ",") != strings.Join(AllTools, ",") || strings.Join(rs.Tools("nobody"), ",") != strings.Join(AllTools, ",") {
 		t.Error("Tools")
 	}
-	az := Ranks(DefaultRanks(AgentZero()))
+	az := Ranks(DefaultRanks(AgentOne()))
 	if r, _ := az.Get("slime"); r.Dir != "zone" || r.Prefix != "zone-" || az.Of("domain-x") != "orc" {
-		t.Errorf("agent-zero dirs %+v", r)
+		t.Errorf("agent-one dirs %+v", r)
 	}
 	bad := []Ranks{
 		{{Name: "a", ReportsTo: "b"}},                                    // unknown parent

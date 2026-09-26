@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/Kaginari/agentic-playground/isekai/onto"
@@ -53,11 +54,11 @@ func DefaultRanks(lex Lexicon) []Rank {
 // Ranks is a table with lookups.
 type Ranks []Rank
 
-// Get finds a rank by name; "rimuru" is the synthetic root.
+// Get finds a rank by name; "rimuru" is the synthetic root, whose shelf is everything.
 func (rs Ranks) Get(name string) (Rank, bool) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == Rimuru {
-		return Rank{Name: Rimuru, Job: "the session: thinks, decides, orders", Tools: AllTools, Office: "ciel"}, true
+		return Rank{Name: Rimuru, Job: "the session: thinks, decides, orders", Tools: []string{"*"}, Office: "ciel"}, true
 	}
 	for _, r := range rs {
 		if r.Name == name {
@@ -198,6 +199,37 @@ func (rs Ranks) Layout(lex Lexicon) onto.Layout {
 		l.Ranks = append(l.Ranks, onto.RankDir{Name: r.Name, Dir: r.Dir, Parent: parent})
 	}
 	return l
+}
+
+// ExpandTools resolves a rank's tool list against the names on offer: `*` is every tool, a
+// glob (path.Match) picks by pattern, a plain name is itself (kept even when absent, so a
+// later add still lands). Order follows the offer for globs.
+func ExpandTools(patterns, offer []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(n string) {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	for _, p := range patterns {
+		switch {
+		case p == "*":
+			for _, n := range offer {
+				add(n)
+			}
+		case strings.ContainsAny(p, "*?["):
+			for _, n := range offer {
+				if ok, _ := path.Match(p, n); ok {
+					add(n)
+				}
+			}
+		default:
+			add(p)
+		}
+	}
+	return out
 }
 
 // Tools is the shelf a rank is cut to: its own list, else its base's, else everything.

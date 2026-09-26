@@ -313,18 +313,18 @@ tools:
 	if err := check("cli explain carries origins", code == 0 && strings.Contains(sb.String(), "# default")); err != nil {
 		return n, err
 	}
-	// agent-zero distribution.
-	must(filepath.Join(dir, "az", ".agent-zero", "config.json"), `{"models": {"offices": {"analyst": "anthropic/claude-haiku-4-5"}}}`)
-	az, err := LoadWith(Options{Dist: "agent-zero", Root: filepath.Join(dir, "az"), Home: home, Env: func(k string) string {
-		return map[string]string{"AGENT_ZERO_MODEL": "openai/gpt-5"}[k]
+	// agent-one distribution.
+	must(filepath.Join(dir, "az", ".agent-one", "config.json"), `{"models": {"offices": {"analyst": "anthropic/claude-haiku-4-5"}}}`)
+	az, err := LoadWith(Options{Dist: "agent-one", Root: filepath.Join(dir, "az"), Home: home, Env: func(k string) string {
+		return map[string]string{"AGENT_ONE_MODEL": "openai/gpt-5"}[k]
 	}})
 	if err != nil {
-		return n, fmt.Errorf("selftest: agent-zero: %v", err)
+		return n, fmt.Errorf("selftest: agent-one: %v", err)
 	}
-	if err := check("agent-zero dirs and prefix", az.Dist.WorldDir == ".agent-zero" && az.Dist.EnvPrefix == "AGENT_ZERO_" && az.Models.Default.Model == "openai/gpt-5"); err != nil {
+	if err := check("agent-one dirs and prefix", az.Dist.WorldDir == ".agent-one" && az.Dist.EnvPrefix == "AGENT_ONE_" && az.Models.Default.Model == "openai/gpt-5"); err != nil {
 		return n, err
 	}
-	if err := check("agent-zero office alias folded", az.Models.Offices["great-sage"].Model == "anthropic/claude-haiku-4-5"); err != nil {
+	if err := check("agent-one office alias folded", az.Models.Offices["great-sage"].Model == "anthropic/claude-haiku-4-5"); err != nil {
 		return n, err
 	}
 	return n, nil

@@ -236,9 +236,12 @@ func (r *Registry) Only(names ...string) *Registry {
 	return n
 }
 
-// Builtins is the standard shelf: read, write, edit, bash, glob, grep.
+// Builtins is the standard shelf: read, write, edit, bash (on a persistent shell, started
+// lazily on its first call and living until the process ends — a body's shelf closes its own),
+// glob, grep.
 func Builtins() *Registry {
-	return NewRegistry(ReadTool(), WriteTool(), EditTool(), BashTool(), GlobTool(), GrepTool())
+	bash, _ := NewBashTool(BashOptions{Enabled: true})
+	return NewRegistry(ReadTool(), WriteTool(), EditTool(), bash, GlobTool(), GrepTool())
 }
 
 // Resolve makes p absolute against the env's cwd (or root) and cleans it.

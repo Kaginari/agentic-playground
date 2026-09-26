@@ -19,6 +19,7 @@ type Check struct {
 	Name    string
 	Command string
 	Timeout time.Duration
+	Scope   string // all | rank:<race> | creature:<name>; "" = all
 }
 
 // GateOptions is law.gate: the Orc's four checks at turn end, each its own switch, plus the
@@ -120,9 +121,13 @@ func (w *World) Gate(ctx context.Context, opt GateOptions, as string, wrote []st
 		}
 		v.Checked = append(v.Checked, w.Lex.Checks[2])
 	}
-	// injected checks
+	// injected checks, those whose scope reaches this body
+	race := w.RankOf(as).Name
+	if race == Rimuru {
+		race = ""
+	}
 	for _, ck := range opt.Checks {
-		if strings.TrimSpace(ck.Command) == "" {
+		if strings.TrimSpace(ck.Command) == "" || !(Rule{Scope: ck.Scope}).Applies(as, race) {
 			continue
 		}
 		if code, tail := w.run(ctx, ck.Command, ck.Timeout); code != 0 {

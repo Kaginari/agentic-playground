@@ -19,12 +19,14 @@ import (
 // dispatches ranks below its own (or its own when the rank is Sideways); the shelf is the
 // rank's Tools.
 type CourtOptions struct {
-	Enabled  bool
-	MaxDepth int       // 0 = 1
-	Cap      int       // 0 = the wire's default
-	Unsaid   bool      // commission +unsaid by default (a report with no @U is flagged either way)
-	Bodies   []string  // names a session may dispatch; nil = any creature on the roster
-	Trace    io.Writer // a Court's step trace; nil is quiet
+	Enabled    bool
+	MaxDepth   int       // 0 = 1
+	Cap        int       // 0 = the wire's default
+	Unsaid     bool      // commission +unsaid by default (a report with no @U is flagged either way)
+	Bodies     []string  // names a session may dispatch; nil = any creature on the roster
+	Trace      io.Writer // a Court's step trace; nil is quiet
+	Background bool      // background Courts allowed (tools.dispatch.background)
+	Wake       func(body, report string, failed bool) // a background Court's report lands here
 }
 
 // Route is what the integrator's model router sees for one engine: the office the ask names
@@ -43,6 +45,7 @@ type Build struct {
 	Models    func(Route) provider.Provider // nil = Provider for every route; the integrator routes models.offices/ranks/creatures here
 	Gate      *gate.Gate
 	Tools     *tool.Registry // the base shelf; nil = tool.Builtins()
+	Shelf     func(as string, depth int) (*tool.Registry, func()) // per-body shelf (its own shell); nil = Tools; the closer runs when the body's engine is closed
 	Budget    loop.Budget
 	Hooks     HookOptions
 	Territory TerritoryOptions
@@ -68,6 +71,10 @@ func (b Build) providerFor(r Route) provider.Provider {
 // when its rank and depth allow), the territory policy, the world's hooks, the lexicon.
 func (w *World) Engine(as string, b Build) *loop.Engine {
 	base := b.Tools
+	var closer func()
+	if b.Shelf != nil {
+		base, closer = b.Shelf(as, b.Depth)
+	}
 	if base == nil {
 		base = tool.Builtins()
 	}
@@ -79,7 +86,7 @@ func (w *World) Engine(as string, b Build) *loop.Engine {
 	}
 	shelf.Add(w.LawTool())
 	rank := w.RankOf(as)
-	names := w.Ranks.Tools(rank.Name)
+	names := ExpandTools(w.Ranks.Tools(rank.Name), append(shelf.Names(), "dispatch"))
 	office := b.Office
 	if office == "" {
 		office = rank.Office
@@ -100,11 +107,29 @@ func (w *World) Engine(as string, b Build) *loop.Engine {
 		max = 1
 	}
 	if b.Court.Enabled && contains(names, "dispatch") && b.Depth < max {
-		shelf.Add(tool.DispatchTool(tool.DispatchOptions{Enabled: true, Depth: b.Depth, MaxDepth: max, Cap: b.Court.Cap, Unsaid: b.Court.Unsaid, Bodies: b.Court.Bodies}, w.Dispatcher(e, b)))
+		shelf.Add(tool.DispatchTool(tool.DispatchOptions{Enabled: true, Depth: b.Depth, MaxDepth: max, Cap: b.Court.Cap, Unsaid: b.Court.Unsaid, Bodies: b.Court.Bodies, Background: b.Court.Background && b.Depth == 0, Wake: b.Court.Wake}, w.Dispatcher(e, b)))
 	}
 	e.Tools = shelf.Only(names...)
 	e.Hooks = MergeHooks(w.Hooks(b.Hooks), b.Extra)
+	if closer != nil {
+		w.mu.Lock()
+		w.closers[e] = closer
+		w.mu.Unlock()
+	}
 	return e
+}
+
+// Close ends what an engine's body held (its shell, its jobs). A dispatcher closes a Court's
+// engine when the report is taken; the session closes its own at exit.
+func (w *World) Close(e *loop.Engine) {
+	w.mu.Lock()
+	c := w.closers[e]
+	delete(w.closers, e)
+	delete(w.sessions, e)
+	w.mu.Unlock()
+	if c != nil {
+		c()
+	}
 }
 
 // Dispatcher runs a commission as a Court Body under a parent engine: a fresh loop with its
@@ -152,7 +177,9 @@ func (w *World) Dispatcher(parent *loop.Engine, b Build) tool.Dispatcher {
 			}
 		}
 		e := w.Engine(cr.Name, child)
+		defer w.Close(e) // the Court's context dies with the task
 		e.Unsaid = c.Unsaid
+		e.Wire = true
 		if c.Cap > 0 {
 			e.Cap = c.Cap
 		}

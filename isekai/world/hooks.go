@@ -69,6 +69,15 @@ func (w *World) Hooks(opt HookOptions) loop.Hooks {
 	return h
 }
 
+func staleIndex(holes []string) bool {
+	for _, h := range holes {
+		if strings.HasPrefix(h, "index older") {
+			return true
+		}
+	}
+	return false
+}
+
 func bodyOf(s *loop.Session) string {
 	if s.Engine.As != "" {
 		return s.Engine.As
@@ -135,6 +144,28 @@ func MergeHooks(base, over loop.Hooks) loop.Hooks {
 	if over.Drain != nil {
 		out.Drain = over.Drain
 	}
+	// the seams the integrator sets: over's when set, else base's
+	if over.Missing != nil {
+		out.Missing = over.Missing
+	}
+	if over.Decide != nil {
+		out.Decide = over.Decide
+	}
+	if over.PreTool != nil {
+		out.PreTool = over.PreTool
+	}
+	if over.PostTool != nil {
+		out.PostTool = over.PostTool
+	}
+	if over.State != nil {
+		out.State = over.State
+	}
+	if over.Inbox != nil {
+		out.Inbox = over.Inbox
+	}
+	if over.Budget != nil {
+		out.Budget = over.Budget
+	}
 	return out
 }
 
@@ -152,10 +183,10 @@ func (w *World) SessionOf(e *loop.Engine) *loop.Session {
 }
 
 // Memory opens the memory instrument on this world (the JS port reads `.isekai/` by name).
-func (w *World) Memory() (*memory.World, error) { return memory.Open(w.Root) }
+func (w *World) Memory() (*memory.World, error) { return memory.OpenIn(w.Root, w.Lex.WorldDir) }
 
 // Toolbox opens the toolbox instrument on this world.
-func (w *World) Toolbox() (*toolbox.World, error) { return toolbox.Open(w.Root) }
+func (w *World) Toolbox() (*toolbox.World, error) { return toolbox.OpenIn(w.Root, w.Lex.WorldDir) }
 
 // Recall runs the recall beat: memory hits as `src#sec` anchors, toolbox @T lines. Never a body.
 func (w *World) Recall(as, ask string, opt RecallOptions) loop.Recall {
@@ -174,6 +205,13 @@ func (w *World) Recall(as, ask string, opt RecallOptions) loop.Recall {
 				}
 			}
 			res, err := m.Recall(ask, memory.RecallOpts{As: as, K: opt.K})
+			if err == nil && staleIndex(res.Holes) {
+				// a stale index is rebuilt, never routed around
+				if _, ierr := m.Index(); ierr == nil {
+					rc.Rebuilt = true
+					res, err = m.Recall(ask, memory.RecallOpts{As: as, K: opt.K, NoCache: true})
+				}
+			}
 			if err != nil {
 				rc.Holes = append(rc.Holes, "memory: "+err.Error())
 			} else {
@@ -208,8 +246,8 @@ func (w *World) Recall(as, ask string, opt RecallOptions) loop.Recall {
 			} else {
 				rc.Tools = append(rc.Tools, b.Lines...)
 				for _, h := range b.Holes {
-					if strings.HasPrefix(h, "registry older") || strings.HasPrefix(h, "no registry") {
-						continue
+					if strings.HasPrefix(h, "registry older") || strings.HasPrefix(h, "no registry") || strings.HasPrefix(h, "registry empty") {
+						continue // an empty or aging registry is the world's state, not a fault of the beat
 					}
 					rc.Holes = append(rc.Holes, "toolbox: "+h)
 				}

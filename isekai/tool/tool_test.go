@@ -74,8 +74,8 @@ func TestSettleOnlyTightens(t *testing.T) {
 	if c, _ := w.Settle(env, []byte(`{"path":"notes.txt"}`)); c.Class != Destructive {
 		t.Fatalf("injected record test %+v", c)
 	}
-	env.WorldDir = ".agent-zero"
-	if !env.Inside(filepath.Join(os.Getenv("HOME"), ".agent-zero", "x")) {
+	env.WorldDir = ".agent-one"
+	if !env.Inside(filepath.Join(os.Getenv("HOME"), ".agent-one", "x")) {
 		t.Fatal("the machine-shared tier follows WorldDir")
 	}
 }

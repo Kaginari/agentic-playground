@@ -705,3 +705,25 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Harbor restricts agent egress by allowlist (`--allow-agent-host`) and runs with the repo
     mounted at its host path so compose paths resolve; the runner needs the docker CLI + compose
     plugin (Debian's docker.io in python:slim is not enough).
+
+### [2026-09-26T13:29:46+02:00] rimuru — integration: two binaries from one engine, by the ladder
+- **Task:** Human: everything wired, config-driven, both distributions (agent-zero renamed
+  agent-one on Veldora's order), built by the ladder, "make sure it works properly".
+- **Files:** isekai/app/ (the one engine: providers, shelf, MCP, discoveries, hooks, sessions,
+  live REPL + async Courts, usage journal, board wiring, bench, selftest, init) ·
+  isekai/cmd/{isekai,agent-one} · fixes in world/hooks.go, onto/flow.go, tool/tool.go ·
+  canon/binary.md + config.md kept truthful.
+- **Gate:** n/a (no orcs). Ladder rungs 1→6 each green on units and on the junction below (the
+  Court's @F lines). Rimuru re-ran: `go vet` + `go test ./...` green; CGO_ENABLED=0 static
+  builds of both; `isekai selftest` → @S PASS 195 checks.
+- **Result:** done. Not built (named, v0.1 scope): undo/snapshots, plan-mode preset, rules as
+  ontology Law facts, MCP tools in the @T manifest. Not live-tested: Anthropic/OpenAI streaming,
+  caching, fallbacks, guided decoding (httptest only; no key on the machine).
+- **Learned:**
+  - The env-file config layer is not the human's written word for the gate: an unattended bench
+    pre-approves from a config file inside the world dir, never from env.
+  - bwrap hides /tmp: helpers a sandboxed shell or stdio MCP server must reach live under
+    <dist-dir>/tmp/, never in $TMPDIR.
+  - A Court whose turn wrote nothing never meets the gate, so no verdict reaches log.md.
+  - Decided since: two separate codebases (agent-one forks the validated engine with its own
+    vocabulary down to the Go identifiers); worlds and dimensions law (v0.2); runtime design (v0.2).

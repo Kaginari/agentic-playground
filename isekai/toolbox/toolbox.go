@@ -39,23 +39,38 @@ func failf(format string, a ...any) error { return &Fail{Holes: []string{fmt.Spr
 
 type World struct {
 	Root string
+	Dir  string // the world directory name (".isekai"; a distribution renames it)
 	Now  func() time.Time
 	// Path is the PATH an external is looked up on; empty means the process environment's.
 	Path string
 }
 
-func Open(root string) (*World, error) {
+// Open opens a world under the default directory name.
+func Open(root string) (*World, error) { return OpenIn(root, memory.DefaultWorldDir) }
+
+// OpenIn opens a world whose world directory is named dir.
+func OpenIn(root, dir string) (*World, error) {
+	if dir == "" {
+		dir = memory.DefaultWorldDir
+	}
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		abs = root
 	}
-	if !memory.Exists(filepath.Join(abs, ".isekai")) {
-		return nil, failf("no .isekai/ under %s", abs)
+	if !memory.Exists(filepath.Join(abs, dir)) {
+		return nil, failf("no %s/ under %s", dir, abs)
 	}
-	return &World{Root: abs, Now: time.Now}, nil
+	return &World{Root: abs, Dir: dir, Now: time.Now}, nil
 }
 
-func (w *World) Isekai() string       { return filepath.Join(w.Root, ".isekai") }
+func (w *World) dir() string {
+	if w.Dir == "" {
+		return memory.DefaultWorldDir
+	}
+	return w.Dir
+}
+
+func (w *World) Isekai() string       { return filepath.Join(w.Root, w.dir()) }
 func (w *World) RegistryPath() string { return filepath.Join(w.Isekai(), "toolbox", "registry.json") }
 func (w *World) ExtraPath() string    { return filepath.Join(w.Isekai(), "toolbox", "extra.jsonl") }
 func (w *World) LoadsPath() string {
@@ -257,7 +272,7 @@ func (w *World) bodies() ([]string, map[string]*home) {
 	return w.dirsOf([]string{".claude/agents", ".opencode/agents", ".opencode/agent"}, mdFile)
 }
 func (w *World) tools() ([]string, map[string]*home) {
-	return w.dirsOf([]string{".isekai/tools"}, func(d string, e os.DirEntry) (string, string) {
+	return w.dirsOf([]string{w.dir() + "/tools"}, func(d string, e os.DirEntry) (string, string) {
 		if e.Type().IsRegular() && !strings.HasPrefix(e.Name(), ".") {
 			return e.Name(), filepath.Join(d, e.Name())
 		}

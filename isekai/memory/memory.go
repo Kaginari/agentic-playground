@@ -41,33 +41,55 @@ func failf(format string, a ...any) error {
 	return &Fail{[]string{fmt.Sprintf(format, a...)}}
 }
 
-// World is one reincarnated directory. Home is the machine home (~); Now the clock.
+// DefaultWorldDir is the world directory Open and the CLI look for; a distribution's binary
+// sets it (".agent-one") before delegating, or opens explicitly with OpenIn.
+var DefaultWorldDir = ".isekai"
+
+// World is one reincarnated directory. Home is the machine home (~); Now the clock; Dir the
+// world directory name (".isekai", or ".agent-one" under that distribution — the machine
+// tier follows it: ~/<Dir>/shared/notes.jsonl).
 type World struct {
 	Root string
 	Home string
+	Dir  string
 	Now  func() time.Time
 }
 
-func Open(root string) (*World, error) {
+// Open opens a world under the default directory name.
+func Open(root string) (*World, error) { return OpenIn(root, DefaultWorldDir) }
+
+// OpenIn opens a world whose world directory is named dir.
+func OpenIn(root, dir string) (*World, error) {
+	if dir == "" {
+		dir = DefaultWorldDir
+	}
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		abs = root
 	}
-	if !Exists(filepath.Join(abs, ".isekai")) {
-		return nil, failf("no .isekai/ under %s", abs)
+	if !Exists(filepath.Join(abs, dir)) {
+		return nil, failf("no %s/ under %s", dir, abs)
 	}
 	home, _ := os.UserHomeDir()
-	return &World{Root: abs, Home: home, Now: time.Now}, nil
+	return &World{Root: abs, Home: home, Dir: dir, Now: time.Now}, nil
 }
 
-func (w *World) Isekai() string   { return filepath.Join(w.Root, ".isekai") }
+func (w *World) dir() string {
+	if w.Dir == "" {
+		return DefaultWorldDir
+	}
+	return w.Dir
+}
+
+// Isekai is the world directory (<root>/<dir>); the name is the law's, the dir may not be.
+func (w *World) Isekai() string { return filepath.Join(w.Root, w.dir()) }
 func (w *World) shortDir() string { return filepath.Join(w.Isekai(), "memory", "short") }
 func (w *World) longDir() string  { return filepath.Join(w.Isekai(), "memory", "long") }
 func (w *World) sharedNotes() string {
 	return filepath.Join(w.Isekai(), "memory", "shared", "notes.jsonl")
 }
 func (w *World) machineNotes() string {
-	return filepath.Join(w.Home, ".isekai", "shared", "notes.jsonl")
+	return filepath.Join(w.Home, w.dir(), "shared", "notes.jsonl")
 }
 func (w *World) IndexPath() string { return filepath.Join(w.longDir(), "index.json") }
 func (w *World) now() string       { return NowISO(w.Now()) }

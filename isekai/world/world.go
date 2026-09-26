@@ -19,7 +19,7 @@ import (
 // parser: race, territory, parent bond, worn minds; plus its verify commands (traits as
 // readings) and the doc that owns it.
 type Creature struct {
-	Name      string   // slime-auth (zone-auth under agent-zero)
+	Name      string   // slime-auth (zone-auth under agent-one)
 	Rank      string   // the rank's name in the table (slime, orc, elf, kijin, or a custom one)
 	Doc       string   // relative path of the owning doc
 	Dir       string   // relative path of the creature's directory
@@ -47,12 +47,17 @@ type World struct {
 	Instructions []Instruction
 	Notes        []string // holes met while opening
 
+	// Foreign are bodies read from another harness's agent files (discovery.agents): they
+	// stay on the roster across Reload, beside the creatures derived from the docs.
+	Foreign []Creature
+
 	mu       sync.Mutex
 	sessions map[*loop.Engine]*loop.Session
+	closers  map[*loop.Engine]func()
 }
 
 // Discover walks up from dir for the first lexicon whose world dir exists. Both `.isekai` and
-// `.agent-zero` are tried, in the order given (Lexicons() when none).
+// `.agent-one` are tried, in the order given (Lexicons() when none).
 func Discover(dir string, lexes ...Lexicon) (string, Lexicon, error) {
 	if len(lexes) == 0 {
 		lexes = Lexicons()
@@ -79,7 +84,7 @@ func Open(root string, lex Lexicon, opt Options) (*World, error) {
 	if st, err := os.Stat(filepath.Join(abs, lex.WorldDir)); err != nil || !st.IsDir() {
 		return nil, fmt.Errorf("no %s/ under %s", lex.WorldDir, abs)
 	}
-	w := &World{Root: abs, Lex: lex, Ranks: opt.Ranks, sessions: map[*loop.Engine]*loop.Session{}}
+	w := &World{Root: abs, Lex: lex, Ranks: opt.Ranks, sessions: map[*loop.Engine]*loop.Session{}, closers: map[*loop.Engine]func(){}}
 	if w.Ranks == nil {
 		w.Ranks = DefaultRanks(lex)
 	}
@@ -123,6 +128,32 @@ func (w *World) Reload() error {
 	w.Onto = ow
 	w.Notes = append(w.Notes, ow.Notes...)
 	w.Creatures = creaturesOf(w.Root, ow, w.Ranks)
+	for _, f := range w.Foreign {
+		if w.creatureLocked(f.Name) == nil {
+			w.Creatures = append(w.Creatures, f)
+		}
+	}
+	return nil
+}
+
+// AddForeign puts a body from another harness's agent file on the roster (a name already on
+// it is one body with two sources: the native one wins, Nature 2).
+func (w *World) AddForeign(c Creature) {
+	w.mu.Lock()
+	w.Foreign = append(w.Foreign, c)
+	exists := w.creatureLocked(c.Name) != nil
+	if !exists {
+		w.Creatures = append(w.Creatures, c)
+	}
+	w.mu.Unlock()
+}
+
+func (w *World) creatureLocked(name string) *Creature {
+	for i := range w.Creatures {
+		if w.Creatures[i].Name == name {
+			return &w.Creatures[i]
+		}
+	}
 	return nil
 }
 

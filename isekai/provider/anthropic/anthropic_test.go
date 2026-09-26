@@ -69,7 +69,8 @@ func TestComplete(t *testing.T) {
 	if hdr.Get("x-api-key") != "sk-test" || hdr.Get("anthropic-version") != Version {
 		t.Fatalf("headers %v", hdr)
 	}
-	if got["model"] != "claude-t" || got["system"] != "sys" || got["max_tokens"].(float64) != defaultMax {
+	sys := got["system"].([]interface{})[0].(map[string]interface{})
+	if got["model"] != "claude-t" || sys["text"] != "sys" || got["max_tokens"].(float64) != defaultMax {
 		t.Fatalf("body %v", got)
 	}
 	msgs := got["messages"].([]interface{})

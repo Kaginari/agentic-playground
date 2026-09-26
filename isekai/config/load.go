@@ -15,7 +15,7 @@ import (
 
 // Options is what Load needs beyond the process: tests fill every field.
 type Options struct {
-	Dist  string              // isekai | agent-zero; "" detects from the world dir, else isekai
+	Dist  string              // isekai | agent-one; "" detects from the world dir, else isekai
 	Root  string              // the world root; "" walks up from Cwd to the nearest <dist-dir>
 	Cwd   string              // "" is the process cwd
 	Home  string              // "" is $HOME
@@ -425,7 +425,7 @@ func kebabToPath(s string) string {
 
 // normalize folds the accepted spellings into the canonical keys, keeping origins:
 // `model` → models.default; provider `baseUrl`/`kind`; permission `{tool, pattern}` →
-// `match`; tools.question → tools.ask; agent-zero office and rank words → canonical.
+// `match`; tools.question → tools.ask; agent-one office and rank words → canonical.
 func normalize(n *yaml.Node) *yaml.Node {
 	if n == nil || n.Kind != yaml.Map {
 		return n
@@ -518,7 +518,7 @@ func foldTimeouts(n *yaml.Node) error {
 	return nil
 }
 
-// officeAliases and rankAliases fold agent-zero's words (lexicon triad.*, rank.*) to the
+// officeAliases and rankAliases fold agent-one's words (lexicon triad.*, rank.*) to the
 // canonical keys; canonical keys pass through.
 var officeAliases = map[string]string{"analyst": "great-sage", "judge": "raphael", "drafter": "ciel", "great_sage": "great-sage", "greatsage": "great-sage"}
 var rankAliases = map[string]string{

@@ -79,7 +79,7 @@ func (a *Args) Root(dflt string) (root, cmd string) {
 	if wd, err := os.Getwd(); err == nil {
 		root = wd
 	}
-	if len(a.Pos) > 0 && Exists(filepath.Join(a.Pos[0], ".isekai")) {
+	if len(a.Pos) > 0 && Exists(filepath.Join(a.Pos[0], DefaultWorldDir)) {
 		root, _ = filepath.Abs(a.Pos[0])
 		a.Pos = a.Pos[1:]
 	}

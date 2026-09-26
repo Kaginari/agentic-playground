@@ -79,11 +79,13 @@ type Provider struct {
 	ToolCalls       string                 `json:"toolCalls"` // native | text
 	GuidedDecoding  bool                   `json:"guidedDecoding"`
 	ContextWindow   AutoInt                `json:"contextWindow"` // auto | <n>
+	Thinking        string                 `json:"thinking"`      // anthropic: adaptive | off
+	Fallbacks       string                 `json:"fallbacks"`     // anthropic: default | off (refusal fallbacks)
 	Script          string                 `json:"script"`        // mock only
 }
 
 // Models routes calls by creature, office, rank and task; the session runs on Default.
-// Office keys are canonical (great-sage, raphael, ciel); agent-zero's analyst/judge/drafter
+// Office keys are canonical (great-sage, raphael, ciel); agent-one's analyst/judge/drafter
 // and its rank words are accepted on input and folded to the canonical keys.
 type Models struct {
 	Default   ModelRef            `json:"default"`
@@ -142,8 +144,15 @@ func (c Cap) Off() bool { return c.Tokens == 0 && c.USD == 0 }
 
 // UI is the live session's chrome.
 type UI struct {
-	StatusLine     bool `json:"statusLine"`
-	AnnounceCourts bool `json:"announceCourts"`
+	StatusLine     bool    `json:"statusLine"`
+	AnnounceCourts bool    `json:"announceCourts"`
+	Board          BoardUI `json:"board"`
+}
+
+// BoardUI is ui.board: the board the binary serves on 127.0.0.1.
+type BoardUI struct {
+	Autostart bool `json:"autostart"`
+	Port      int  `json:"port"`
 }
 
 type TLS struct {
@@ -195,6 +204,7 @@ type BuiltinTool struct {
 	Sandbox     string   `json:"sandbox"`  // bash: bwrap | none
 	EnvAllow    []string `json:"envAllow"` // bash: env vars that survive scrubbing
 	MaxDepth    int      `json:"maxDepth"` // dispatch
+	Backend     string   `json:"backend"`  // websearch: a URL with {query}, answering SearXNG-style JSON
 }
 
 // CustomTool is a tool declared in config: argv with {{param}} placeholders, or a shell
@@ -405,6 +415,7 @@ type Hooks struct {
 	SessionStart []*Hook  `json:"sessionStart"`
 	PreCompact   []*Hook  `json:"preCompact"`
 	Stop         []*Hook  `json:"stop"`
+	UserPrompt   []*Hook  `json:"userPrompt"`
 }
 
 type Hook struct {

@@ -87,11 +87,11 @@ func TestDefaultsAlone(t *testing.T) {
 }
 
 func TestDefaultsOnly(t *testing.T) {
-	c, err := Defaults("agent-zero")
+	c, err := Defaults("agent-one")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(c.Layers) != 1 || c.Law.Log.Path != ".agent-zero/log.md" || c.Where("models.default") != "default" {
+	if len(c.Layers) != 1 || c.Law.Log.Path != ".agent-one/log.md" || c.Where("models.default") != "default" {
 		t.Errorf("defaults: %+v %s", c.Layers, c.Law.Log.Path)
 	}
 }
@@ -320,23 +320,23 @@ func TestParseFlags(t *testing.T) {
 	}
 }
 
-func TestAgentZero(t *testing.T) {
+func TestAgentOne(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "ws")
-	_ = os.MkdirAll(filepath.Join(root, ".agent-zero"), 0o755)
-	_ = os.WriteFile(filepath.Join(root, ".agent-zero", "config.yaml"), []byte("models:\n  offices: {analyst: anthropic/claude-haiku-4-5, judge: anthropic/claude-sonnet-4-5, drafter: anthropic/claude-opus-4-5}\n  ranks: {zone: anthropic/claude-haiku-4-5}\nrules: [{text: x, scope: rank:zone}]\n"), 0o644)
-	env := map[string]string{"AGENT_ZERO_LOG_LEVEL": "INFO", "XDG_CONFIG_HOME": filepath.Join(dir, "xdg")}
+	_ = os.MkdirAll(filepath.Join(root, ".agent-one"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, ".agent-one", "config.yaml"), []byte("models:\n  offices: {analyst: anthropic/claude-haiku-4-5, judge: anthropic/claude-sonnet-4-5, drafter: anthropic/claude-opus-4-5}\n  ranks: {zone: anthropic/claude-haiku-4-5}\nrules: [{text: x, scope: rank:zone}]\n"), 0o644)
+	env := map[string]string{"AGENT_ONE_LOG_LEVEL": "INFO", "XDG_CONFIG_HOME": filepath.Join(dir, "xdg")}
 	c, err := LoadWith(Options{Root: root, Home: filepath.Join(dir, "home"), Env: func(k string) string { return env[k] }})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Dist.Name != "agent-zero" || c.Dist.WorldDir != ".agent-zero" || c.Dist.EnvPrefix != "AGENT_ZERO_" || c.Dist.LawFile != "AGENT-ZERO.md" {
+	if c.Dist.Name != "agent-one" || c.Dist.WorldDir != ".agent-one" || c.Dist.EnvPrefix != "AGENT_ONE_" || c.Dist.LawFile != "AGENT-ONE.md" {
 		t.Errorf("dist: %+v", c.Dist)
 	}
-	if c.Dist.GlobalDir != filepath.Join(dir, "xdg", "agent-zero") || c.Layers[1].Path != filepath.Join(dir, "xdg", "agent-zero", "config.yaml") {
+	if c.Dist.GlobalDir != filepath.Join(dir, "xdg", "agent-one") || c.Layers[1].Path != filepath.Join(dir, "xdg", "agent-one", "config.yaml") {
 		t.Errorf("xdg: %s %s", c.Dist.GlobalDir, c.Layers[1].Path)
 	}
-	if c.LogLevel != "INFO" || c.Law.Log.Path != ".agent-zero/log.md" {
+	if c.LogLevel != "INFO" || c.Law.Log.Path != ".agent-one/log.md" {
 		t.Errorf("lexicon: %s %s", c.LogLevel, c.Law.Log.Path)
 	}
 	if c.Models.Offices["great-sage"].Model != "anthropic/claude-haiku-4-5" || c.Models.Offices["ciel"].Model != "anthropic/claude-opus-4-5" {

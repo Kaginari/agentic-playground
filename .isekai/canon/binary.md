@@ -34,7 +34,13 @@ Source: `isekai/` at the repository root (Go module, stdlib only). Build with
 | `wire` | parse and emit the envelope (`@S @F @V @? @U @E`, `@ROOT @SCOPE @ASK @CAP @DUMP`); `@CAP` enforced | Absolute Rule II, Nature 8 |
 | `world` | world discovery, the law loader (crest always; code sections on demand), ranks and bodies from `.isekai/{elf,orc,slime}/`, `log.md` append-only writer, the Orc gate and the Vitality check, Court dispatch | Natures 1–4, the gate, Laws 2–4 |
 | `onto` | the ontology: schema, graph, reasoning, validation, projection | §The ontology below |
-| `cmd/isekai` | CLI: `isekai` (REPL), `isekai run "<ask>"`, `isekai status`, `isekai onto …`, `isekai memory …`, `isekai toolbox …`, `isekai selftest` | — |
+| `config` | the switchboard (`canon/config.md`): layers, origins, refusals, permission rules, models per office/rank/task, ranks as data | the honesty rule; a disabled law is a finding |
+| `compact` | the drain: pointerize, trim, the unsaid, the desk, the episode, verify | §Compaction below |
+| `sandbox` · `shell` | bwrap containment and env scrubbing; one persistent bash per body with background jobs | Nature 7, §Bash below |
+| `mcp` · `discover` | the MCP client (stdio, streamable HTTP); what other harnesses wrote (instructions, Minds, commands, Bodies, MCP imports) | §MCP below; `harness-parity.md` |
+| `board` | the world, seen: an HTTP handler over the same instruments | §The board below |
+| `app` | the one engine behind both binaries: config → world → providers, shelf, MCP, discoveries, hooks; sessions (JSONL), the live REPL, `run`, `bench`, `selftest`, `init`, `board` | everything above, wired |
+| `cmd/isekai` · `cmd/agent-one` | the two distributions: one `main` each, differing only by the name they hand `app.Main` (lexicon, world dir, env prefix, law file follow) | — |
 
 ## Bash — the model's shell, the world's rules
 
@@ -162,9 +168,12 @@ The throne never chooses its horse: the session (Rimuru) runs on the model the h
 - The session is **Rimuru**. A creature is a record read from its doc under
   `.isekai/<race>/<name>/`: race, territory (path globs), traits, worn minds, orc (for a slime).
 - A **Court Body** is `dispatch`: a fresh loop with its own context, a commission in the wire
-  (`@ROOT @SCOPE @ASK @CAP`), a tool set cut to its rank and territory, and one wire report back.
-  Its context dies with the call; only what it wrote to disk and its report survive. A report
-  with no `@U` line is flagged to the dispatcher (the unsaid).
+  (`@ROOT @SCOPE @ASK @CAP`), a tool set cut to its rank and territory, its own shell, and one
+  wire report back. Its context dies with the call; only what it wrote to disk and its report
+  survive. A Court's writes are gated by the Court itself — the end-of-turn gate runs on its
+  own account and its verdict is recorded under its own name; nothing propagates upward for a
+  second gate. A report with no `@U` line is flagged to the dispatcher (the unsaid). The
+  `@U` lines of a background Court are landed by the dispatcher when the report wakes it.
 - **Ranks are data, the law's table is the default.** The binary carries the ranks of
   `isekai.md` §The world (Elf, Orc, Slime; Kijin; High Elf, High Orc, Dark Elf) as its built-in
   table: parent, job, whether the rank authors, whether it holds a gate, body mode, default office,

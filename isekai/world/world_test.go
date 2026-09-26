@@ -71,15 +71,15 @@ func open(t *testing.T, dir string) *World {
 }
 
 func TestLexicon(t *testing.T) {
-	if b, err := os.ReadFile(filepath.Join("..", "..", "agent-zero", "lexicon.json")); err == nil && string(b) != string(lexiconJSON) {
-		t.Error("world/lexicon.json differs from agent-zero/lexicon.json — Vitality: change both in the same change")
+	if b, err := os.ReadFile(filepath.Join("..", "..", "agent-one", "lexicon.json")); err == nil && string(b) != string(lexiconJSON) {
+		t.Error("world/lexicon.json differs from agent-one/lexicon.json — Vitality: change both in the same change")
 	}
-	i, a := Isekai(), AgentZero()
+	i, a := Isekai(), AgentOne()
 	if i.WorldDir != ".isekai" || i.Law != "isekai.md" || i.Ranks["slime"] != "slime" || i.Prefixes["orc"] != "orc-" || i.Crest != "The Crest" || i.GateNA != "Gate: n/a (no orcs)" || i.Checks[0] != "Right slime authored" {
 		t.Errorf("isekai lexicon: %+v", i)
 	}
-	if a.WorldDir != ".agent-zero" || a.Law != "AGENT-ZERO.md" || a.Ranks["slime"] != "zone" || a.Ranks["orc"] != "domain" || a.Prefixes["elf"] != "coord-" || a.Unsaid["colony"] != "team" || a.Human != "Operator" {
-		t.Errorf("agent-zero lexicon: %+v", a)
+	if a.WorldDir != ".agent-one" || a.Law != "AGENT-ONE.md" || a.Ranks["slime"] != "zone" || a.Ranks["orc"] != "domain" || a.Prefixes["elf"] != "coord-" || a.Unsaid["colony"] != "team" || a.Human != "Operator" {
+		t.Errorf("agent-one lexicon: %+v", a)
 	}
 	if k, ok := a.Canonical("team"); !ok || k != "colony" {
 		t.Error("team → colony")
@@ -93,10 +93,10 @@ func TestLexicon(t *testing.T) {
 	if a.Token("territory") != "domain" || i.Token("territory") != "territory" || a.Race("zone-auth") != "slime" || i.Race("zone-auth") != "" || i.Race("orc-x") != "orc" {
 		t.Error("tokens and races")
 	}
-	if l := a.Layout(); len(l.Ranks) != 5 || l.Ranks[2].Dir != "zone" || l.Ranks[2].Parent != "orc" || l.Law != "AGENT-ZERO.md" {
+	if l := a.Layout(); len(l.Ranks) != 5 || l.Ranks[2].Dir != "zone" || l.Ranks[2].Parent != "orc" || l.Law != "AGENT-ONE.md" {
 		t.Errorf("layout %+v", l)
 	}
-	if l := a.Loop(); l.Human != "Operator" || l.WorldDir != ".agent-zero" || l.Body != "ephemeral-subagent" {
+	if l := a.Loop(); l.Human != "Operator" || l.WorldDir != ".agent-one" || l.Body != "ephemeral-subagent" {
 		t.Errorf("loop lexicon %+v", l)
 	}
 	if _, err := ParseLexicon(lexiconJSON, "klingon"); err == nil {
@@ -157,33 +157,33 @@ func TestDiscoverAndOpen(t *testing.T) {
 	if r := lt.Run(context.Background(), env, json.RawMessage(`{"section":"nope"}`)); !r.Err {
 		t.Error("unknown section is an error")
 	}
-	// agent-zero world, same engine
+	// agent-one world, same engine
 	az := t.TempDir()
 	for p, body := range map[string]string{
-		".agent-zero/AGENT-ZERO.md":             "# Agent-Zero\n\n## Core principles\n\n1. **Docs-as-code** — docs change with the code.\n\n## Policies\n\n1. The operator decides.\n",
-		".agent-zero/domain/security/README.md": "# domain-security\n\n- **Owns:** `src/`\n",
-		".agent-zero/zone/auth/README.md":       "# zone-auth\n\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n",
+		".agent-one/AGENT-ONE.md":             "# Agent-Zero\n\n## Core principles\n\n1. **Docs-as-code** — docs change with the code.\n\n## Policies\n\n1. The operator decides.\n",
+		".agent-one/domain/security/README.md": "# domain-security\n\n- **Owns:** `src/`\n",
+		".agent-one/zone/auth/README.md":       "# zone-auth\n\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n",
 	} {
 		full := filepath.Join(az, filepath.FromSlash(p))
 		os.MkdirAll(filepath.Dir(full), 0o755)
 		os.WriteFile(full, []byte(body), 0o644)
 	}
 	root, lex, err = Discover(az)
-	if err != nil || lex.Vocab != "agent-zero" || root != az {
-		t.Fatalf("agent-zero discover: %v %s", err, lex.Vocab)
+	if err != nil || lex.Vocab != "agent-one" || root != az {
+		t.Fatalf("agent-one discover: %v %s", err, lex.Vocab)
 	}
 	w2, err := Open(az, lex, Options{Ontology: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(w2.Law.Crest, "1. **Docs-as-code**") {
-		t.Errorf("agent-zero crest: %q", w2.Law.Crest)
+		t.Errorf("agent-one crest: %q", w2.Law.Crest)
 	}
 	if c := w2.Creature("zone-auth"); c == nil || c.Rank != "slime" || c.Parent != "domain-security" || strings.Join(c.Territory, ",") != "src/auth" {
-		t.Errorf("agent-zero creature %+v", c)
+		t.Errorf("agent-one creature %+v", c)
 	}
 	if !w2.Orcs() || w2.Owner("src/auth/x").Name != "zone-auth" {
-		t.Error("agent-zero orcs / owner")
+		t.Error("agent-one orcs / owner")
 	}
 	if _, err := Open(t.TempDir(), Isekai(), Options{}); err == nil {
 		t.Error("a directory without a world dir is not a world")
@@ -426,11 +426,11 @@ func TestRecallAndRecord(t *testing.T) {
 	b.Hooks.Recall = RecallOptions{Enabled: true, Memory: true, Toolbox: true}
 	e := w.Engine("slime-auth", b)
 	e.Run(context.Background(), "tokens expire after one hour — draft the answer")
-	if sys := m.Requests[0].System; !strings.Contains(sys, "@RECALL") || !strings.Contains(sys, "@TOOLS\n@T") {
+	if sys := m.Requests[0].SystemText(); !strings.Contains(sys, "@RECALL") || !strings.Contains(sys, "@TOOLS\n@T") {
 		t.Errorf("recall block:\n%s", sys)
 	}
 	// Record: a dispatch step's report carries @U lines → they go home under the dispatched body
-	st := &loop.StepRecord{ID: "s1", Tool: "dispatch", Input: json.RawMessage(`{"body":"slime-api","ask":"x"}`), Result: tool.Result{Output: "@S DONE\n@U colony the api tests need the fixture db\n@U team wire token in agent-zero spelling\n@E 0"}}
+	st := &loop.StepRecord{ID: "s1", Tool: "dispatch", Input: json.RawMessage(`{"body":"slime-api","ask":"x"}`), Result: tool.Result{Output: "@S DONE\n@U colony the api tests need the fixture db\n@U team wire token in agent-one spelling\n@E 0"}}
 	holes := w.Record("orc-security", st, RecordOptions{Enabled: true, Unsaid: true})
 	if len(holes) != 0 {
 		t.Fatalf("record holes %v", holes)

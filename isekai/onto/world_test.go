@@ -273,13 +273,13 @@ func TestCLI(t *testing.T) {
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
-func TestLayoutAgentZero(t *testing.T) {
+func TestLayoutAgentOne(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		".agent-zero/AGENT-ZERO.md":             "# rules\n",
-		".agent-zero/coord/core/README.md":      "# coord-core\n\n- **Owns:** `src/`\n",
-		".agent-zero/domain/security/README.md": "# domain-security\n\n- **Owns:** `src/auth/`\n- **Reports to:** coord-core\n",
-		".agent-zero/zone/auth/README.md":       "# zone-auth\n\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n- **Minds:** ciel\n",
+		".agent-one/AGENT-ONE.md":             "# rules\n",
+		".agent-one/coord/core/README.md":      "# coord-core\n\n- **Owns:** `src/`\n",
+		".agent-one/domain/security/README.md": "# domain-security\n\n- **Owns:** `src/auth/`\n- **Reports to:** coord-core\n",
+		".agent-one/zone/auth/README.md":       "# zone-auth\n\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n- **Minds:** ciel\n",
 		".claude/skills/ciel/SKILL.md":          "---\nname: ciel\n---\ndrafts\n",
 	}
 	for p, body := range files {
@@ -287,12 +287,12 @@ func TestLayoutAgentZero(t *testing.T) {
 		os.MkdirAll(filepath.Dir(full), 0o755)
 		os.WriteFile(full, []byte(body), 0o644)
 	}
-	l := Layout{WorldDir: ".agent-zero", Law: "AGENT-ZERO.md", Ranks: []RankDir{{"elf", "coord", "rimuru"}, {"orc", "domain", "elf"}, {"slime", "zone", "orc"}, {"kijin", "service", "rimuru"}}}
+	l := Layout{WorldDir: ".agent-one", Law: "AGENT-ONE.md", Ranks: []RankDir{{"elf", "coord", "rimuru"}, {"orc", "domain", "elf"}, {"slime", "zone", "orc"}, {"kijin", "service", "rimuru"}}}
 	if r, err := FindRootIn(filepath.Join(dir, "src"), l); err != nil || r != dir {
 		t.Fatalf("FindRootIn: %q %v", r, err)
 	}
 	if _, err := FindRoot(dir); err == nil {
-		t.Error("the isekai layout must not find an agent-zero world")
+		t.Error("the isekai layout must not find an agent-one world")
 	}
 	w, err := LoadLayout(dir, l)
 	if err != nil {
@@ -303,7 +303,7 @@ func TestLayoutAgentZero(t *testing.T) {
 		{Is("zone-auth"), rdfType, cSlime}, {Is("zone-auth"), pTruth, Is("domain-security")},
 		{Is("domain-security"), pVerdict, Is("coord-core")}, {Is("coord-core"), pReports, tRimuru},
 		{Is("zone-auth"), pOwns, L("src/auth")}, {Is("zone-auth"), pWears, Is("mind-ciel")},
-		{Is("doc-rimuru"), pPath, L(".agent-zero/AGENT-ZERO.md")}, {Is("doc-zone-auth"), pPath, L(".agent-zero/zone/auth/README.md")},
+		{Is("doc-rimuru"), pPath, L(".agent-one/AGENT-ONE.md")}, {Is("doc-zone-auth"), pPath, L(".agent-one/zone/auth/README.md")},
 	} {
 		if !g.Has(want) {
 			t.Errorf("not derived: %v", want)
