@@ -13,7 +13,7 @@ const F_HEAD = "Cambria", F_BODY = "Calibri", F_MONO = "Courier New";
 // ---- the two distributions: every word and colour that differs lives here -------------------
 const DIST = {
   isekai: {
-    out: "isekai-binary.pptx", bin: "isekai", title: "ISEKAI", version: "v0.1.2",
+    out: "isekai-binary.pptx", bin: "isekai", title: "ISEKAI", version: "v0.1.3",
     tagline: "The law as a harness", repo: "github.com/Kaginari/isekai (private)",
     sub: "One Go binary where the convention is enforced in code — not a prompt the model may skip",
     footer: "ISEKAI ⋄ THE LAW AS A HARNESS",
@@ -36,7 +36,7 @@ const DIST = {
     cover: "rimuru",
   },
   "agent-one": {
-    out: "agent-one-binary.pptx", bin: "agent-one", title: "AGENT-ONE", version: "v0.1.1",
+    out: "agent-one-binary.pptx", bin: "agent-one", title: "AGENT-ONE", version: "v0.1.2",
     tagline: "Policies enforced in code", repo: "github.com/Kaginari/agent-one",
     sub: "One Go binary where review gates, approvals, the sandbox and memory are part of the runtime",
     footer: "AGENT-ONE ⋄ POLICIES ENFORCED IN CODE",
@@ -360,14 +360,15 @@ function build(key) {
   {
     const s = slide(true);
     title(s, "Proof, not promises", true, "What was measured before each release.");
-    const stats = [["195", "selftest checks"], ["23", "test packages, race-clean"], ["9", "defects found by attack, fixed with tests"], ["1.0 / 0.0", "Harbor smoke: right / wrong"]];
+    const found = key === "isekai" ? "9 + 6" : "9 + 8";
+    const stats = [["195", "selftest checks"], ["23", "test packages, race-clean"], [found, "defects fixed: by attack, then by using the releases"], ["1.0 / 0.0", "Harbor smoke: right / wrong"]];
     stats.forEach(([n, l], i) => {
       const x = 0.6 + i * 3.1;
       s.addText(n, { x, y: 2.0, w: 2.9, h: 1.1, fontFace: F_HEAD, bold: true, fontSize: 48, color: [T.a1, T.a2, T.a3, T.warn][i], isTextBox: true, margin: 0 });
       s.addText(l, { x, y: 3.1, w: 2.8, h: 0.8, fontFace: F_BODY, fontSize: 14, color: T.dimLight, isTextBox: true, margin: 0, valign: "top" });
     });
     s.addText(bullets([
-      "An independent validator attacked the gate, the sandbox, the permission rules, symlinks, secrets and injection — before release.",
+      "An independent validator attacked the gate, the sandbox, the permission rules, symlinks, secrets and injection — before release. Running the released binaries for this deck found the rest; each fix ships with a regression test.",
       "Every commit: gofmt, vet, race tests, selftest, four builds, GoReleaser check and the Harbor smoke on GitHub's runners.",
       "Honest limits: providers' streaming, caching and fallbacks are tested against local fakes only — not yet live.",
     ], T.dimLight), { x: 0.6, y: 4.3, w: PW - 1.2, h: 2.4, fontFace: F_BODY, fontSize: 15, valign: "top", isTextBox: true, margin: 0 });
