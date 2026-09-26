@@ -843,3 +843,19 @@ Append-only. Newest entries at the bottom. One entry per change.
     output** — flaky in CI (agent-one failed, isekai passed on the same code).
   - The ~/.config/opencode/agents/rimuru.md file stays: it is OpenCode's throne body, and the
     binary now reserves the session's name, so it can no longer become a creature.
+
+### [2026-09-26T16:35:07+02:00] rimuru — isekai v0.1.4 and agent-one v0.1.2 released; Gemini free tier as the global default
+- **Task:** Human: "go with gemini free tier".
+- **Files:** ~/.config/{isekai,agent-one}/config.yaml (machine-global, outside the world: provider
+  gemini, OpenAI-compatible endpoint from Google's docs, model gemini-3.8-flash, key from
+  GEMINI_API_KEY) · both engines: no literal "~/" paths · publish/template ci.yml: clean-tree check.
+- **Gate:** n/a (no orcs). Instruments: CI green on both repos (incl. the new clean-tree step);
+  releases published: isekai v0.1.4, agent-one v0.1.2; `isekai status` in pfcli resolves
+  gemini/gemini-3.8-flash from the global layer, one hole: GEMINI_API_KEY unset (Veldora's step).
+- **Result:** done; the first real Gemini session waits on Veldora's key.
+- **Learned:**
+  - A test with an empty environment made the app write sessions into a literal "~" directory in
+    the source tree; the release (which runs tests first) then refused a dirty tree. Two releases
+    failed before publishing anything; tags were re-pointed. CI now fails when tests leave files.
+  - `git add -A` swept those stray files into this repo's history (commit 94c23ba), removed in
+    561b6f0 — adding by path, not -A, is the safer habit here.
