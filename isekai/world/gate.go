@@ -181,6 +181,11 @@ func (w *World) EndGate(opt GateOptions) func(ctx context.Context, s *loop.Sessi
 		if as == "" {
 			as = s.Engine.Lexicon.Body
 		}
+		// a Court's writes were gated on its own account: the dispatcher gates only its own
+		s.Wrote = w.ownWrites(s)
+		if len(s.Wrote) == 0 {
+			return "", nil, nil
+		}
 		v := w.Gate(ctx, opt, as, s.Wrote, &r.Report, r.IsWire, s.Ask)
 		holes := append([]string(nil), v.Holes...)
 		if opt.Log && opt.Enabled {
@@ -188,7 +193,11 @@ func (w *World) EndGate(opt GateOptions) func(ctx context.Context, s *loop.Sessi
 			if v.Word == "fail" {
 				result = "failed — gate"
 			}
-			e := Entry{Author: or(as, "rimuru"), Title: "gate " + v.Word + " — " + oneLine(firstLine(s.Ask)), Task: firstLine(s.Ask), Files: s.Wrote, Gate: v.String(), Result: result}
+			title := "gate " + v.Word
+			if !orcs(v.Word) {
+				title = v.Word // already `Gate: n/a (no orcs)`
+			}
+			e := Entry{Author: or(as, "rimuru"), Title: title + " — " + oneLine(firstLine(s.Ask)), Task: firstLine(s.Ask), Files: s.Wrote, Gate: v.String(), Result: result}
 			if r.IsWire {
 				for _, u := range r.Report.Unsaid {
 					e.Learned = append(e.Learned, "@U "+u.Kind+" "+u.Text)
@@ -216,6 +225,10 @@ func (w *World) AppendLog(e Entry) error {
 
 // LogPath is <root>/<worldDir>/log.md.
 func (w *World) LogPath() string { return w.Dir() + "/" + w.Lex.Log }
+
+// orcs is true for a verdict word from a world with a gate holder (pass | fail), false for the
+// no-gate-holder line, which already reads `Gate: n/a (…)`.
+func orcs(word string) bool { return word == "pass" || word == "fail" }
 
 func lawTable(w *World) bool {
 	d := DefaultRanks(w.Lex)

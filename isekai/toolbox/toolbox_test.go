@@ -308,3 +308,19 @@ func TestInteropWithToolboxJS(t *testing.T) {
 	}
 	_ = strconv.Itoa
 }
+
+// An empty registry's hole names the world dir the toolbox was opened in, never the other
+// distribution's.
+func TestEmptyRegistryHoleNamesTheWorldDir(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, ".agent-one"), 0o755)
+	w, err := OpenIn(root, ".agent-one")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := w.Status(math.NaN())
+	holes := strings.Join(st.Holes, "\n")
+	if !strings.Contains(holes, "registry empty") || strings.Contains(holes, ".isekai") || !strings.Contains(holes, ".agent-one/tools") {
+		t.Fatalf("holes: %q", holes)
+	}
+}

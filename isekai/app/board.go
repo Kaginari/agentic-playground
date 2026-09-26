@@ -40,10 +40,12 @@ func (a *App) boardOptions() board.Options {
 	set("kind.colony", a.Lex.Token("colony"))
 	set("kind.territory", a.Lex.Token("territory"))
 	src := board.Sources{
-		Court:   a.liveBodies,
-		Config:  func() any { return configTree(a.Cfg) },
-		Off:     a.offList,
-		Session: func() board.Session { return board.Session{ID: a.SessionID, Model: a.mountModel.Ref.Model, Provider: a.mountModel.Provider, Started: a.started, State: a.sessionState()} },
+		Court:  a.liveBodies,
+		Config: func() any { return configTree(a.Cfg) },
+		Off:    a.offList,
+		Session: func() board.Session {
+			return board.Session{ID: a.SessionID, Model: a.mountModel.Ref.Model, Provider: a.mountModel.Provider, Started: a.started, State: a.sessionState()}
+		},
 	}
 	return board.Options{WorldRoot: a.Root, WorldDir: a.Cfg.Dist.WorldDir, Layout: a.World.Ranks.Layout(a.Lex), Names: names, Sources: src}
 }
@@ -191,4 +193,3 @@ func (a *App) boardLine() string {
 	}
 	return fmt.Sprintf("board: not running here — `%s board` serves it on 127.0.0.1:%d", a.Cfg.Dist.Name, a.Cfg.UI.Board.Port)
 }
-

@@ -172,7 +172,9 @@ func New(opt Options) (*App, error) {
 	a.Found = Discover(cfg, a.Root, opt.Home)
 	a.rules = foreignBodies(w, a.Found.Agents, a.Lex)
 	// hooks, the missing-tool policy, the drain, sessions
-	a.Hooks = &ShellHooks{Cfg: cfg, Root: a.Root, Session: a.SessionID, Journal: func(ev string, f map[string]interface{}) { a.record(nil, "hook", merge(f, map[string]interface{}{"event": ev})) }}
+	a.Hooks = &ShellHooks{Cfg: cfg, Root: a.Root, Session: a.SessionID, Journal: func(ev string, f map[string]interface{}) {
+		a.record(nil, "hook", merge(f, map[string]interface{}{"event": ev}))
+	}}
 	a.Missing = &MissingPolicy{Cfg: cfg, Disabled: a.Shelf.Disabled, Ask: asker,
 		Note:   func(as, text string) error { return w.Remember(as, "colony", text, "missing") },
 		Reload: func(next *config.Config, changes []config.Change) { a.reload(next, changes) }}
@@ -273,7 +275,7 @@ func (a *App) Build() world.Build {
 				a.Court.Finish(body, report)
 				a.Court.Wake(fmt.Sprintf("[court %s reported]\n%s", body, report))
 			}},
-		Journal:   a.journalDir(),
+		Journal: a.journalDir(),
 	}
 	if !a.Opt.Quiet {
 		b.Trace = a.Opt.Err

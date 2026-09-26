@@ -192,6 +192,7 @@ func (d *decoder) decodeModelRef(n *yaml.Node, v reflect.Value, path string) {
 func (d *decoder) str(s string) string {
 	s = strings.ReplaceAll(s, "[dist-dir]", d.dist.WorldDir)
 	s = strings.ReplaceAll(s, "[dist]", d.dist.Name)
+	s = strings.ReplaceAll(s, "[rank-dirs]", d.dist.RankDirs)
 	if strings.HasPrefix(s, "~/") && d.home != "" {
 		s = filepath.Join(d.home, s[2:])
 	}

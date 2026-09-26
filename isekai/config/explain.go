@@ -8,15 +8,68 @@ import (
 	"github.com/Kaginari/agentic-playground/isekai/config/yaml"
 )
 
-// Show renders the effective config as JSON (keys sorted) or YAML.
+// Show renders the effective config as JSON (keys sorted) or YAML, in the distribution's
+// words: the canonical office and rank keys the loader folded to are spelled back.
 func (c *Config) Show(asYAML bool) string {
 	if c.tree == nil {
 		return "{}"
 	}
+	tree := c.worded()
 	if asYAML {
-		return yaml.Emit(c.tree)
+		return yaml.Emit(tree)
 	}
-	return c.tree.Pretty() + "\n"
+	return tree.Pretty() + "\n"
+}
+
+// wordedKeys are the map paths whose keys are rank or office names; wordedVals the scalar
+// paths whose values are (ranks.<r>.office, reportsTo, ascendsFrom).
+var (
+	wordedKeys = map[string]bool{"models.offices": true, "models.ranks": true, "ranks": true}
+	wordedVals = map[string]bool{"office": true, "reportsTo": true, "ascendsFrom": true}
+)
+
+// wordPath spells a canonical key path in the distribution's words.
+func (c *Config) wordPath(path string) string {
+	if c.Dist.Words == nil {
+		return path
+	}
+	for prefix := range wordedKeys {
+		if rest, ok := strings.CutPrefix(path, prefix+"."); ok {
+			name, tail, _ := strings.Cut(rest, ".")
+			return prefix + "." + c.Dist.Word(name) + map[bool]string{true: "." + tail, false: ""}[tail != ""]
+		}
+	}
+	return path
+}
+
+// worded is a copy of the tree with rank and office names spelled the distribution's way; the
+// tree itself keeps the canonical keys every layer merges on.
+func (c *Config) worded() *yaml.Node {
+	if c.Dist.Words == nil {
+		return c.tree
+	}
+	copy, err := yaml.ParseJSON([]byte(c.tree.JSON()), "")
+	if err != nil {
+		return c.tree
+	}
+	var walk func(n *yaml.Node, path string)
+	walk = func(n *yaml.Node, path string) {
+		if n == nil || n.Kind != yaml.Map {
+			return
+		}
+		for i, k := range n.Keys {
+			child := n.Vals[i]
+			if wordedKeys[path] {
+				n.Keys[i] = c.Dist.Word(k)
+			}
+			if strings.HasPrefix(path, "ranks.") && wordedVals[k] && child.Kind == yaml.String {
+				child.Str = c.Dist.Word(child.Str)
+			}
+			walk(child, join(path, k))
+		}
+	}
+	walk(copy, "")
+	return copy
 }
 
 // Explain renders every live value with its origin: one `key: value  # origin` line each,
@@ -47,8 +100,11 @@ func (c *Config) Explain() string {
 			val := n.JSON()
 			if n.Kind == yaml.String {
 				val = fmt.Sprintf("%q", n.Str)
+				if parent, key, _ := strings.Cut(path, "."); parent == "ranks" && wordedVals[key[strings.LastIndex(key, ".")+1:]] {
+					val = fmt.Sprintf("%q", c.Dist.Word(n.Str))
+				}
 			}
-			lines = append(lines, line{path, val, o.String()})
+			lines = append(lines, line{c.wordPath(path), val, o.String()})
 		}
 	}
 	walk(c.tree, "")

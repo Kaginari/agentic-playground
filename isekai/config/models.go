@@ -106,11 +106,11 @@ func (c *Config) ModelTable() []string {
 	out = append(out, fmt.Sprintf("default    %-40s %s", m.Ref.Model, o))
 	for _, off := range Offices {
 		m, o := c.ResolveModel("", "", off, "")
-		out = append(out, fmt.Sprintf("office %-11s %-32s %s", off, m.Ref.Model, o))
+		out = append(out, fmt.Sprintf("office %-11s %-32s %s", c.Dist.Word(off), m.Ref.Model, o))
 	}
 	for _, r := range c.ranks {
 		m, o := c.ResolveModel("", r.Name, "", "")
-		out = append(out, fmt.Sprintf("rank   %-11s %-32s %s", r.Name, m.Ref.Model, o))
+		out = append(out, fmt.Sprintf("rank   %-11s %-32s %s", c.Dist.Word(r.Name), m.Ref.Model, o))
 	}
 	for _, t := range Tasks {
 		m, o := c.ResolveModel("", "", "", t)
@@ -251,13 +251,13 @@ func (c *Config) checkModels() error {
 		t, ok := c.tier(m.Ref.Model)
 		if !ok {
 			known = false
-			c.Holes = append(c.Holes, fmt.Sprintf("models.offices.%s: %s declares no tier — the lineage cannot be checked", off, m.Ref.Model))
+			c.Holes = append(c.Holes, fmt.Sprintf("models.offices.%s: %s declares no tier — the lineage cannot be checked", c.Dist.Word(off), m.Ref.Model))
 			continue
 		}
 		tiers[i] = t
 	}
 	if known && (tiers[0] > tiers[1] || tiers[1] > tiers[2]) {
-		return fmt.Errorf("models.offices: the lineage great-sage ≤ raphael ≤ ciel is broken (tiers %d, %d, %d)", tiers[0], tiers[1], tiers[2])
+		return fmt.Errorf("models.offices: the lineage %s ≤ %s ≤ %s is broken (tiers %d, %d, %d)", c.Dist.Word(Offices[0]), c.Dist.Word(Offices[1]), c.Dist.Word(Offices[2]), tiers[0], tiers[1], tiers[2])
 	}
 	return nil
 }

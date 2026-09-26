@@ -720,7 +720,7 @@ func (f *fileSources) colony() *Colony {
 func (f *fileSources) memory() *MemoryView {
 	now := f.now()
 	src := f.worldDir + "/memory/"
-	w, err := memory.Open(f.root)
+	w, err := memory.OpenIn(f.root, f.worldDir)
 	if err != nil {
 		return &MemoryView{Reading: silent(src, err.Error(), time.Time{}, now)}
 	}
@@ -758,7 +758,7 @@ func (f *fileSources) memory() *MemoryView {
 func (f *fileSources) toolbox() *ToolboxView {
 	now := f.now()
 	src := f.worldDir + "/toolbox/registry.json + " + f.worldDir + "/instruments/toolbox/loads.jsonl"
-	w, err := toolbox.Open(f.root)
+	w, err := toolbox.OpenIn(f.root, f.worldDir)
 	if err != nil {
 		return &ToolboxView{Reading: silent(src, err.Error(), time.Time{}, now)}
 	}

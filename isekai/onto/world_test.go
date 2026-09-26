@@ -276,11 +276,11 @@ func itoa(n int) string { return strconv.Itoa(n) }
 func TestLayoutAgentOne(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		".agent-one/AGENT-ONE.md":             "# rules\n",
+		".agent-one/AGENT-ONE.md":              "# rules\n",
 		".agent-one/coord/core/README.md":      "# coord-core\n\n- **Owns:** `src/`\n",
 		".agent-one/domain/security/README.md": "# domain-security\n\n- **Owns:** `src/auth/`\n- **Reports to:** coord-core\n",
 		".agent-one/zone/auth/README.md":       "# zone-auth\n\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n- **Minds:** ciel\n",
-		".claude/skills/ciel/SKILL.md":          "---\nname: ciel\n---\ndrafts\n",
+		".claude/skills/ciel/SKILL.md":         "---\nname: ciel\n---\ndrafts\n",
 	}
 	for p, body := range files {
 		full := filepath.Join(dir, filepath.FromSlash(p))

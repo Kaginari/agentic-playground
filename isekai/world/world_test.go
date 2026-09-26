@@ -160,7 +160,7 @@ func TestDiscoverAndOpen(t *testing.T) {
 	// agent-one world, same engine
 	az := t.TempDir()
 	for p, body := range map[string]string{
-		".agent-one/AGENT-ONE.md":             "# Agent-Zero\n\n## Core principles\n\n1. **Docs-as-code** — docs change with the code.\n\n## Policies\n\n1. The operator decides.\n",
+		".agent-one/AGENT-ONE.md":              "# Agent-Zero\n\n## Core principles\n\n1. **Docs-as-code** — docs change with the code.\n\n## Policies\n\n1. The operator decides.\n",
 		".agent-one/domain/security/README.md": "# domain-security\n\n- **Owns:** `src/`\n",
 		".agent-one/zone/auth/README.md":       "# zone-auth\n\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n",
 	} {
@@ -560,5 +560,85 @@ func TestMergeHooks(t *testing.T) {
 	}
 	if h.Drain != nil || h.System != nil {
 		t.Error("unset stays unset")
+	}
+}
+
+// The throne is not an office: the session's route carries no office (the mount is never routed
+// through models.offices and the usage journal never labels rimuru's own calls), while a Court's
+// route carries the office its ask names or its rank's default.
+func TestSessionRouteHasNoOffice(t *testing.T) {
+	w := open(t, fixture(t))
+	if r, _ := w.Ranks.Get(Rimuru); r.Office != "" {
+		t.Fatalf("rimuru's rank row carries an office: %q", r.Office)
+	}
+	var routes []Route
+	b := build(mock.New(mock.Text("x")))
+	b.Models = func(r Route) provider.Provider { routes = append(routes, r); return nil }
+	w.Engine(Rimuru, b)
+	w.Engine("slime-auth", b)
+	if len(routes) != 2 || routes[0].Creature != Rimuru || routes[0].Rank != Rimuru || routes[0].Office != "" || routes[0].Task != "session" {
+		t.Fatalf("session route: %+v", routes)
+	}
+	if routes[1].Office != "great-sage" || routes[1].Rank != "slime" {
+		t.Fatalf("court route: %+v", routes[1])
+	}
+}
+
+// A Court's writes are gated on its own account; its dispatcher's end gate leaves them alone —
+// one verdict per landing, never a second gate under the dispatcher's name (binary.md §Ranks and
+// bodies). The dispatcher is gated only for what it wrote itself, through whatever tool.
+func TestCourtWritesGatedOnce(t *testing.T) {
+	dir := fixture(t)
+	w := open(t, dir)
+	doc := ".isekai/slime/auth/README.md"
+	m := mock.New(
+		mock.Call("d1", "dispatch", map[string]interface{}{"body": "slime-auth", "ask": "@ASK draft +unsaid\nshorten the TTL"}),
+		writeCall("c1", "src/auth/token.go", "package auth"), mock.Call("c2", "edit", map[string]string{"path": doc, "old": "one hour", "new": "fifteen minutes"}),
+		mock.Text("@S DONE\n@F src/auth/token.go:1 ttl\n@U territory token TTL is 15m\n@E 0"),
+		mock.Text("@S DONE\n@F the court landed it\n@U colony x\n@E 0"),
+	)
+	e := w.Engine("orc-security", build(m))
+	r, err := e.Run(context.Background(), "@ASK findings\nhave the TTL shortened")
+	if err != nil || r.Status != loop.Done {
+		t.Fatalf("%v %+v", err, r)
+	}
+	if r.Verdict != "" || len(r.Wrote) != 0 {
+		t.Fatalf("the dispatcher was gated for its Court's writes: verdict %q wrote %v", r.Verdict, r.Wrote)
+	}
+	if got := strings.Join(r.Steps[0].Wrote, ","); got != "src/auth/token.go,"+doc {
+		t.Fatalf("the dispatch step names the Court's writes: %q", got)
+	}
+	lg := logText(t, dir)
+	if strings.Count(lg, "— gate ") != 1 || !strings.Contains(lg, "] slime-auth — gate pass") {
+		t.Fatalf("one verdict, the Court's:\n%s", lg)
+	}
+	// the dispatcher's own shell write is still its own, and gated under its name
+	m = mock.New(
+		mock.Call("d1", "dispatch", map[string]interface{}{"body": "slime-api", "ask": "look"}),
+		mock.Text("@S DONE\n@U colony c\n@E 0"),
+		mock.Call("b1", "bash", map[string]string{"command": "echo x > src/api/by-orc.go"}),
+		mock.Text("@S DONE\n@U colony x\n@E 0"),
+	)
+	e = w.Engine("orc-security", build(m))
+	r, _ = e.Run(context.Background(), "x")
+	if !strings.HasPrefix(r.Verdict, "fail") || !strings.Contains(r.Verdict, "src/api/by-orc.go changed under slime-api's territory") || strings.Join(r.Wrote, ",") != "src/api/by-orc.go" {
+		t.Fatalf("own shell write gated under the dispatcher's name: %q %v", r.Verdict, r.Wrote)
+	}
+}
+
+// The log entry's title reads `<body> — gate pass — <ask>`; a world with no gate holder says
+// `— Gate: n/a (no orcs) —`, never `gate Gate:`.
+func TestLogTitleNoOrcs(t *testing.T) {
+	dir := fixture(t)
+	os.RemoveAll(filepath.Join(dir, ".isekai/orc"))
+	w := open(t, dir)
+	m := mock.New(writeCall("1", "notes.txt", "n"), mock.Text("@S DONE\n@U colony c\n@E 0"))
+	e := w.Engine("elf-core", build(m))
+	if r, _ := e.Run(context.Background(), "note it"); r.Status != loop.Done {
+		t.Fatalf("%+v", r)
+	}
+	lg := logText(t, dir)
+	if !strings.Contains(lg, "] elf-core — Gate: n/a (no orcs) — note it") || strings.Contains(lg, "gate Gate") {
+		t.Fatalf("log:\n%s", lg)
 	}
 }

@@ -81,6 +81,17 @@ func (w *testWorld) journalText(worldDir string) string {
 	return b.String()
 }
 
+func (w *testWorld) usageText(worldDir string) string {
+	var b strings.Builder
+	ents, _ := os.ReadDir(filepath.Join(w.root, worldDir, "instruments", "usage"))
+	for _, e := range ents {
+		if strings.HasSuffix(e.Name(), ".jsonl") {
+			b.WriteString(w.read(worldDir + "/instruments/usage/" + e.Name()))
+		}
+	}
+	return b.String()
+}
+
 func mockCfg(script string, extra string) string {
 	return "models: {default: mock/m}\nproviders: {mock: {enabled: true, script: " + script + "}}\ntools: {bash: {sandbox: none}}\nui: {board: {autostart: false}}\n" + extra
 }
@@ -94,6 +105,10 @@ func TestE2ESessionGateAndTools(t *testing.T) {
 	code, out, errb := w.exec(isekai, "say hi\n/status\n/agents\n/quit\n", nil, "--quiet")
 	if code != 0 || !strings.Contains(out, "hi said") || !strings.Contains(out, "ranks:") || !strings.Contains(out, "rimuru") || !strings.Contains(errb, "session ") {
 		t.Fatalf("repl: %d\n%s\n%s", code, out, errb)
+	}
+	// the throne is not an office: its own calls are journaled with no office label
+	if u := w.usageText(".isekai"); !strings.Contains(u, `"body":"rimuru"`) || !strings.Contains(u, `"office":""`) || strings.Contains(u, `"office":"ciel"`) {
+		t.Fatalf("usage journal labels the session's calls with an office:\n%s", u)
 	}
 	// B. an outward command denied at the gate (no TTY), then allowed by a rule
 	w = newTestWorld(t, "isekai", isekaiCreatures())

@@ -54,11 +54,13 @@ func DefaultRanks(lex Lexicon) []Rank {
 // Ranks is a table with lookups.
 type Ranks []Rank
 
-// Get finds a rank by name; "rimuru" is the synthetic root, whose shelf is everything.
+// Get finds a rank by name; "rimuru" is the synthetic root, whose shelf is everything. The
+// throne holds no office: its calls run on the mount and are journaled with no office label —
+// offices belong to dispatched Courts and to the binary's own routed calls.
 func (rs Ranks) Get(name string) (Rank, bool) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == Rimuru {
-		return Rank{Name: Rimuru, Job: "the session: thinks, decides, orders", Tools: []string{"*"}, Office: "ciel"}, true
+		return Rank{Name: Rimuru, Job: "the session: thinks, decides, orders", Tools: []string{"*"}}, true
 	}
 	for _, r := range rs {
 		if r.Name == name {

@@ -54,6 +54,9 @@ type World struct {
 	mu       sync.Mutex
 	sessions map[*loop.Engine]*loop.Session
 	closers  map[*loop.Engine]func()
+	// courtWrote is what the Courts of a dispatcher's engine wrote and gated on their own
+	// account; the dispatcher's end gate leaves those paths alone (never a second gate).
+	courtWrote map[*loop.Engine]map[string]bool
 }
 
 // Discover walks up from dir for the first lexicon whose world dir exists. Both `.isekai` and
@@ -84,7 +87,7 @@ func Open(root string, lex Lexicon, opt Options) (*World, error) {
 	if st, err := os.Stat(filepath.Join(abs, lex.WorldDir)); err != nil || !st.IsDir() {
 		return nil, fmt.Errorf("no %s/ under %s", lex.WorldDir, abs)
 	}
-	w := &World{Root: abs, Lex: lex, Ranks: opt.Ranks, sessions: map[*loop.Engine]*loop.Session{}, closers: map[*loop.Engine]func(){}}
+	w := &World{Root: abs, Lex: lex, Ranks: opt.Ranks, sessions: map[*loop.Engine]*loop.Session{}, closers: map[*loop.Engine]func(){}, courtWrote: map[*loop.Engine]map[string]bool{}}
 	if w.Ranks == nil {
 		w.Ranks = DefaultRanks(lex)
 	}

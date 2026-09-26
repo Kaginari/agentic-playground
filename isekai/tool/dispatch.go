@@ -172,7 +172,9 @@ func DispatchTool(opt DispatchOptions, run Dispatcher) *Tool {
 			if err != nil {
 				return fail("dispatch %s: %v", c.Body, err)
 			}
-			return Result{Output: render(rep), Err: rep.Failed}
+			// the Court's writes are named so the dispatcher's record is honest; they were gated
+			// on the Court's own account and its dispatcher's gate leaves them alone
+			return Result{Output: render(rep), Err: rep.Failed, Wrote: rep.Wrote}
 		},
 	}
 }

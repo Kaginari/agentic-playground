@@ -727,3 +727,32 @@ Append-only. Newest entries at the bottom. One entry per change.
   - A Court whose turn wrote nothing never meets the gate, so no verdict reaches log.md.
   - Decided since: two separate codebases (agent-one forks the validated engine with its own
     vocabulary down to the Go identifiers); worlds and dimensions law (v0.2); runtime design (v0.2).
+
+### [2026-09-26T14:07:14+02:00] rimuru — validation: PASS after 9 fixes, both distributions smoke-tested under Harbor
+- **Task:** Human: "make sure it works properly"; a fresh Fable validator, scoped to verify claims
+  by attack and fix defects with a failing-then-passing test each.
+- **Files:** isekai/loop/snapshot.go (new), loop, world/{rank,court,gate,world}.go,
+  tool/{classify,tool,dispatch}.go, app/{permissions,e2e,world}_test.go, config/{dist,decode,
+  defaults,ranks,models,explain}.go, board/sources.go, toolbox/toolbox.go; canon binary.md +
+  config.md kept truthful; gofmt on 8 files left unformatted by the integrator.
+- **Gate:** n/a (no orcs). Instruments (Rimuru re-ran): `go vet` + `go test ./...` green, gofmt
+  clean; validator: `go test -race` 23 ok, 8/8 static builds, selftest 195 on both binaries;
+  Harbor smoke for isekai and agent-one each right→1.0, wrong→0.0, and the right-mode task
+  world's log.md now carries the gate verdict.
+- **Result:** PASS.
+- **Learned:**
+  - **The gate was blind to shell writes** (bash reported no files written; the turn's gate fired
+    only on write/edit tools). Now the loop stamps the world tree at turn start, after each
+    write-class step and at turn end: every write is seen, whatever tool made it.
+  - **A deny rule held only against the literal command.** `git -C . push`, `git -c k=v push`,
+    `env git push`, `sh -c 'git push'`, `xargs`, `sudo`, subshells slipped past; the
+    classifier ignored git's global options. Rules now match every inner form and only tighten.
+  - **Symlinks escaped the world's border** for plain read/write/edit (Inside() was literal).
+  - **The throne holds no office** — Rimuru carried `office: ciel`, so `models.offices.ciel`
+    could have re-routed the session's own model. Office labels Courts and routed calls only.
+  - agent-one's status/config/board still said great-sage/raphael/ciel/elf/orc/slime and
+    ".isekai/" — the vocabulary leaked through config and board, now worded from the lexicon.
+    One canonical on-disk id remains (`memory/short/rimuru.jsonl`) — the fork removes it.
+  - Honest limits: providers' streaming, caching, thinking, fallbacks, guided decoding and MCP
+    over HTTP are tested against httptest only; the Harbor bench config runs with sandbox none and
+    the gate off, so the smoke proves plumbing and Vitality, not containment (attacked locally).

@@ -82,7 +82,7 @@ func (w *World) dir() string {
 }
 
 // Isekai is the world directory (<root>/<dir>); the name is the law's, the dir may not be.
-func (w *World) Isekai() string { return filepath.Join(w.Root, w.dir()) }
+func (w *World) Isekai() string   { return filepath.Join(w.Root, w.dir()) }
 func (w *World) shortDir() string { return filepath.Join(w.Isekai(), "memory", "short") }
 func (w *World) longDir() string  { return filepath.Join(w.Isekai(), "memory", "long") }
 func (w *World) sharedNotes() string {

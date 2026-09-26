@@ -218,9 +218,12 @@ type Session struct {
 	Spend    provider.Usage
 	Last     provider.Usage
 	Context  instrument.Context
-	Wrote    []string
-	Ask      string // the first ask of the session (the commission)
+	Wrote    []string // the writes the gate has yet to see; cleared once a turn's gate ran
+	Ask      string   // the first ask of the session (the commission)
 	failures int
+	base     snapshot // the world tree as last stamped (snapshot.go)
+	nowatch  bool     // the tree could not be stamped: shell writes go unseen, the hole named
+	gated    bool     // the last turn's writes passed the end gate
 }
 
 // Result is one turn's outcome.
@@ -231,6 +234,7 @@ type Result struct {
 	Report  wire.Report        `json:"-"`
 	IsWire  bool               `json:"wire"`
 	Verdict string             `json:"verdict,omitempty"`
+	Wrote   []string           `json:"wrote,omitempty"` // every write the end gate saw, whatever tool made it
 	Steps   []*StepRecord      `json:"steps"`
 	Holes   []string           `json:"@?"`
 	Usage   provider.Usage     `json:"usage"`
@@ -380,6 +384,10 @@ func (s *Session) Turn(ctx context.Context, ask string) (*Result, error) {
 		return nil, fmt.Errorf("loop: empty ask")
 	}
 	s.open(ask)
+	if s.gated {
+		// the last turn's writes met the gate; this turn gates only its own
+		s.Wrote, s.gated = nil, false
+	}
 	s.Messages = append(s.Messages, provider.Message{Role: provider.User, Text: ask})
 	return s.drive(ctx)
 }
@@ -412,6 +420,7 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 	}
 	g := s.gate()
 	r := &Result{RunID: s.RunID, Journal: journalRel(s), Holes: []string{}, Steps: []*StepRecord{}}
+	s.watch(r) // the turn's baseline: every write from here on is seen, whatever tool makes it
 	stepsThisTurn := 0
 	end := func(status string, why string) (*Result, error) {
 		r.Status = status
@@ -479,7 +488,7 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 		}
 		s.Last = resp.Usage
 		s.Spend = s.Spend.Add(resp.Usage)
-		s.Context = e.Budget.Context.Reading(resp.Usage)
+		s.perceive() // the reading the loop acts on (a Perceive hook may scale the stress line) is the one reported
 		s.Journal.Log(Event{"t": "turn", "n": s.Turns, "model": resp.Model, "stop": string(resp.Stop), "usage": resp.Usage, "context": s.Context, "calls": len(resp.Message.ToolCalls)})
 		s.Messages = append(s.Messages, resp.Message)
 		if resp.Message.Text != "" && len(resp.Message.ToolCalls) > 0 {
@@ -662,6 +671,13 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 		st.Wrote = append(st.Wrote, env.Rel(w))
 		s.Wrote = appendUnique(s.Wrote, env.Rel(w))
 	}
+	if cls.Class >= tool.Write {
+		// what the act changed on disk, whether or not the tool named it (the shell never does)
+		for _, w := range s.seen() {
+			st.Wrote = appendUnique(st.Wrote, w)
+			s.Wrote = appendUnique(s.Wrote, w)
+		}
+	}
 	// RECORD
 	if res.Err {
 		st.Status = "failed"
@@ -707,9 +723,18 @@ func (s *Session) finish(ctx context.Context, r *Result, resp provider.Response,
 	if !isWire && e.Unsaid {
 		r.hole("answer is not on the wire (no @S)")
 	}
+	// a write a read-classified command slipped in (`xargs touch`) is still a write
+	if late := s.seen(); len(late) > 0 {
+		s.Journal.Log(Event{"t": "watch", "id": "turn", "wrote": late})
+		for _, w := range late {
+			s.Wrote = appendUnique(s.Wrote, w)
+		}
+	}
 	if e.Hooks.EndGate != nil && len(s.Wrote) > 0 {
 		verdict, holes, err := e.Hooks.EndGate(ctx, s, r)
 		r.Verdict = verdict
+		r.Wrote = append([]string(nil), s.Wrote...) // what the gate saw (the hook may have narrowed it)
+		s.gated = true
 		for _, h := range holes {
 			r.hole(h)
 		}
@@ -717,6 +742,8 @@ func (s *Session) finish(ctx context.Context, r *Result, resp provider.Response,
 		if err != nil {
 			return end(Fail, "end-of-turn gate: "+err.Error())
 		}
+	} else {
+		r.Wrote = append([]string(nil), s.Wrote...)
 	}
 	if e.Gate != nil && e.Gate.DryRun {
 		return end(Dry, "")

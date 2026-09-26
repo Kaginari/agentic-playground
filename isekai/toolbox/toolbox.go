@@ -788,7 +788,7 @@ func (w *World) RegistryHoles(R Loaded) []string {
 		h = append(h, R.Why)
 	}
 	if len(R.Reg.Entries) == 0 {
-		h = append(h, "registry empty — nothing under .claude/skills, .opencode/skill(s), .claude/commands, .opencode/command(s), .isekai/tools, .claude/agents, .opencode/agent(s) or "+w.rel(w.ExtraPath()))
+		h = append(h, "registry empty — nothing under .claude/skills, .opencode/skill(s), .claude/commands, .opencode/command(s), "+w.Dir+"/tools, .claude/agents, .opencode/agent(s) or "+w.rel(w.ExtraPath()))
 	}
 	if R.Live {
 		return h

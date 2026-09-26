@@ -393,6 +393,13 @@ OpenCode's `{ "bash": { "git push*": "ask" } }` to one entry per pattern.
 3. No match → the class default: `read` and `write` allow (the gate applies `strict` itself
    when no rule decided), `outward` and `destructive` ask.
 
+For `bash` and `git` the rules are also matched against the command's inner forms — what follows
+`env`, `sudo`, `xargs`, `nohup`, `timeout`, `eval`, `exec`, a quoted `sh -c` argument, a `cd … &&`
+prefix or a subshell, and `git` with its global options stripped (`git -C . push` → `git push`).
+A rule matched on an inner form only tightens: a `deny` or `ask` there holds; an `allow` needs the
+whole command, so it never widens. An argument is not a command: `echo git push` matches no
+`git push*` rule.
+
 A rule loosens a single pattern without turning the gate off; every `allow` on `bash`, `git`,
 `webfetch`, `websearch` or `*` is a loosening `status` lists. `permissions.enabled: false`
 leaves only the class floor. A `deny` never widens; a wildcard `allow` on an outward-capable

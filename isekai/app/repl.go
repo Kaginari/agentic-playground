@@ -435,7 +435,7 @@ func (a *App) resultJSON(r *loop.Result) string {
 	v := map[string]interface{}{
 		"@S": r.Status, "status": r.Status, "text": r.Text, "wire": r.IsWire, "report": rep, "steps": steps, "@?": r.Holes,
 		"usage": map[string]int{"input": tot.Usage.Input, "output": tot.Usage.Output, "cacheRead": tot.Usage.CacheRead, "cacheWrite": tot.Usage.CacheWrite},
-		"usd": usd, "context": r.Context, "verdict": r.Verdict, "session": a.SessionID, "run": r.RunID, "journal": r.Journal, "exit": r.Exit(),
+		"usd":   usd, "context": r.Context, "verdict": r.Verdict, "session": a.SessionID, "run": r.RunID, "journal": r.Journal, "exit": r.Exit(),
 		"usageJournal": a.Journal.Path(),
 	}
 	b, _ := jsonMarshal(v)

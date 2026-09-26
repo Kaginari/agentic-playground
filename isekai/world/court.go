@@ -20,12 +20,12 @@ import (
 // rank's Tools.
 type CourtOptions struct {
 	Enabled    bool
-	MaxDepth   int       // 0 = 1
-	Cap        int       // 0 = the wire's default
-	Unsaid     bool      // commission +unsaid by default (a report with no @U is flagged either way)
-	Bodies     []string  // names a session may dispatch; nil = any creature on the roster
-	Trace      io.Writer // a Court's step trace; nil is quiet
-	Background bool      // background Courts allowed (tools.dispatch.background)
+	MaxDepth   int                                    // 0 = 1
+	Cap        int                                    // 0 = the wire's default
+	Unsaid     bool                                   // commission +unsaid by default (a report with no @U is flagged either way)
+	Bodies     []string                               // names a session may dispatch; nil = any creature on the roster
+	Trace      io.Writer                              // a Court's step trace; nil is quiet
+	Background bool                                   // background Courts allowed (tools.dispatch.background)
 	Wake       func(body, report string, failed bool) // a background Court's report lands here
 }
 
@@ -44,7 +44,7 @@ type Build struct {
 	Provider  provider.Provider
 	Models    func(Route) provider.Provider // nil = Provider for every route; the integrator routes models.offices/ranks/creatures here
 	Gate      *gate.Gate
-	Tools     *tool.Registry // the base shelf; nil = tool.Builtins()
+	Tools     *tool.Registry                                      // the base shelf; nil = tool.Builtins()
 	Shelf     func(as string, depth int) (*tool.Registry, func()) // per-body shelf (its own shell); nil = Tools; the closer runs when the body's engine is closed
 	Budget    loop.Budget
 	Hooks     HookOptions
@@ -126,6 +126,7 @@ func (w *World) Close(e *loop.Engine) {
 	c := w.closers[e]
 	delete(w.closers, e)
 	delete(w.sessions, e)
+	delete(w.courtWrote, e)
 	w.mu.Unlock()
 	if c != nil {
 		c()
@@ -192,8 +193,43 @@ func (w *World) Dispatcher(parent *loop.Engine, b Build) tool.Dispatcher {
 			ps.Spend = ps.Spend.Add(r.Usage)
 		}
 		rep := tool.DispatchReport{Text: r.Emit(e.Cap), Status: r.Status, Unsaid: len(r.Report.Unsaid), Failed: r.Status == loop.Fail, Holes: r.Holes, Wrote: wroteOf(r), Journal: r.Journal}
+		w.courtGated(parent, rep.Wrote)
 		return rep, nil
 	}
+}
+
+// courtGated records what a Court of the parent engine wrote (and gated itself).
+func (w *World) courtGated(parent *loop.Engine, wrote []string) {
+	if len(wrote) == 0 {
+		return
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	m := w.courtWrote[parent]
+	if m == nil {
+		m = map[string]bool{}
+		w.courtWrote[parent] = m
+	}
+	for _, p := range wrote {
+		m[normRel(p)] = true
+	}
+}
+
+// ownWrites is a session's writes less what its Courts wrote and gated on their own account.
+func (w *World) ownWrites(s *loop.Session) []string {
+	w.mu.Lock()
+	m := w.courtWrote[s.Engine]
+	w.mu.Unlock()
+	if len(m) == 0 {
+		return s.Wrote
+	}
+	var out []string
+	for _, p := range s.Wrote {
+		if !m[normRel(p)] {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func rankDirs(rs Ranks) []string {
@@ -209,6 +245,9 @@ func rankDirs(rs Ranks) []string {
 }
 
 func wroteOf(r *loop.Result) []string {
+	if len(r.Wrote) > 0 {
+		return r.Wrote // every write the Court's gate saw, whatever tool made it
+	}
 	var out []string
 	for _, st := range r.Steps {
 		out = append(out, st.Wrote...)

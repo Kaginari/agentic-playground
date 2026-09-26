@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -283,6 +284,8 @@ func TestReplaceRanks(t *testing.T) {
 		when("@ASK findings", map[string]interface{}{"calls": []interface{}{
 			map[string]interface{}{"name": "write", "input": map[string]string{"path": "src/auth/b.go", "content": "package auth\n"}},
 			map[string]interface{}{"name": "write", "input": map[string]string{"path": ".isekai/coder/auth/README.md", "content": "# coder-auth\n\n- **Rank:** coder\n- **Territory:** `src/auth/`\n- **Reports to:** keeper-gate\n- b.go added\n"}},
+			// tester-qa's ground: refused, never lands (a shell write there is caught by the gate instead — world.TestCourtWritesGatedOnce)
+			map[string]interface{}{"name": "write", "input": map[string]string{"path": "tests/x_test.go", "content": "package tests\n"}},
 		}}),
 		text("@S PASS\n@U colony coders write under src/auth\n@E 50"),
 	)
@@ -329,6 +332,12 @@ ui: {board: {autostart: false}}
 	if !strings.Contains(w.read(".isekai/log.md"), "coder-auth — gate pass") {
 		t.Errorf("gate: %s", w.read(".isekai/log.md"))
 	}
+	if _, err := os.Stat(filepath.Join(w.root, "tests", "x_test.go")); err == nil {
+		t.Error("a coder's write into the tester's territory landed in a replace-mode world")
+	}
+	if j := w.journalText(".isekai"); !strings.Contains(j, `"by":"policy"`) || !strings.Contains(j, `"decision":"refused"`) {
+		t.Errorf("territory refusal not journaled:\n%s", j)
+	}
 	recs, _ := ReadUsage(a.Journal.Dir)
 	ok := false
 	for _, rec := range recs {
@@ -350,11 +359,11 @@ func TestAgentOneWorld(t *testing.T) {
 	lex := world.AgentOne()
 	law := strings.Replace(testLaw, "## The Crest", "## "+lex.Crest, 1)
 	w := newTestWorld(t, "", map[string]string{
-		".agent-one/AGENT-ONE.md":            law,
-		".agent-one/log.md":                  "# Chronicle\n\n---\n",
+		".agent-one/AGENT-ONE.md":              law,
+		".agent-one/log.md":                    "# Chronicle\n\n---\n",
 		".agent-one/domain/security/README.md": "# domain-security\n\n- **Rank:** Domain owner\n- **Owns:** `src/auth/`\n",
-		".agent-one/zone/auth/README.md":     "# zone-auth\n\n- **Rank:** Zone worker\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n",
-		"src/auth/a.go":                      "package auth\n",
+		".agent-one/zone/auth/README.md":       "# zone-auth\n\n- **Rank:** Zone worker\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n",
+		"src/auth/a.go":                        "package auth\n",
 	})
 	w.script(".agent-one/tmp/session.json",
 		when("begin", map[string]interface{}{"calls": []interface{}{
@@ -380,6 +389,13 @@ ui: {board: {autostart: false}}
 	}
 	if c := a.World.Creature("zone-auth"); c == nil || c.Rank != "slime" || c.Parent != "domain-security" {
 		t.Fatalf("zone-auth: %+v (roster %+v)", c, a.World.Creatures)
+	}
+	// what agent-one says to a person carries none of the other vocabulary
+	leak := regexp.MustCompile(`(?i)isekai|rimuru|veldora|slime|\borcs?\b|\belf\b|\belves\b|kijin|great[ -]sage|raphael|\bciel\b|tempest`)
+	for name, text := range map[string]string{"status": strings.Join(a.StatusLines(), "\n"), "explain": a.Cfg.Explain(), "show": a.Cfg.Show(false), "show-yaml": a.Cfg.Show(true)} {
+		if m := leak.FindAllString(text, -1); len(m) > 0 {
+			t.Errorf("%s leaks the other vocabulary: %v\n%s", name, m, text)
+		}
 	}
 	e, err := a.Engine()
 	if err != nil {

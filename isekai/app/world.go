@@ -168,10 +168,10 @@ func compactOptions(cfg *config.Config, window int) compact.Options {
 	c := cfg.Compaction
 	sw := func(f config.Feature) compact.Switch { return compact.Switch{Enabled: f.Enabled} }
 	return compact.Options{
-		Enabled:  c.Enabled,
-		Strategy: c.Strategy,
-		Trigger:  compact.Trigger{Tokens: c.Trigger.Tokens, Fraction: c.Trigger.Fraction, Window: window},
-		Passes:   compact.Passes{Pointerize: sw(c.Passes.Pointerize), TrimSpent: sw(c.Passes.TrimSpent), Unsaid: sw(c.Passes.Unsaid), Desk: sw(c.Passes.Desk), Episode: sw(c.Passes.Episode), Verify: sw(c.Passes.Verify)},
+		Enabled:   c.Enabled,
+		Strategy:  c.Strategy,
+		Trigger:   compact.Trigger{Tokens: c.Trigger.Tokens, Fraction: c.Trigger.Fraction, Window: window},
+		Passes:    compact.Passes{Pointerize: sw(c.Passes.Pointerize), TrimSpent: sw(c.Passes.TrimSpent), Unsaid: sw(c.Passes.Unsaid), Desk: sw(c.Passes.Desk), Episode: sw(c.Passes.Episode), Verify: sw(c.Passes.Verify)},
 		KeepTurns: c.KeepRecentTurns,
 		Cap:       cfg.Law.Wire.Cap * 2,
 		Journal:   c.Journal,

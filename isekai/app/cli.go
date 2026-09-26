@@ -30,8 +30,8 @@ type IO struct {
 // cliFlags are the binary's own flags, taken before config's ParseFlags reads the rest.
 type cliFlags struct {
 	root, dist, session, format string
-	json, quiet, noBoard, bench  bool
-	since                        string
+	json, quiet, noBoard, bench bool
+	since                       string
 }
 
 func splitFlags(args []string) (cliFlags, []string) {

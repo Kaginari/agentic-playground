@@ -92,7 +92,7 @@ const defaultsJSON = `{
                   "~/.config/[dist]/skills", "~/.claude/skills", "~/.config/opencode/skills", "~/.config/opencode/skill"] },
     "commands": { "enabled": true, "paths": ["[dist-dir]/commands", ".claude/commands", ".opencode/commands", ".opencode/command",
                   "~/.config/[dist]/commands", "~/.claude/commands", "~/.config/opencode/commands", "~/.config/opencode/command"] },
-    "agents":   { "enabled": true, "paths": ["[dist-dir]/{elf,orc,slime}", ".claude/agents", ".opencode/agents", ".opencode/agent",
+    "agents":   { "enabled": true, "paths": ["[dist-dir]/{[rank-dirs]}", ".claude/agents", ".opencode/agents", ".opencode/agent",
                   "~/.config/[dist]/agents", "~/.claude/agents", "~/.config/opencode/agents", "~/.config/opencode/agent"] }
   },
   "sessions": { "enabled": true, "dir": "~/.local/share/[dist]/sessions", "keepDays": 30, "title": true },

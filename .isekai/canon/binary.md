@@ -56,7 +56,10 @@ Source: `isekai/` at the repository root (Go module, stdlib only). Build with
   world root and a private `/tmp`, no network unless the command passed the human gate as
   `outward`. No `bwrap` on the machine → `sandbox: none`, reported as `@?` in `status`.
 - **Classified before it runs.** The classifier settles the class; permission rules and the human
-  gate decide; the model's own claim only tightens.
+  gate decide; the model's own claim only tightens. `git` is read through its global options
+  (`git -C . push`, `git -c k=v push`, `git --no-pager push` are the verb's class). A path is
+  read for where it points: a symlink out of the world, and a file yet to be created under
+  one, are outward for `read`, `write`, `edit` and `patch` alike; the editor refuses them.
 - **Secrets never cross.** The command's environment drops `*_API_KEY`, `*_TOKEN`, `*_SECRET`,
   `*_PASSWORD` and every provider's `apiKeyEnv`; config holds an allow-list.
 - **Nothing outlives its call unannounced.** Each command runs in its own process group; a timeout
@@ -205,7 +208,9 @@ The throne never chooses its horse: the session (Rimuru) runs on the model the h
   read, cache write) is journaled to `.isekai/instruments/usage/<session>.jsonl`, priced from the
   provider's per-model `price` in config (unpriced models show tokens, never a guessed cost), and
   rolled up per body, office, rank, model and session. `/usage` and `isekai usage [--session
-  <id>|--since <date>]` read it; `tempest.js` can read the same file.
+  <id>|--since <date>]` read it; `tempest.js` can read the same file. The session's own calls
+  carry no office — the throne is not an office; an office labels a dispatched Court and the
+  binary's own routed calls (verdict → raphael, drain and log → ciel, recall → great-sage).
 - **Budgets are readings too.** `budgets.session.tokens|usd` and `budgets.court.tokens|usd` stop a
   body honestly at the line (checkpoint, report, resume command), never mid-write.
 
@@ -221,6 +226,19 @@ At the end of any turn that wrote files, before the turn is reported done:
 
 The verdict (pass / fail + reason) is appended to `log.md` by the binary. A world with no orcs
 records `Gate: n/a (no orcs)` and still runs check 4 against any doc it can find.
+
+**Every write is seen, whatever tool made it.** A tool that knows its paths reports them
+(`write`, `edit`, `patch`); the shell, a custom tool and an MCP server do not. So the engine
+stamps the world tree — size and mtime per file, `.git` never walked, bounded at 200k files — at
+the start of a turn, again after every write-class step (the difference is that step's writes
+when it named none), and once more at the turn's end (a write a read-classified command slipped
+in, `xargs touch`). The world dir's own instruments and records are not the model's writes and
+are not stamped: `instruments/`, `tmp/`, `memory/`, `toolbox/registry.json`,
+`ontology/graph/unsaid.ttl`, `log.md`. A tree past the cap is not watched and the hole is named
+in the report. A turn's writes are gated once; the next turn of the same session gates only its
+own. The `dispatch` step names what its Court wrote, and the dispatcher's gate leaves those paths
+alone — one verdict per landing, the Court's. A background Court still writing when its
+dispatcher's turn ends is the one case the dispatcher's gate may see a Court's write.
 
 ## The ontology
 

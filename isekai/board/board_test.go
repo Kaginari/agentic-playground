@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Kaginari/agentic-playground/isekai/onto"
 )
 
 var pagePaths = []string{"/", "/court", "/usage", "/colony", "/memory", "/toolbox", "/log", "/config"}
@@ -378,4 +380,17 @@ func TestReadmeDocumentsTheUsageSchema(t *testing.T) {
 		}
 	}
 	_ = io.EOF
+}
+
+// A silent instrument on an agent-one world names that world's dir, never the other
+// distribution's: the memory and toolbox feeds open the world dir the board was given.
+func TestSilentReadingNamesTheWorldDir(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, ".agent-one"), 0o755)
+	f := FileSources(root, ".agent-one", onto.Layout{}, func() time.Time { return fixedNow })
+	for name, why := range map[string]string{"memory": f.Memory().Reading.Why, "toolbox": f.Toolbox().Reading.Why} {
+		if strings.Contains(why, ".isekai") {
+			t.Errorf("%s reading names the wrong world dir: %q", name, why)
+		}
+	}
 }

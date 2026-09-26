@@ -48,12 +48,12 @@ func Init(dist, root string) ([]string, error) {
 		made = append(made, relOrAbs(root, p)+"/")
 	}
 	files := map[string]string{
-		d.LawFile:                     LawText(d.Name),
-		"log.md":                      "# Chronicle — change log\n\nAppend-only. Newest entries at the bottom. One entry per change.\n\n---\n",
-		"name":                        filepath.Base(root) + "\n",
-		"memory/shared/notes.jsonl":   "",
-		"ontology/schema.ttl":         onto.DefaultSchema,
-		".gitignore":                  "instruments/loop/\ninstruments/usage/\ninstruments/desk/\ninstruments/toolbox/\nmemory/short/\nmemory/long/\ntoolbox/registry.json\ntmp/\nconfig.local.*\n",
+		d.LawFile:                   LawText(d.Name),
+		"log.md":                    "# Chronicle — change log\n\nAppend-only. Newest entries at the bottom. One entry per change.\n\n---\n",
+		"name":                      filepath.Base(root) + "\n",
+		"memory/shared/notes.jsonl": "",
+		"ontology/schema.ttl":       onto.DefaultSchema,
+		".gitignore":                "instruments/loop/\ninstruments/usage/\ninstruments/desk/\ninstruments/toolbox/\nmemory/short/\nmemory/long/\ntoolbox/registry.json\ntmp/\nconfig.local.*\n",
 	}
 	for name, body := range files {
 		p := filepath.Join(base, name)

@@ -340,3 +340,100 @@ type errorf string
 func (e errorf) Error() string { return string(e) }
 
 func itoa(n int) string { return fmt.Sprint(n) }
+
+// A write that reaches disk through the shell — a redirect the classifier reads as write, and a
+// `xargs touch` it reads as read-only — must reach the end-of-turn gate like a `write` call would;
+// the world dir's own disposable paths (instruments, tmp) are not writes the gate sees.
+func TestShellWritesReachTheGate(t *testing.T) {
+	m := mock.New(
+		mock.Call("1", "bash", map[string]string{"command": "printf 'x\\n' > out.txt && mkdir -p .isekai/instruments/x .isekai/tmp && echo j > .isekai/instruments/x/j.jsonl && echo t > .isekai/tmp/t"}),
+		mock.Call("2", "bash", map[string]string{"command": "echo two.txt | xargs touch"}),
+		mock.Text("@S DONE\n@U colony c\n@E 0"))
+	e := engine(t, m)
+	var seen []string
+	calls := 0
+	e.Hooks.EndGate = func(ctx context.Context, s *Session, r *Result) (string, []string, error) {
+		calls++
+		seen = append([]string(nil), s.Wrote...)
+		return "pass", nil, nil
+	}
+	r, err := e.Run(context.Background(), "write through the shell")
+	if err != nil || r.Status != Done {
+		t.Fatalf("%v %+v", err, r)
+	}
+	if calls != 1 {
+		t.Fatalf("the gate ran %d times; the turn wrote through the shell (wrote=%v)", calls, r.Steps[0].Wrote)
+	}
+	joined := strings.Join(seen, ",")
+	if !strings.Contains(joined, "out.txt") || !strings.Contains(joined, "two.txt") {
+		t.Fatalf("the gate did not see the shell's writes: %v", seen)
+	}
+	if strings.Contains(joined, "instruments") || strings.Contains(joined, ".isekai/tmp") {
+		t.Fatalf("disposable world-dir paths counted as writes: %v", seen)
+	}
+	if r.Steps[0].Class.Class != tool.Write || len(r.Steps[0].Wrote) != 1 || r.Steps[0].Wrote[0] != "out.txt" {
+		t.Fatalf("step 1 should carry its own write: %+v", r.Steps[0])
+	}
+	if r.Verdict != "pass" || len(r.Wrote) != 2 {
+		t.Fatalf("result: verdict %q wrote %v", r.Verdict, r.Wrote)
+	}
+	ev := events(t, e, r.RunID)
+	found := false
+	for _, x := range ev {
+		if x["t"] == "gate" && x["id"] == "turn" {
+			found = strings.Contains(fmt.Sprint(x["wrote"]), "two.txt")
+		}
+	}
+	if !found {
+		t.Fatalf("the journal's end gate line does not carry the shell's writes")
+	}
+}
+
+// A turn's writes are gated once: the next turn of the same session gates only its own.
+func TestGateOncePerTurn(t *testing.T) {
+	m := mock.New(mock.Call("1", "write", map[string]string{"path": "out.txt", "content": "x"}), mock.Text("one"), mock.Text("two"),
+		mock.Call("2", "write", map[string]string{"path": "again.txt", "content": "y"}), mock.Text("three"))
+	e := engine(t, m)
+	e.Unsaid = false
+	var gated [][]string
+	e.Hooks.EndGate = func(ctx context.Context, s *Session, r *Result) (string, []string, error) {
+		gated = append(gated, append([]string(nil), s.Wrote...))
+		return "pass", nil, nil
+	}
+	s := e.NewSession()
+	if r, _ := s.Turn(context.Background(), "first"); r.Verdict != "pass" {
+		t.Fatalf("first turn: %+v", r)
+	}
+	if r, _ := s.Turn(context.Background(), "second"); r.Verdict != "" {
+		t.Fatalf("second turn wrote nothing yet was gated: %+v", r)
+	}
+	if r, _ := s.Turn(context.Background(), "third"); r.Verdict != "pass" {
+		t.Fatalf("third turn: %+v", r)
+	}
+	if len(gated) != 2 || strings.Join(gated[0], ",") != "out.txt" || strings.Join(gated[1], ",") != "again.txt" {
+		t.Fatalf("gated writes per turn: %v", gated)
+	}
+}
+
+// The context the run reports is the reading the loop acts on: a Perceive hook that lowers the
+// stress line (the drain scaling to a small model's window) is what Result.Context shows.
+func TestReportedContextIsThePerceivedReading(t *testing.T) {
+	m := mock.New(read("1"), mock.Text("done"))
+	e := engine(t, m)
+	e.Unsaid = false
+	e.Hooks.Perceive = func(s *Session) *instrument.Context {
+		if s.Turns == 0 {
+			return nil
+		}
+		c := s.Engine.Budget.Context.Reading(s.Last)
+		c.Stress = 27852
+		return &c
+	}
+	r, err := e.Run(context.Background(), "x")
+	if err != nil || r.Status != Done {
+		t.Fatalf("%v %+v", err, r)
+	}
+	if r.Context.Stress != 27852 {
+		t.Fatalf("reported stress %d is the law's line, not the perceived one", r.Context.Stress)
+	}
+}

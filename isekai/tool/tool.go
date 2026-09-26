@@ -269,10 +269,35 @@ func (e Env) Dir() string {
 }
 
 // Inside reports whether an absolute path is inside the world (the root, the system
-// prefixes, or ~/.isekai — the machine-shared tier is inward).
+// prefixes, or ~/.isekai — the machine-shared tier is inward). A symlink is read for where it
+// points: the longest existing prefix of the path is resolved, so a link out of the world, and
+// a file yet to be created under one, are outside.
 func (e Env) Inside(abs string) bool {
+	return e.insideLiteral(abs) && e.insideLiteral(realOf(abs))
+}
+
+// realOf resolves the longest existing prefix of abs through symlinks and re-attaches the rest.
+func realOf(abs string) string {
+	probe, rest := abs, ""
+	for {
+		if real, err := filepath.EvalSymlinks(probe); err == nil {
+			return filepath.Join(real, rest)
+		}
+		parent := filepath.Dir(probe)
+		if parent == probe {
+			return abs
+		}
+		rest = filepath.Join(filepath.Base(probe), rest)
+		probe = parent
+	}
+}
+
+func (e Env) insideLiteral(abs string) bool {
 	root := filepath.Clean(e.Root)
 	if abs == root || strings.HasPrefix(abs, root+string(filepath.Separator)) {
+		return true
+	}
+	if real, err := filepath.EvalSymlinks(root); err == nil && real != root && (abs == real || strings.HasPrefix(abs, real+string(filepath.Separator))) {
 		return true
 	}
 	for _, s := range systemPrefixes {

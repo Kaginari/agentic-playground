@@ -241,22 +241,23 @@ func (c *Config) Deviations() []string {
 	}
 	for _, r := range c.ranks {
 		if !r.Builtin {
-			out = append(out, fmt.Sprintf("rank %s: not in the law (%s)", r.Name, c.Where("ranks."+r.Name)))
+			out = append(out, fmt.Sprintf("rank %s: not in the law (%s)", c.Dist.Word(r.Name), c.Where("ranks."+r.Name)))
 			continue
 		}
 		fields := sortedKeys(r.Origins)
 		for _, f := range fields {
 			o := r.Origins[f]
 			if o != "law" && !strings.HasPrefix(o, "ascends:") {
-				out = append(out, fmt.Sprintf("rank %s.%s: %s", r.Name, f, o))
+				out = append(out, fmt.Sprintf("rank %s.%s: %s", c.Dist.Word(r.Name), f, o))
 			}
 		}
 	}
 	return out
 }
 
-// RankTree renders the hierarchy as an indented tree under rimuru.
+// RankTree renders the hierarchy as an indented tree under rimuru, in the distribution's words.
 func (c *Config) RankTree() string {
+	word := c.Dist.Word
 	children := map[string][]string{}
 	for _, r := range c.ranks {
 		children[r.ReportsTo] = append(children[r.ReportsTo], r.Name)
@@ -280,17 +281,17 @@ func (c *Config) RankTree() string {
 				marks = append(marks, "sideways")
 			}
 			if r.AscendsFrom != "" {
-				marks = append(marks, "ascends "+r.AscendsFrom)
+				marks = append(marks, "ascends "+word(r.AscendsFrom))
 			}
 			marks = append(marks, r.Body)
 			if r.Office != "" {
-				marks = append(marks, "office "+r.Office)
+				marks = append(marks, "office "+word(r.Office))
 			}
-			fmt.Fprintf(&b, "%s%s (%s)\n", pad, ch, strings.Join(marks, ", "))
+			fmt.Fprintf(&b, "%s%s (%s)\n", pad, word(ch), strings.Join(marks, ", "))
 			walk(ch, pad+"  ")
 		}
 	}
-	fmt.Fprintf(&b, "%s [rankSet: %s]\n", RootRank, c.RankSet)
+	fmt.Fprintf(&b, "%s [rankSet: %s]\n", word(RootRank), c.RankSet)
 	walk(RootRank, "  ")
 	return b.String()
 }

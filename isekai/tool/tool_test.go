@@ -37,6 +37,9 @@ func TestClassifyCommand(t *testing.T) {
 		"find . -name x -delete": Destructive, "echo x > .isekai/log.md": Destructive, "echo x >> .isekai/log.md": Write,
 		"sed -i s/a/b/ .isekai/isekai.md": Destructive, "ls | xargs rm": Destructive, "go get x": Outward, "npx foo": Outward,
 		"cp a .isekai/canon/x.md": Destructive, "tee -a .isekai/log.md": Write, "tee .isekai/log.md": Destructive,
+		// git's global options sit between `git` and the verb; the verb still decides
+		"git -C . push": Outward, "git -c core.x=y push origin": Outward, "git --no-pager push": Outward, "git --git-dir .git push": Outward,
+		"git -C sub status": Read, "git -C sub reset --hard": Destructive, "git -c a=b commit -m x": Write, "git --work-tree=x fetch": Outward,
 	}
 	for cmd, want := range cases {
 		if got := env.ClassifyCommand(cmd); got.Class != want {
@@ -182,5 +185,66 @@ func TestRegistry(t *testing.T) {
 	}
 	if c, ok := ParseClass(" Outward "); !ok || c != Outward || Max(Read, Destructive) != Destructive || Class(9).String() != "unknown" {
 		t.Fatal("class helpers")
+	}
+}
+
+// A symlink out of the world is read for where it points: a write, read or edit through it is
+// outward (the gate asks), the way the editor already refuses it.
+func TestSymlinkEscapeIsOutward(t *testing.T) {
+	env, root := world(t)
+	outside := t.TempDir()
+	os.WriteFile(filepath.Join(outside, "secret"), []byte("s"), 0o644)
+	os.Symlink(outside, filepath.Join(root, "link"))
+	os.Symlink(filepath.Join(outside, "secret"), filepath.Join(root, "flink"))
+	os.MkdirAll(filepath.Join(root, "sub"), 0o755)
+	os.Symlink(filepath.Join(root, "sub"), filepath.Join(root, "inlink"))
+	for _, c := range []struct {
+		path string
+		want Class
+	}{{"link/new", Outward}, {"link/secret", Outward}, {"flink", Outward}, {"inlink/ok", Write}, {"sub/ok", Write}} {
+		if got := env.ClassifyPath(env.Resolve(c.path)); got.Class != c.want {
+			t.Errorf("write %s: want %s, got %s (%s)", c.path, c.want, got.Class, got.Why)
+		}
+	}
+	rd := ReadTool()
+	if c := rd.Classify(env, []byte(`{"path":"flink"}`)); c.Class != Outward {
+		t.Errorf("read through a symlink out of the world: %s (%s)", c.Class, c.Why)
+	}
+	if !env.Inside(filepath.Join(root, "inlink", "x")) || env.Inside(filepath.Join(root, "link", "x")) {
+		t.Error("Inside does not follow the link")
+	}
+}
+
+// CommandForms: the shapes a rule is also matched against (tightening only, in app.decideHook).
+func TestCommandForms(t *testing.T) {
+	for cmd, want := range map[string]string{
+		"env git push":            "git push",
+		"sudo -u x git push":      "git push",
+		"sh -c 'git push'":        "git push",
+		"bash -c \"git push -u\"": "git push -u",
+		"cd sub && git push":      "git push",
+		"xargs git push":          "git push",
+		"(git push)":              "git push",
+		"$(git push)":             "git push",
+		"git -C . push":           "git push",
+		"env git -c a=b push":     "git push",
+		"eval 'git push'":         "git push",
+		"nohup git push &":        "git push &",
+	} {
+		forms := CommandForms(cmd)
+		found := false
+		for _, f := range forms {
+			if f == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%q: %q not among %q", cmd, want, forms)
+		}
+	}
+	for _, f := range CommandForms("echo git push") {
+		if f == "git push" {
+			t.Errorf("an argument is not a command: %q", CommandForms("echo git push"))
+		}
 	}
 }

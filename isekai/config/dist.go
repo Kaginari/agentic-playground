@@ -20,11 +20,33 @@ type Dist struct {
 	MachineDir string // ~/.<name> — machine-shared memory (lexicon dir.machine)
 	EnvPrefix  string // ISEKAI_ | AGENT_ONE_
 	LawFile    string // isekai.md | AGENT-ONE.md (lexicon file.law)
+	RankDirs   string // the native creature dirs, for [rank-dirs] in a default path (lexicon dir.*)
+	// Words is the distribution's spelling of every canonical rank and office name (lexicon
+	// rank.* and triad.*), used wherever config speaks to a person; nil means the canonical
+	// words. Keys stay canonical: a config file is valid for either distribution.
+	Words map[string]string
 }
 
 var dists = map[string]Dist{
-	"isekai":     {Name: "isekai", WorldDir: ".isekai", LawFile: "isekai.md"},
-	"agent-one": {Name: "agent-one", WorldDir: ".agent-one", LawFile: "AGENT-ONE.md"},
+	"isekai":    {Name: "isekai", WorldDir: ".isekai", LawFile: "isekai.md", RankDirs: "elf,orc,slime"},
+	"agent-one": {Name: "agent-one", WorldDir: ".agent-one", LawFile: "AGENT-ONE.md", RankDirs: "coord,domain,zone", Words: agentOneWords},
+}
+
+// agentOneWords mirrors agent-one/lexicon.json (rank.*, triad.*): the reverse of the alias
+// tables in load.go, one preferred spelling per canonical name.
+var agentOneWords = map[string]string{
+	"rimuru": "orchestrator", "elf": "coord", "orc": "domain", "slime": "zone", "kijin": "service", "dark-elf": "auditor",
+	"high-elf": "principal-coordinator", "high-orc": "principal-domain-owner",
+	"great-sage": "analyst", "raphael": "judge", "ciel": "drafter",
+}
+
+// Word is the distribution's spelling of a canonical rank or office name; anything else passes
+// through.
+func (d Dist) Word(name string) string {
+	if w, ok := d.Words[name]; ok {
+		return w
+	}
+	return name
 }
 
 // Names lists the known distributions.

@@ -60,10 +60,27 @@ func decideHook(cfg *config.Config, env func() tool.Env) func(s *loop.Session, s
 		if name == "str_replace_based_edit_tool" {
 			name = "edit"
 		}
-		action, rule := cfg.Decide(name, subjectOf(st.Tool, st.Input, env()), cls.Class.String())
+		subject := subjectOf(st.Tool, st.Input, env())
+		action, rule := cfg.Decide(name, subject, cls.Class.String())
+		if name == "bash" || name == "git" {
+			// the act's inner forms (env, sudo, xargs, sh -c '…', cd … &&, subshells, git's
+			// global options): a rule matched there only tightens — an allow needs the whole command
+			for _, f := range tool.CommandForms(subject) {
+				a, r := cfg.Decide(name, f, cls.Class.String())
+				if r != nil && (a == config.Deny || a == config.Ask) && (tighter(a, action) || rule == nil && a == action) {
+					action, rule = a, r
+				}
+			}
+		}
 		if rule == nil {
 			return loop.Decision{}
 		}
 		return loop.Decision{Action: string(action), Why: fmt.Sprintf("%s → %s (%s)", rule.Match, rule.Action, rule.Origin)}
 	}
+}
+
+// tighter orders actions: deny over ask over allow.
+func tighter(a, than config.Action) bool {
+	rank := map[config.Action]int{config.Deny: 3, config.Ask: 2, config.Allow: 1}
+	return rank[a] > rank[than]
 }
