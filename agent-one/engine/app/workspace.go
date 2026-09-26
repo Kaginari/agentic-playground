@@ -99,6 +99,9 @@ func foreignAgents(w *workspace.Workspace, agents []discover.Agent, lex workspac
 	var rules []workspace.Rule
 	for _, a := range agents {
 		name := strings.ToLower(a.Name)
+		if name == workspace.Orchestrator {
+			continue // the session's own name is reserved: an agent file never becomes the throne
+		}
 		if w.Member(name) != nil {
 			continue // one agent, two sources: the native doc wins
 		}

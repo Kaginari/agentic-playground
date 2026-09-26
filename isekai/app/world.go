@@ -104,6 +104,9 @@ func foreignBodies(w *world.World, agents []discover.Agent, lex world.Lexicon) [
 	var rules []world.Rule
 	for _, a := range agents {
 		name := strings.ToLower(a.Name)
+		if name == world.Rimuru {
+			continue // the session's own name is reserved: an agent file never becomes the throne
+		}
 		if w.Creature(name) != nil {
 			continue // one body, two sources: the native doc wins
 		}

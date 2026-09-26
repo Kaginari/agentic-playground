@@ -801,3 +801,23 @@ Append-only. Newest entries at the bottom. One entry per change.
   - The vocabulary scan caught the shared bench carrying the old name (the smoke task's very
     answer was "hello isekai") and Python bytecode written into the export by the publisher itself.
   - A check whose output goes to /dev/null fails silently; the publisher now prints what failed.
+
+### [2026-09-26T15:25:22+02:00] rimuru — two defects found by capturing the released binaries; Makefile + PATH
+- **Task:** Human: the decks ("real captures"); "add to my path so I can use them after build".
+- **Files:** both engines — app foreign-agent import (the session's name is reserved), toolbox
+  level-2 hint (Loader/indexer); isekai toolbox interop fixture ships toolbox.js · Makefile
+  (build, test, install → ~/.local/bin links to bin/).
+- **Gate:** n/a (no orcs). Instruments: both engines vet + test green (JS interop included);
+  TestThroneNameIsReserved fails with the fix removed (reproduces rimuru → rank elf) and passes
+  with it; `which isekai agent-one` → ~/.local/bin links.
+- **Result:** done; patch releases isekai v0.1.2 and agent-one v0.1.1 follow.
+- **Learned:**
+  - **The throne was hijacked by a machine-wide agent file.** Discovery imported
+    ~/.config/opencode/agents/rimuru.md (OpenCode's throne-body spec) as a foreign creature with the
+    default rank elf, so on this machine every session ran as an elf: its office, its model route,
+    its tool shelf. Tests never saw it — fixture homes are empty. The session's name is reserved.
+  - **The released toolbox pointed models at a tool the releases don't ship** (`node
+    .isekai/tools/toolbox.js load`): the Go port copied the JS instrument's words byte for byte.
+    It now names the JS tool only when the world ships it, else the binary.
+  - Both were caught by running the released binaries in a plain world for the deck — the render
+    rung, applied to a CLI: a harness is proven by being used, not only by its suite.

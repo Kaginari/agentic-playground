@@ -427,3 +427,17 @@ ui: {board: {autostart: false}}
 		t.Errorf("canonical kinds on disk: %s", notes)
 	}
 }
+
+// TestOrchestratorNameIsReserved: a machine-wide agent file named after the session must never
+// become a member — the session would run with that member's role, model route and tools.
+func TestOrchestratorNameIsReserved(t *testing.T) {
+	files := agentOneMembers()
+	files["~/.config/opencode/agents/orchestrator.md"] = "---\ndescription: a global agent\n---\nYou orchestrate.\n"
+	a := newTestWorkspace(t, "agent-one", files).open()
+	if m := a.Workspace.Member(workspace.Orchestrator); m != nil {
+		t.Fatalf("an agent file became the orchestrator: %+v", *m)
+	}
+	if r := a.Workspace.RankOf(workspace.Orchestrator); r.Name != workspace.Orchestrator || r.Role != "" {
+		t.Fatalf("the session's rank = %q role %q, want %q with no role", r.Name, r.Role, workspace.Orchestrator)
+	}
+}

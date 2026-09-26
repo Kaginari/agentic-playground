@@ -185,7 +185,7 @@ func SelftestIn(root string, out io.Writer) (int, error) {
 		pickText := run("pick", "review the branch changes", "-k", "3").out
 		ok(strings.HasPrefix(pickText, "@S PICK k=") && regexp.MustCompile(`@T mind standards-check — \.claude/skills/standards-check/SKILL\.md — \d+tok \(load≈\d+\)`).MatchString(pickText) && regexp.MustCompile(`@E \d+`).MatchString(pickText) && !strings.Contains(pickText, "BODYSENTINEL"), "pick wire: "+head(pickText, 200))
 		briefText := run("brief", "speak on the wire, then ship it", "--as", "slime-auth").out
-		ok(regexp.MustCompile(`^@TOOLS as=slime-auth k=\d+ cost=\d+/1500 — level 2 on decision only: node .isekai/tools/toolbox\.js load <name>`).MatchString(briefText) && strings.Contains(briefText, "Skill <name>") &&
+		ok(regexp.MustCompile(`^@TOOLS as=slime-auth k=\d+ cost=\d+/1500 — level 2 on decision only: (node .isekai/tools/toolbox\.js|isekai toolbox) load <name>`).MatchString(briefText) && strings.Contains(briefText, "Skill <name>") &&
 			regexp.MustCompile(`(?m)@T mind wire — .*load≈\d+tok — How to speak the wire between machine mouths\.$`).MatchString(briefText) && regexp.MustCompile(`(?m)@T mind deploy-ship — .* — ⟨ship it · rollout⟩$`).MatchString(briefText) && !strings.Contains(briefText, "BODYSENTINEL"), "brief: "+head(briefText, 300))
 		r = run("brief", "speak on the wire, then ship it", "--as", "slime-auth", "--json")
 		linesOK := len(r.arr("lines")) == len(r.arr("picks"))

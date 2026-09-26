@@ -429,3 +429,18 @@ ui: {board: {autostart: false}}
 		t.Error("an .isekai/ dir appeared in an agent-one world")
 	}
 }
+
+// TestThroneNameIsReserved: a machine-wide agent file named after the session (OpenCode's
+// ~/.config/opencode/agents/rimuru.md is the throne body's spec) must never become a creature —
+// it once did, as an elf, and the session ran with the elf's rank, office and shelf.
+func TestThroneNameIsReserved(t *testing.T) {
+	files := isekaiCreatures()
+	files["~/.config/opencode/agents/rimuru.md"] = "---\ndescription: the throne body\n---\nYou are Rimuru.\n"
+	a := newTestWorld(t, "isekai", files).open()
+	if c := a.World.Creature(world.Rimuru); c != nil {
+		t.Fatalf("an agent file became the throne: %+v", *c)
+	}
+	if r := a.World.RankOf(world.Rimuru); r.Name != world.Rimuru || r.Office != "" {
+		t.Fatalf("the session's rank = %q office %q, want %q with no office", r.Name, r.Office, world.Rimuru)
+	}
+}

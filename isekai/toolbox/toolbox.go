@@ -762,7 +762,7 @@ func (w *World) LoadRegistry() Loaded {
 		return Loaded{reg, true, why}
 	}
 	if !memory.Exists(w.RegistryPath()) {
-		return live("no registry on disk — answered from a live harvest; run `toolbox.js index`")
+		return live("no registry on disk — answered from a live harvest; run `" + w.indexer() + " index`")
 	}
 	raw := memory.RdOr(w.RegistryPath())
 	var probe struct {
@@ -770,14 +770,14 @@ func (w *World) LoadRegistry() Loaded {
 		Entries json.RawMessage `json:"entries"`
 	}
 	if err := json.Unmarshal([]byte(raw), &probe); err != nil {
-		return live(fmt.Sprintf("registry unreadable (%s) — answered live; rerun `toolbox.js index`", w.rel(w.RegistryPath())))
+		return live(fmt.Sprintf("registry unreadable (%s) — answered live; rerun `%s index`", w.rel(w.RegistryPath()), w.indexer()))
 	}
 	if probe.V == nil || *probe.V != RegV || !strings.HasPrefix(strings.TrimSpace(string(probe.Entries)), "[") {
-		return live("registry built by an older toolbox.js — answered live; rerun `toolbox.js index`")
+		return live("registry built by an older toolbox.js — answered live; rerun `" + w.indexer() + " index`")
 	}
 	var reg Registry
 	if err := json.Unmarshal([]byte(raw), &reg); err != nil {
-		return live(fmt.Sprintf("registry unreadable (%s) — answered live; rerun `toolbox.js index`", w.rel(w.RegistryPath())))
+		return live(fmt.Sprintf("registry unreadable (%s) — answered live; rerun `%s index`", w.rel(w.RegistryPath()), w.indexer()))
 	}
 	return Loaded{&reg, false, ""}
 }
@@ -794,7 +794,7 @@ func (w *World) RegistryHoles(R Loaded) []string {
 		return h
 	}
 	if parts := memory.StaleParts(w.sourceStamps(), R.Reg.Sources); len(parts) > 0 {
-		h = append(h, "registry older than its sources — "+strings.Join(parts, "; ")+" — rerun `toolbox.js index`")
+		h = append(h, "registry older than its sources — "+strings.Join(parts, "; ")+" — rerun `"+w.indexer()+" index`")
 	}
 	return h
 }
@@ -1188,9 +1188,9 @@ func (w *World) Brief(q string, o PickOpts) (*Brief, error) {
 	if err != nil {
 		return nil, err
 	}
-	tool := w.rel(filepath.Join(w.Isekai(), "tools", "toolbox.js"))
+	loader := w.Loader()
 	b := &Brief{PickResult: P, Lines: []string{}}
-	b.Head = fmt.Sprintf("@TOOLS as=%s k=%d cost=%s/%d — level 2 on decision only: node %s load <name> [--map|--sec N] · Claude Code: Skill <name> / ToolSearch \"select:<name>\" / Agent <body> · OpenCode: load skill <name>", P.As, len(P.Picks), memory.JSNum(P.Cost), P.Budget, tool)
+	b.Head = fmt.Sprintf("@TOOLS as=%s k=%d cost=%s/%d — level 2 on decision only: %s load <name> [--map|--sec N] · Claude Code: Skill <name> / ToolSearch \"select:<name>\" / Agent <body> · OpenCode: load skill <name>", P.As, len(P.Picks), memory.JSNum(P.Cost), P.Budget, loader)
 	for _, r := range P.Picks {
 		l := fmt.Sprintf("@T %s %s — %s — load≈%stok — %s", r.Kind, r.Name, pathOr(r.PathStr()), memory.JSNum(r.Full), r.Line)
 		if len(r.Triggers) > 0 {
@@ -1250,7 +1250,7 @@ func (w *World) bodyOf(e *Entry) (string, string) {
 	}
 	text, ok := memory.Rd(p)
 	if !ok {
-		return "", fmt.Sprintf("%s unreadable — registry older than the world? rerun `toolbox.js index`", e.PathStr())
+		return "", fmt.Sprintf("%s unreadable — registry older than the world? rerun `%s index`", e.PathStr(), w.indexer())
 	}
 	if e.Kind == "tool" {
 		return HeaderOf(text), ""
@@ -1289,7 +1289,7 @@ func (w *World) Load(name string, o LoadOpts) (*LoadResult, error) {
 		if o.Kind != "" {
 			with = " with kind " + o.Kind
 		}
-		return nil, failf("no entry named %s in the registry%s — `toolbox.js index` rebuilds it", name, with)
+		return nil, failf("no entry named %s in the registry%s — `%s index` rebuilds it", name, with, w.indexer())
 	}
 	text, why := w.bodyOf(e)
 	holes := w.RegistryHoles(Rg)
@@ -1504,7 +1504,7 @@ func (w *World) Explain(name, kind string) (*Entry, []string, error) {
 		return nil, nil, err
 	}
 	if e == nil {
-		return nil, nil, failf("no entry named %s in the registry — `toolbox.js index` rebuilds it", name)
+		return nil, nil, failf("no entry named %s in the registry — `%s index` rebuilds it", name, w.indexer())
 	}
 	return e, w.RegistryHoles(Rg), nil
 }
@@ -1512,4 +1512,23 @@ func (w *World) Explain(name, kind string) (*Entry, []string, error) {
 // ExplainJSON is `explain --json`: the entry without tf/dl, then the holes.
 func ExplainJSON(e *Entry, holes []string) memory.OJ {
 	return append(append(memory.OJ{memory.P("@S", "EXPLAIN")}, e.oj(false)...), memory.P("@?", holes))
+}
+
+// Loader is the command a body runs for level 2: the world's own toolbox.js when the world ships
+// it (the JS instrument and this port then speak byte-identical lines), else the binary itself.
+func (w *World) Loader() string {
+	js := filepath.Join(w.Isekai(), "tools", "toolbox.js")
+	if _, err := os.Stat(js); err == nil {
+		return "node " + w.rel(js)
+	}
+	return strings.TrimPrefix(filepath.Base(w.Isekai()), ".") + " toolbox"
+}
+
+// indexer names the rebuild command in holes: the JS instrument's own words when the world ships
+// it (so both mouths stay byte-identical), else the binary.
+func (w *World) indexer() string {
+	if _, err := os.Stat(filepath.Join(w.Isekai(), "tools", "toolbox.js")); err == nil {
+		return "toolbox.js"
+	}
+	return w.Loader()
 }

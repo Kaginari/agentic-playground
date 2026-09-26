@@ -224,6 +224,12 @@ func TestInteropWithToolboxJS(t *testing.T) {
 		t.Skipf("%s not found — interop test skipped", tool)
 	}
 	W := fixture(t)
+	// the world ships the JS instrument, as this one does: both mouths then name it in their hints
+	src, err := os.ReadFile(tool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(filepath.Join(W, ".isekai", "tools", "toolbox.js"), string(src))
 	pathEnv := filepath.Join(W, "bin") // soffice present, git absent — for both mouths
 	compare := func(label string, args ...string) {
 		t.Helper()
