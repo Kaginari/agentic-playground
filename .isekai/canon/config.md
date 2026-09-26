@@ -10,19 +10,19 @@ the instrument that says whether this file and the code still agree.
 ## Distributions
 
 The binary knows which distribution it is at build time, or detects it from the world directory
-it finds (`.isekai/` or `.agent-zero/`), or from the name it was invoked as. The lexicon
-(`agent-zero/lexicon.json`) changes words, file names and the env prefix — never a config key. A
+it finds (`.isekai/` or `.agent-one/`), or from the name it was invoked as. The lexicon
+(`agent-one/lexicon.json`) changes words, file names and the env prefix — never a config key. A
 config file written for one distribution is valid for the other, so the schema below is written
 once.
 
-| | `isekai` | `agent-zero` | lexicon key |
+| | `isekai` | `agent-one` | lexicon key |
 |---|---|---|---|
-| project dir (`<dist-dir>`) | `.isekai/` | `.agent-zero/` | `dir.root` |
-| global dir | `~/.config/isekai/` | `~/.config/agent-zero/` | `tool.binary` under `~/.config/` |
-| data dir (sessions, undo, tool-out) | `~/.local/share/isekai/` | `~/.local/share/agent-zero/` | `tool.binary` under `~/.local/share/` |
-| machine-shared memory | `~/.isekai/` | `~/.agent-zero/` | `dir.machine` |
-| env prefix | `ISEKAI_` | `AGENT_ZERO_` | `tool.binary`, upper-cased, `-` → `_` |
-| law document | `.isekai/isekai.md` | `.agent-zero/AGENT-ZERO.md` | `file.law` |
+| project dir (`<dist-dir>`) | `.isekai/` | `.agent-one/` | `dir.root` |
+| global dir | `~/.config/isekai/` | `~/.config/agent-one/` | `tool.binary` under `~/.config/` |
+| data dir (sessions, undo, tool-out) | `~/.local/share/isekai/` | `~/.local/share/agent-one/` | `tool.binary` under `~/.local/share/` |
+| machine-shared memory | `~/.isekai/` | `~/.agent-one/` | `dir.machine` |
+| env prefix | `ISEKAI_` | `AGENT_ONE_` | `tool.binary`, upper-cased, `-` → `_` |
+| law document | `.isekai/isekai.md` | `.agent-one/AGENT-ONE.md` | `file.law` |
 
 `XDG_CONFIG_HOME` / `XDG_DATA_HOME` are honored when set. The global dir is created on first
 run; the project dir is never created by the binary — a world is founded by `/isekai`, not by
@@ -151,7 +151,7 @@ document is JSON here; the same keys in YAML are the same config.
   "mode": "build",                                    // build | plan
 
   "providers": {
-    "anthropic":  { "enabled": true,  "type": "anthropic", "apiKeyEnv": "ANTHROPIC_API_KEY", "baseURL": "https://api.anthropic.com", "maxOutputTokens": 8192, "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "models": {} },
+    "anthropic":  { "enabled": true,  "type": "anthropic", "apiKeyEnv": "ANTHROPIC_API_KEY", "baseURL": "https://api.anthropic.com", "maxOutputTokens": 8192, "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "thinking": "adaptive", "fallbacks": "default", "models": {} },
     "openai":     { "enabled": true,  "type": "openai", "apiKeyEnv": "OPENAI_API_KEY", "baseURL": "https://api.openai.com/v1", "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "models": {} },
     "openrouter": { "enabled": false, "type": "openai", "apiKeyEnv": "OPENROUTER_API_KEY", "baseURL": "https://openrouter.ai/api/v1" },
     "ollama":     { "enabled": false, "type": "openai", "apiKeyEnv": "", "baseURL": "http://127.0.0.1:11434/v1" },
@@ -159,7 +159,14 @@ document is JSON here; the same keys in YAML are the same config.
   },
   // providers.<name>: { enabled, type: anthropic | openai | mock, baseURL, apiKeyEnv, headers,
   //   models, timeout ("10m" or seconds), tls: { insecureSkipVerify, caFile }, maxOutputTokens,
-  //   toolCalls: native | text, guidedDecoding, contextWindow: auto | <n> }.
+  //   toolCalls: native | text, guidedDecoding, contextWindow: auto | <n>,
+  //   thinking: adaptive | off (anthropic: adaptive thinking on every call),
+  //   fallbacks: default | off (anthropic: the refusal fallback — `fallbacks: "default"` in the
+  //   body with its beta header, so a refused turn is retried by the provider itself) }.
+  // An anthropic call never carries budget_tokens or temperature; effort comes from the model
+  // entry (`{ model, effort }`) as output_config.effort; the stable system prefix (crest,
+  // identity, rules — never the recall manifest) carries cache_control, and Claude's own
+  // bash_20250124 / text_editor_20250728 declarations replace the custom schemas.
   // providers.<name>.models.<id>: { id, tier, contextWindow, maxOutput, reasoning,
   //   price: { input, output, cacheRead, cacheWrite } }  — price in USD per 1M tokens; a model
   //   with no price is unpriced: usage shows tokens, a cost is never guessed. `tier` orders the
@@ -179,7 +186,7 @@ document is JSON here; the same keys in YAML are the same config.
     "bash":      { "enabled": true, "shell": "", "timeout": "2m", "maxTimeout": "10m", "background": true, "jobsDir": "[dist-dir]/tmp/jobs", "sandbox": "bwrap", "envAllow": [] },
     "git":       { "enabled": true, "timeout": "2m" },   // classified per subcommand, like bash
     "webfetch":  { "enabled": true, "maxBytes": 5242880, "timeout": "1m" },
-    "websearch": { "enabled": true, "timeout": "1m" },
+    "websearch": { "enabled": true, "timeout": "1m", "backend": "" },   // backend: a URL with {query} answering SearXNG-style JSON ({results:[{title,url,content}]}); "" = no backend, the tool says so
     "ask":       { "enabled": true },                 // `question` is accepted as an alias
     "dispatch":  { "enabled": true, "maxDepth": 1, "background": false },
     "recall":    { "enabled": true },
@@ -326,7 +333,7 @@ document is JSON here; the same keys in YAML are the same config.
   "undo":    { "enabled": true, "dir": "~/.local/share/[dist]/undo", "keepDays": 7 },
   "output":  { "format": "text", "stream": true, "thinking": false, "color": "auto" },
   "budgets": { "session": { "tokens": 0, "usd": 0 }, "court": { "tokens": 0, "usd": 0 } },   // 0 = off; shown in status
-  "ui":      { "statusLine": true, "announceCourts": true },
+  "ui":      { "statusLine": true, "announceCourts": true, "board": { "autostart": true, "port": 7411 } },
   "logLevel": "WARN",
 
   // ---------------------------------------------------------------- ranks
@@ -498,7 +505,7 @@ off-list and the loosenings, or `@S FAIL` with the error as `@?`).
 The defaults are one table, not two: every value above is the default for both distributions,
 with `[dist]` and `[dist-dir]` substituted. What differs is only what the lexicon names —
 paths, the env prefix, and the words `status` and the wire use for ranks, minds, bodies and the
-law document. `agent-zero` ships with the same law switches on; a person who wants a bare
+law document. `agent-one` ships with the same law switches on; a person who wants a bare
 harness turns them off and sees the off-list, which is the point.
 
 ## Example — a full project file
@@ -514,7 +521,7 @@ two are one config.
 models:
   default: anthropic/claude-sonnet-5            # the mount: the human's choice, never routed
   offices:                                      # the court triad; tiers must not descend
-    great-sage: anthropic/claude-haiku-4-5      # agent-zero may write analyst:
+    great-sage: anthropic/claude-haiku-4-5      # agent-one may write analyst:
     raphael: anthropic/claude-opus-5            # judge:
     ciel: {model: anthropic/claude-fable-5-1, effort: high, fallback: anthropic/claude-opus-5}  # drafter:
   ranks:

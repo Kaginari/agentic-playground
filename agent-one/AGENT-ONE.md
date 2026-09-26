@@ -1,4 +1,4 @@
-# Agent-Zero — The Workspace Convention
+# Agent-One — The Workspace Convention
 
 A directory that adopts this convention becomes a managed workspace.
 
@@ -49,10 +49,10 @@ not a pass.
 
 ### I. Tracking
 
-- Members live in `.agent-zero/<role>/<name>/` — `coord/`, `domain/`, `zone/`.
+- Members live in `.agent-one/<role>/<name>/` — `coord/`, `domain/`, `zone/`.
 - Live memory stays per machine.
-- Everything inside `.agent-zero/` is tracked in git by default, with one named exception:
-  machine-local, disposable state (an instrument's live readings, metrics, `.agent-zero/tmp/`'s
+- Everything inside `.agent-one/` is tracked in git by default, with one named exception:
+  machine-local, disposable state (an instrument's live readings, metrics, `.agent-one/tmp/`'s
   scratch content) is gitignored — the directories still travel (a `.gitkeep` keeps each one
   present in a fresh clone), only their live contents don't. This is "tracked" in the
   version-control sense; it is a different claim from "durably recorded," which Instruments
@@ -162,7 +162,7 @@ asked to bring it to the operator. A member never sits on confusion, and never g
    - Every mistake or friction changes the configuration — a member's own invariants, a
      command's own procedure, design reference material — immediately, in the same change. No
      one asks permission to fix their own configuration.
-   - `AGENT-ZERO.md` itself is the one exception this principle doesn't override: Policy 6
+   - `AGENT-ONE.md` itself is the one exception this principle doesn't override: Policy 6
      still gates it. A friction point there is named and escalated (Absolute Rule III), not
      silently patched — the same distinction Principle 4's provisioning draws for creation.
    - Measure it: the same mistake never happens twice. If it does, the rule itself adapts.
@@ -206,7 +206,7 @@ asked to bring it to the operator. A member never sits on confusion, and never g
    - Context and work flow inward and up within the workspace (see Design axioms); nothing
      produced here acts on, publishes to, or reaches outside the workspace without the
      operator's agreement.
-   - "Outward" is anything beyond `.agent-zero/` and the target directory: network calls,
+   - "Outward" is anything beyond `.agent-one/` and the target directory: network calls,
      external services, other repos, other machines.
    - This gives Policy 6 the status of a principle, not a checklist item: consent is the
      workspace's shape, not a step someone can forget.
@@ -231,7 +231,7 @@ Documents are memory: what the workspace knows it wrote down. Instruments are ob
 what the workspace can see about itself *right now* without asking a document, which may be
 stale.
 
-- Instruments live in `.agent-zero/instruments/` — raw signal, not prose: test output, lint
+- Instruments live in `.agent-one/instruments/` — raw signal, not prose: test output, lint
   runs, build/CI status, log tails, health checks. Never hand-authored, always captured.
 - A member checks instruments before trusting a document's claim about current state.
 - "A stressed zone worker" (Principle 4) is read from an instrument — a failing test, a
@@ -241,7 +241,7 @@ stale.
   a window, not a record. What an instrument reveals that matters gets written into a
   document (and the log) — the instrument itself is disposable.
 - **The orchestrator's own stress is an instrument reading too, not a feeling.**
-  `.agent-zero/tools/context-check.sh` reads the running session's own transcript and reports
+  `.agent-one/tools/context-check.sh` reads the running session's own transcript and reports
   its current context occupancy against a conservative, model-independent budget (default
   200,000 tokens — deliberately far below any single model's real window, since the
   orchestrator runs on whichever model the human picked, and some are much smaller than
@@ -259,7 +259,7 @@ Principle 5 says how memory *moves* — kept to ~5, consolidated, cleared; analy
 down. This section says where it *lives*. Every member — orchestrator, coordinator, domain
 owner, zone worker, service owner, and every ephemeral subagent — has the same three memories.
 None is a feeling: each has a file or an instrument that answers for it, and
-`.agent-zero/tools/memory.js` reads all three.
+`.agent-one/tools/memory.js` reads all three.
 
 **Short memory — per agent, per task; dies with the session.**
 - *Context window* — the agent's live context. Measured (`context-check.sh`, the board's
@@ -268,11 +268,11 @@ None is a feeling: each has a file or an instrument that answers for it, and
 - *Working memory* — the dated `## Working notes` buffer on the held skill: ~5 live notes, the
   fast buffer. Over ~5 is an instrument reading (Principle 5, Skills & Agents).
 - *Semantic cache* — recent recalls keyed by meaning, so the same question asked twice in a
-  task costs one search. Lives in `.agent-zero/memory/short/<member>.jsonl`: machine-local,
+  task costs one search. Lives in `.agent-one/memory/short/<member>.jsonl`: machine-local,
   disposable, gitignored, cleared freely (`memory.js forget --short`).
 
 **Long-term memory — the workspace's; durable; git is its record.** Files are the truth; every
-index over them is derived and rebuildable (`memory.js index` → `.agent-zero/memory/long/`,
+index over them is derived and rebuildable (`memory.js index` → `.agent-one/memory/long/`,
 gitignored). Three kinds, each already a file the workspace keeps:
 - *Episodic* — what happened: `log.md`, one memory per dated entry. Append-only (Policy 4).
 - *Procedural* — how to do: skills (`SKILL.md`), commands, tools.
@@ -286,10 +286,10 @@ gitignored). Three kinds, each already a file the workspace keeps:
   bigger engine (see `design/memory-tiers.md`), never a different source of truth.
 
 **Shared memory — across agents, and across workspaces.**
-- *Workspace-shared* — `.agent-zero/memory/shared/notes.jsonl`: what every agent in this
+- *Workspace-shared* — `.agent-one/memory/shared/notes.jsonl`: what every agent in this
   workspace reads; append-only (Policy 4); tracked, so it travels by git — the text channel
   between machines.
-- *Machine-shared* — `~/.agent-zero/shared/notes.jsonl`: across the workspaces on this machine,
+- *Machine-shared* — `~/.agent-one/shared/notes.jsonl`: across the workspaces on this machine,
   since the orchestrator is one machine-wide agent across all of them. Inside the machine is
   inward (Principle 7).
 - An ephemeral subagent's context dies with its task. What should outlive it goes to shared
@@ -329,7 +329,7 @@ worker's doc. "Nothing unsaid" is a claim about current state — a memory, not 
 ## The loop
 
 An ephemeral subagent works to one rhythm, six beats per step: perceive → recall → plan → act
-→ verify → record — both a tool (`.agent-zero/tools/loop.js`, for scripted plans) and a
+→ verify → record — both a tool (`.agent-one/tools/loop.js`, for scripted plans) and a
 protocol (the same beats, followed by hand when the work is not scriptable); the shape is one.
 - **Budgets are readings.** Steps, wall clock and the context window are read from instruments
   before every step (`memory.js status`, the same method as `context-check.sh`). Past any of
@@ -345,7 +345,7 @@ protocol (the same beats, followed by hand when the work is not scriptable); the
   the protocol form the gate is the host's own permission prompt, never worked around.
 - **Failure escalates one hop.** A failed verify is a failed act; retries are bounded; past
   them the run ends with `@?` to its dispatcher (Absolute Rule III), never a guess, never a
-  loop forever. Every beat is journaled (`.agent-zero/instruments/loop/`) and a cut run resumes
+  loop forever. Every beat is journaled (`.agent-one/instruments/loop/`) and a cut run resumes
   from its journal — an interrupted outward act is gated again, not replayed.
 - **Layered delivery — one layer at a time.** Work that builds in layers is planned bottom-up.
   A layer is done only when its own tests pass against mocks of the layer below; the next layer
@@ -368,7 +368,7 @@ worker · review skills · domain owner · global skills · coordinator · princ
 are agents of agents — a seventh lane, never an under-chart band). The planes read through the
 elements' rendering — agents are solid nodes on wide tints; skills are dashed rings on slim
 tints. The chart is a two-row stack: row 1 the seven lanes; row 2 the **shared skills**, full
-width — host commands and host-provided skills that are not agent-zero skills (the row does not
+width — host commands and host-provided skills that are not agent-one skills (the row does not
 overload the workspace's rules with the host repo's tools; it names them plainly for what they
 are) — the last remainder, never a side-by-side cell (cells collide with the lanes' columns
 above). **The links are typed and colored:** zone worker ⇒ domain owner is the GROUND-TRUTH
@@ -417,7 +417,7 @@ the two halves carry different halves of life:
   steps, not lazy loading.
 - **The toolbox — two levels, one budget.** An agent never carries the whole shelf. Everything
   it could pick up — skills, commands, workspace tools, agents, and the externals
-  `.agent-zero/toolbox/extra.jsonl` names — is indexed by `.agent-zero/tools/toolbox.js` into a
+  `.agent-one/toolbox/extra.jsonl` names — is indexed by `.agent-one/tools/toolbox.js` into a
   derived registry, each entry priced before anything is injected. A turn receives **level 1,
   the manifest**: names, one-line descriptions, triggers, paths and the cost of level 2 — only
   the entries that fit the ask (meaning, trigger, relation) and a token budget, on the wire as
@@ -438,14 +438,14 @@ the two halves carry different halves of life:
   Code sub-agent (`.claude/agents/<name>.md`).
 - Two agent modes:
   - **Persistent agent** (`mode: all`) — custodian of this workspace's rules. Persistent: it
-    outlives a single task and stands watch over `AGENT-ZERO.md` itself. A service owner's
+    outlives a single task and stands watch over `AGENT-ONE.md` itself. A service owner's
     agent is always persistent — it is the one rank guaranteed to persist rather than be
     registered fresh each time. There is at most one persistent agent per workspace unless the
     operator says otherwise.
   - **Ephemeral subagent** (`mode: subagent`) — disposable eyes, gate or pen. Registered for
     one task, its context dies with the task. Most coordinators, domain owners and zone workers
     run as ephemeral subagents: they are created, they work, they are gone, and only what they
-    wrote to `.agent-zero/` survives them.
+    wrote to `.agent-one/` survives them.
   - **A skill heavy enough to bloat a long-lived session belongs loaded by an ephemeral
     subagent, not inline in a persistent agent's own context.** The subagent's context — and
     whatever skill it loaded to do the work — dies with the task; only the terse wire report
@@ -503,6 +503,6 @@ The verdict (pass / fail + reason) is recorded in `log.md`.
 3. **Nothing lands without the gate.** See above.
 4. **Everything is recorded, nothing is rewritten.** Every landed change and every verdict is
    appended to `log.md`. Past entries are never edited.
-5. **Test in the sandbox.** Experiments and test runs live in `.agent-zero/tmp/`.
+5. **Test in the sandbox.** Experiments and test runs live in `.agent-one/tmp/`.
 6. **No destruction without consent.** Deleting, rewriting history, or anything irreversible
-   needs the operator's approval. `AGENT-ZERO.md` itself changes only on the operator's order.
+   needs the operator's approval. `AGENT-ONE.md` itself changes only on the operator's order.

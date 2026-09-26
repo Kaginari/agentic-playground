@@ -1,4 +1,4 @@
-"""Harbor adapter for the isekai binary (and agent-zero, same engine).
+"""Harbor adapter for the isekai binary (and agent-one, same engine).
 
 Harbor gives one task container and one instruction; this adapter installs the static Go binary,
 seeds a minimal world, runs `isekai run --json`, and reports tokens and cost from isekai's usage
@@ -6,7 +6,7 @@ journal. Load it with:  harbor run --agent isekai_agent:IsekaiAgent  (PYTHONPATH
 
 Host environment it reads:
   ISEKAI_BIN            path to the linux/amd64 static binary to install (required)
-  ISEKAI_DIST           isekai | agent-zero                                  (default isekai)
+  ISEKAI_DIST           isekai | agent-one                                  (default isekai)
   ISEKAI_BENCH_CONFIG   path to the bench config (YAML/JSON), passed in as ISEKAI_CONFIG_CONTENT
   ISEKAI_FORWARD_ENV    comma-separated env var names to forward (API keys by name, never values
                         written to disk), e.g. VLLM_API_KEY
@@ -35,10 +35,10 @@ class IsekaiAgent(BaseInstalledAgent):
         return os.environ.get("ISEKAI_DIST", "isekai")
 
     def _dist_dir(self) -> str:
-        return ".agent-zero" if self._dist() == "agent-zero" else ".isekai"
+        return ".agent-one" if self._dist() == "agent-one" else ".isekai"
 
     def _env_prefix(self) -> str:
-        return "AGENT_ZERO_" if self._dist() == "agent-zero" else "ISEKAI_"
+        return "AGENT_ONE_" if self._dist() == "agent-one" else "ISEKAI_"
 
     def get_version_command(self) -> str | None:
         return f"{self._dist()} version"

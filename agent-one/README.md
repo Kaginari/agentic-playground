@@ -1,15 +1,15 @@
-# Agent-Zero
+# Agent-One
 
-**Agent-Zero** is the isekai convention in plain IT / AI-engineering vocabulary. Same rules,
+**Agent-One** is the isekai convention in plain IT / AI-engineering vocabulary. Same rules,
 same mechanics, same engine — only the names and the voice change.
 
-- The law is [`AGENT-ZERO.md`](AGENT-ZERO.md): a faithful translation of `.isekai/isekai.md`.
+- The law is [`AGENT-ONE.md`](AGENT-ONE.md): a faithful translation of `.isekai/isekai.md`.
   Every principle, absolute rule, policy, the review gate, the wire protocol, the memory tiers,
   the unsaid, the loop, the toolbox, the roles and the agent modes are there, one to one.
 - The wire is shared: `@ROOT @SCOPE @ASK @CAP @DUMP @SIZE` and `@S @F @V @? @U @E` are
   identical in both vocabularies. They are the protocol, not the theme.
 - One Go binary serves both. It detects the vocabulary from the workspace directory it finds
-  (`.isekai/` or `.agent-zero/`) — or from the name it was invoked as — and renders every
+  (`.isekai/` or `.agent-one/`) — or from the name it was invoked as — and renders every
   role, path, heading and UI string through [`lexicon.json`](lexicon.json).
 
 ## What differs, what stays
@@ -17,15 +17,15 @@ same mechanics, same engine — only the names and the voice change.
 | Stays identical (protocol / files) | Rendered through the lexicon |
 |---|---|
 | wire tags, `@T`/`@TOOLS` dialect | rank names, agent-name prefixes, role directories |
-| `log.md`, `name`, `memory/`, `toolbox/`, `instruments/` layout and formats | the law's file name (`isekai.md` → `AGENT-ZERO.md`) |
+| `log.md`, `name`, `memory/`, `toolbox/`, `instruments/` layout and formats | the law's file name (`isekai.md` → `AGENT-ONE.md`) |
 | step classes `read · write · outward · destructive` | the `## Thoughts` heading (→ `## Working notes`), the `Territory:` doc key (→ `Owns:`) |
 | memory kinds `episodic · procedural · semantic`, tiers `short · long · shared` | the unsaid kind tokens (see below) |
 | ontology property names (`truth`, `verdict`, `wears`, `owns`, `knows`, `about`) | their display names, the board's UI strings, the host commands |
 
-**Unsaid kind tokens.** Agent-Zero speaks its own tokens on the wire and on the CLI —
+**Unsaid kind tokens.** Agent-One speaks its own tokens on the wire and on the CLI —
 `@U policy|team|domain`, `--kind policy|team|domain` — because a human reads `@U` lines and the
 themed words would leak. On disk (`memory/shared/notes.jsonl`, and especially the machine-shared
-`~/.agent-zero/shared/notes.jsonl`, which may cross workspaces of both vocabularies) the engine
+`~/.agent-one/shared/notes.jsonl`, which may cross workspaces of both vocabularies) the engine
 stores the **canonical** token (`law|colony|territory`) and accepts either spelling on input.
 The lexicon records both under `kind.unsaid.*` (`token` per vocabulary, `canonical` on disk).
 
@@ -36,18 +36,18 @@ The lexicon records both under `kind.unsaid.*` (`token` per vocabulary, `canonic
 ```json
 {
   "schema": 1,
-  "vocabularies": ["isekai", "agent-zero"],
+  "vocabularies": ["isekai", "agent-one"],
   "canonical": "isekai",
   "entries": {
     "rank.slime": {
-      "isekai": "Slime", "agent-zero": "Zone worker",
-      "plural": { "isekai": "Slimes", "agent-zero": "Zone workers" },
-      "prefix": { "isekai": "slime-", "agent-zero": "zone-" },
-      "dir":    { "isekai": "slime",  "agent-zero": "zone" }
+      "isekai": "Slime", "agent-one": "Zone worker",
+      "plural": { "isekai": "Slimes", "agent-one": "Zone workers" },
+      "prefix": { "isekai": "slime-", "agent-one": "zone-" },
+      "dir":    { "isekai": "slime",  "agent-one": "zone" }
     },
     "kind.unsaid.colony": {
-      "isekai": "colony", "agent-zero": "team",
-      "token": { "isekai": "colony", "agent-zero": "team" },
+      "isekai": "colony", "agent-one": "team",
+      "token": { "isekai": "colony", "agent-one": "team" },
       "canonical": "colony"
     }
   }
@@ -60,8 +60,8 @@ The lexicon records both under `kind.unsaid.*` (`token` per vocabulary, `canonic
   across vocabularies (kind tokens, `serves` lanes, registry kinds, ontology properties).
 - `entries` — keyed `<namespace>.<name>`, lowercase `[a-z0-9_]` segments joined by `.`.
   Keys are stable identifiers; renaming a key is a schema change.
-- Each entry has, at minimum, `isekai` and `agent-zero`: the display string in that
-  vocabulary. `null` means the concept does not exist there (e.g. `dir.portraits` in agent-zero).
+- Each entry has, at minimum, `isekai` and `agent-one`: the display string in that
+  vocabulary. `null` means the concept does not exist there (e.g. `dir.portraits` in agent-one).
 - Optional facets, each an object keyed by vocabulary unless noted:
   - `plural` — the plural display string.
   - `short` — a short display form (`Court Body` → `Court`; `Ephemeral subagent` → `subagent`).
@@ -80,7 +80,7 @@ markers), `kind.unsaid.*`, `kind.memory.*`, `tier.*`, `toolbox.kind.*`, `lane.*`
 
 ## Term mapping
 
-| Isekai | Agent-Zero | Key |
+| Isekai | Agent-One | Key |
 |---|---|---|
 | Veldora | Operator (the human) | `rank.veldora` |
 | Rimuru | Orchestrator (session agent, machine-wide) | `rank.rimuru` |
@@ -125,13 +125,13 @@ markers), `kind.unsaid.*`, `kind.memory.*`, `tier.*`, `toolbox.kind.*`, `lane.*`
 | Perception | Observability | `principle.9` |
 | Principles (section) | Design axioms | `section.principles` |
 | The world (section) | Roles | `section.world` |
-| `.isekai/` · `~/.isekai/` | `.agent-zero/` · `~/.agent-zero/` | `dir.root`, `dir.machine` |
+| `.isekai/` · `~/.isekai/` | `.agent-one/` · `~/.agent-one/` | `dir.root`, `dir.machine` |
 | `canon/` | `design/` | `dir.canon` |
 | `natures/` · `portraits/` | `principles/` · (none) | `dir.natures`, `dir.portraits` |
-| `isekai.md` | `AGENT-ZERO.md` | `file.law` |
+| `isekai.md` | `AGENT-ONE.md` | `file.law` |
 | `tools/tempest.js` · tempest | `tools/board.js` · observability board | `tool.tempest`, `ui.board` |
-| `isekai` (binary) | `agent-zero` | `tool.binary` |
-| `/isekai` · `/genesis` · `/don` · `/mint` | `/agent-zero` · `/provision` · `/import-skill` · `/import-agent` | `cmd.*` |
+| `isekai` (binary) | `agent-one` | `tool.binary` |
+| `/isekai` · `/genesis` · `/don` · `/mint` | `/agent-one` · `/provision` · `/import-skill` · `/import-agent` | `cmd.*` |
 | `## Thoughts` · `Territory:` | `## Working notes` · `Owns:` | `heading.thoughts`, `field.territory` |
 | `@U law` · `colony` · `territory` | `@U policy` · `team` · `domain` (disk: canonical) | `kind.unsaid.*` |
 | lanes zone · verdict · global · shared | zone · review · global · shared | `lane.*` |

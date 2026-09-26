@@ -1,7 +1,7 @@
 # Harness parity — what a daily driver must ship
 
 `binary.md` says what the `isekai` binary is: the law as a harness, one engine, two distributions
-(`isekai`, `agent-zero`) that differ only by lexicon. This file is the capability inventory that
+(`isekai`, `agent-one`) that differ only by lexicon. This file is the capability inventory that
 makes the harness *usable* — the floor a person expects because Claude Code and OpenCode both
 clear it — and, for each capability, the smallest version this binary ships and where the law
 touches it. `config.md` is the switchboard for everything named here.
