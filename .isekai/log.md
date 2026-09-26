@@ -785,3 +785,19 @@ Append-only. Newest entries at the bottom. One entry per change.
     of 4 race runs; fixed in both engines — the first fix to cross the fork, logged for drift.
   - Releases: GoReleaser refuses a dirty tree (write notes to $RUNNER_TEMP); build provenance is
     public-repos-only on this plan; root-owned dist/ from a containerized snapshot.
+
+### [2026-09-26T15:15:55+02:00] rimuru — agent-one v0.1.0 released (public); isekai v0.1.1
+- **Task:** Human: publish each distribution with its benchmark, releases and versioning.
+- **Files:** bench/ (neutral vocabulary — shared by both repositories) · publish/publish.sh
+  (fail-fast checks with test output; no bytecode in exports) · publish/isekai/CHANGELOG.md (0.1.1).
+- **Gate:** n/a (no orcs). Instruments: agent-one export — tests, selftest 195, goreleaser check,
+  vocabulary scan zero over every file and the CLI; CI green with 0 warnings including the Harbor
+  smoke on GitHub; local snapshot release; install.sh from the public URL installs and verifies
+  the checksum; `gh attestation verify` exit 0. isekai CI green; v0.1.1 released.
+- **Result:** https://github.com/Kaginari/agent-one/releases/tag/v0.1.0 and
+  https://github.com/Kaginari/isekai/releases/tag/v0.1.1. Open: ghcr.io/kaginari/agent-one is
+  private (GitHub creates container packages private; visibility is a UI setting) — Veldora's click.
+- **Learned:**
+  - The vocabulary scan caught the shared bench carrying the old name (the smoke task's very
+    answer was "hello isekai") and Python bytecode written into the export by the publisher itself.
+  - A check whose output goes to /dev/null fails silently; the publisher now prints what failed.
