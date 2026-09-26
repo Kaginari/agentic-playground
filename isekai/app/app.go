@@ -114,6 +114,9 @@ func New(opt Options) (*App, error) {
 	if opt.Home == "" {
 		opt.Home = opt.Env("HOME")
 	}
+	if opt.Home == "" {
+		opt.Home, _ = os.UserHomeDir()
+	}
 	cfg, err := config.LoadWith(config.Options{Dist: opt.Dist, Root: opt.Root, Cwd: opt.Cwd, Home: opt.Home, Env: opt.Env, Flags: opt.Flags})
 	if err != nil {
 		return nil, err

@@ -322,7 +322,12 @@ func TestRunIgnoresAnOpenStdin(t *testing.T) {
 	done := make(chan int, 1)
 	go func() {
 		var out, errb bytes.Buffer
-		done <- Main("isekai", []string{"--root", w.root, "--quiet", "--no-board", "run", "say hi"}, IO{In: r, Out: &out, Err: &errb, Env: func(string) string { return "" }}, Version{Version: "test"})
+		done <- Main("isekai", []string{"--root", w.root, "--quiet", "--no-board", "run", "say hi"}, IO{In: r, Out: &out, Err: &errb, Env: func(k string) string {
+			if k == "HOME" {
+				return w.home
+			}
+			return ""
+		}}, Version{Version: "test"})
 	}()
 	select {
 	case code := <-done:

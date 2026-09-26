@@ -63,6 +63,9 @@ func LoadWith(o Options) (*Config, error) {
 	if o.Home == "" {
 		o.Home = o.Env("HOME")
 	}
+	if o.Home == "" {
+		o.Home, _ = os.UserHomeDir() // a "~/" path must never be taken literally
+	}
 	if o.Cwd == "" {
 		o.Cwd, _ = os.Getwd()
 	}

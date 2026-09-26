@@ -32,6 +32,10 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: go test -race ./...
       - run: go run ./cmd/__DIST__ selftest
+      - name: Tests leave the tree clean (a release builds from it)
+        run: |
+          dirty=$(git status --porcelain)
+          if [ -n "$dirty" ]; then echo "$dirty"; exit 1; fi
 
   build:
     needs: test
