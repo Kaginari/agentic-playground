@@ -25,11 +25,10 @@ done
 SRC=$(cd "$(dirname "$0")/.." && pwd)
 OWNER=Kaginari
 case "$DIST" in
-  isekai)    REPO=isekai;    TITLE=Isekai;    LAWDIR=".isekai"   ;;
-  agent-one) REPO=agent-one; TITLE=Agent-One; LAWDIR="agent-one" ;;
+  isekai)    REPO=isekai;    TITLE=Isekai;    ENGINE="$SRC/isekai";           OLD_MODULE=github.com/Kaginari/agentic-playground/isekai ;;
+  agent-one) REPO=agent-one; TITLE=Agent-One; ENGINE="$SRC/agent-one/engine"; OLD_MODULE=github.com/Kaginari/agent-one ;;
   *) echo "unknown distribution $DIST" >&2; exit 2 ;;
 esac
-OLD_MODULE=github.com/Kaginari/agentic-playground/isekai
 NEW_MODULE=github.com/$OWNER/$REPO
 OUT="$SRC/publish/out/$DIST"
 GO=${GO:-$(command -v go || echo "$HOME/.local/go-current/bin/go")}
@@ -42,9 +41,12 @@ gh repo clone "$OWNER/$REPO" "$OUT" -- --quiet
 find "$OUT" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 
 say "engine → repository root (module $NEW_MODULE)"
-rsync -a --exclude bin/ --exclude 'cmd/*' "$SRC/isekai/" "$OUT/"
-mkdir -p "$OUT/cmd" && rsync -a "$SRC/isekai/cmd/$DIST/" "$OUT/cmd/$DIST/"
-grep -rl --include='*.go' --include=go.mod "$OLD_MODULE" "$OUT" | xargs sed -i "s#$OLD_MODULE#$NEW_MODULE#g"
+[ -d "$ENGINE" ] || { echo "no engine at $ENGINE" >&2; exit 1; }
+rsync -a --exclude bin/ --exclude 'cmd/*' --exclude FORKED.md "$ENGINE/" "$OUT/"
+mkdir -p "$OUT/cmd" && rsync -a "$ENGINE/cmd/$DIST/" "$OUT/cmd/$DIST/"
+if [ "$OLD_MODULE" != "$NEW_MODULE" ]; then
+  grep -rl --include='*.go' --include=go.mod "$OLD_MODULE" "$OUT" | xargs -r sed -i "s#$OLD_MODULE#$NEW_MODULE#g"
+fi
 
 say "law, docs, portraits"
 if [ "$DIST" = isekai ]; then
@@ -100,9 +102,9 @@ grep -q '__HIGHLIGHTS__' "$OUT/CHANGELOG.md" && { echo "CHANGELOG.md still has t
 docker run --rm -v "$OUT:/w" -w /w goreleaser/goreleaser:latest check
 
 if [ "$DIST" = agent-one ]; then
-  say "vocabulary leak check (docs, law, bench, CLI output)"
+  say "vocabulary leak check (every file, and the CLI output)"
   TERMS='isekai|rimuru|veldora|slime|kijin|dark[ -]elf|high[ -]orc|high[ -]elf|\borcs?\b|\belf\b|\belves\b|great[ -]sage|raphael|\bciel\b|tempest|reincarnat'
-  leaks=$(grep -rniIE "$TERMS" "$OUT" --include='*.md' --include='*.yaml' --include='*.yml' --include='*.sh' --include='*.py' --exclude-dir=.git || true)
+  leaks=$(grep -rniIE "$TERMS" "$OUT" --exclude-dir=.git --exclude='*.png' || true)
   cli=$(cd "$OUT" && "$GO" run ./cmd/agent-one help 2>&1 | grep -niE "$TERMS" || true)
   if [ -n "$leaks$cli" ]; then echo "$leaks"; echo "$cli"; echo "vocabulary leak — fix before publishing" >&2; exit 1; fi
   echo "no isekai vocabulary in docs, law, bench or CLI help"
