@@ -52,6 +52,8 @@ unambiguous enough to build directly.
   feature switchable, per-distribution defaults, and the rule that a switched-off law is a finding
 - [`ui.md`](ui.md) — how the world draws its pages: the Bootstrap 5 grid, mobile first,
   components before custom markup, an isekai theme over Bootstrap's tokens, SVG sized by column
+- [`runtime.md`](runtime.md) — the v0.2 design: the container runtime (permissions follow what is at
+  risk), enterprise registries, secrets in two steps, the corporate proxy, worlds and dimensions
 - [`agents/great-sage.md`](agents/great-sage.md), [`agents/raphael.md`](agents/raphael.md),
   [`agents/ciel.md`](agents/ciel.md) — templates for all three "court triad" bodies
   (perceive / judge / speak); `ciel.md` is complete, the other two have small gaps (see below)

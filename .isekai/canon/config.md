@@ -270,7 +270,8 @@ document is JSON here; the same keys in YAML are the same config.
     "postTool":     [],
     "sessionStart": [],
     "preCompact":   [],
-    "stop":         []
+    "stop":         [],
+    "userPrompt":   []                                // before a human line becomes a turn; exit 2 refuses it
   },
 
   // ---------------------------------------------------------------- MCP

@@ -455,6 +455,29 @@ never fused. Then the loop, because the two halves carry different halves of lif
 
 Domain expertise is held by Orcs, Kijin and Slimes, not by Rimuru or the Elf.
 
+## Worlds and dimensions
+
+A world rarely stands alone: a codebase is deployed by a deploy repo, whose cluster and secrets
+another world provisions. The world knows its neighbours, and routes through them by rank.
+
+- **A world inside a world.** A directory with its own world dir inside another world is a nested
+  world, and it is **sovereign**: its files belong to its own creatures, never to the parent's.
+  The parent's territory stops at the child's border; the parent asks the child through its Elf.
+- **A dimension** is a set of worlds that work together, declared by a manifest
+  (`dimension.yaml`): its worlds (by path or git URL — they may live anywhere on disk), the typed
+  relations between them (`deploys`, `provisions`, `reads-secrets-from`, `depends-on`, …), and
+  the dimension above it. A world belongs to at most one dimension.
+- **Relations are declared, and also learned.** The manifest states them; a creature that sees a
+  cross-world reference (an output consumed, an image deployed, a secret path read — any kind)
+  notes it; named twice (Nature 4), it is proposed to Veldora as a manifest diff and exists only
+  on Veldora's yes. Relations are ontology bonds: knowledge flows along them like any other.
+- **One hop per level.** Worlds in the same dimension speak directly, Elf to Elf. A question for
+  another dimension goes up to the dimension above both, which asks the right dimension, which asks
+  the right world — never sideways across a dimension's border (Law 2, Absolute Rule III).
+- **Rimuru holds the map.** The throne is one body across every world; the dimensions are how it
+  sees them. The board opens on that map: dimensions, their worlds, worlds within worlds, and
+  the relations between them.
+
 ## The gate
 
 No change lands without its Orc's pass. The Orc checks:

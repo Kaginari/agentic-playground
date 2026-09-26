@@ -484,6 +484,32 @@ the two halves carry different halves of life:
 Domain expertise is held by domain owners, service owners and zone workers, not by the
 orchestrator or the coordinator.
 
+## Workspaces, systems and organizations
+
+A workspace rarely stands alone: a codebase is deployed by a deploy repository, whose cluster and
+secrets another workspace provisions. The workspace knows its neighbours, and routes through them
+by role.
+
+- **A workspace inside a workspace.** A directory with its own workspace dir inside another
+  workspace is a nested workspace, and it is **sovereign**: its files belong to its own members,
+  never to the parent's. The parent's ownership stops at the child's boundary; the parent asks the
+  child through its coordinator.
+- **A system** is a set of workspaces that work together, declared by a manifest
+  (`system.yaml`): its workspaces (by path or git URL — they may live anywhere on disk), the typed
+  relations between them (`deploys`, `provisions`, `reads-secrets-from`, `depends-on`, …), and
+  the organization above it. A workspace belongs to at most one system.
+- **Relations are declared, and also learned.** The manifest states them; a member that sees a
+  cross-workspace reference (an output consumed, an image deployed, a secret path read — any kind)
+  notes it; seen twice (Principle 4), it is proposed to the operator as a manifest diff and exists
+  only on approval. Relations are ontology edges: knowledge flows along them like any other.
+- **One hop per level.** Workspaces in the same system talk directly, coordinator to coordinator.
+  A question for another system goes up to the organization above both, which asks the right
+  system, which asks the right workspace — never sideways across a system's boundary (Policy 2,
+  Absolute Rule III).
+- **The orchestrator holds the map.** It is one agent across every workspace; systems and
+  organizations are how it sees them. The board opens on that map: organizations, systems, their
+  workspaces, workspaces within workspaces, and the relations between them.
+
 ## The review gate
 
 No change lands without its domain owner's pass. The domain owner checks:
