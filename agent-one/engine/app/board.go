@@ -87,6 +87,11 @@ func (a *App) offList() []board.Off {
 	for _, f := range a.Cfg.Off() {
 		out = append(out, board.Off{Feature: f.Key, Origin: f.Origin.String()})
 	}
+	// switched-off tools too: a page never says "everything on" while a tool is off
+	for _, t := range a.Cfg.ToolsOff() {
+		name, why, _ := strings.Cut(t, " — ")
+		out = append(out, board.Off{Feature: "tools." + name, Origin: why})
+	}
 	return out
 }
 

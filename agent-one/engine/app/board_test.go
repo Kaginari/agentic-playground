@@ -84,3 +84,16 @@ func clip(s string) string {
 	}
 	return s
 }
+
+// TestBoardOffListNamesToolsOff: the board's off-list carries switched-off tools, as status does.
+func TestBoardOffListNamesToolsOff(t *testing.T) {
+	files := agentOneMembers()
+	files[".agent-one/config.yaml"] = "tools:\n  webfetch: { enabled: false }\n"
+	a := newTestWorkspace(t, "agent-one", files).open()
+	for _, o := range a.offList() {
+		if o.Feature == "tools.webfetch" {
+			return
+		}
+	}
+	t.Fatalf("tools.webfetch missing from the board's off-list: %+v", a.offList())
+}

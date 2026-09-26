@@ -4,6 +4,7 @@
 //
 //	FAKE_MODE=right  → the bash call writes the right answer (the verifier should pass)
 //	FAKE_MODE=wrong  → the bash call writes a wrong answer (the verifier should fail)
+//	FAKE_FILE        → the file the script writes (default /app/hello.txt, the Harbor task's)
 package main
 
 import (
@@ -48,6 +49,10 @@ func main() {
 		mode = "right"
 	}
 	answer := map[string]string{"right": "hello bench", "wrong": "goodbye"}[mode]
+	file := os.Getenv("FAKE_FILE")
+	if file == "" {
+		file = "/app/hello.txt"
+	}
 	if answer == "" {
 		log.Fatalf("FAKE_MODE must be right or wrong, got %q", mode)
 	}
@@ -82,7 +87,7 @@ func main() {
 				http.Error(w, "fakevllm: no `bash` tool offered; offered: "+strings.Join(names, ","), http.StatusBadRequest)
 				return
 			}
-			args, _ := json.Marshal(map[string]string{"command": fmt.Sprintf("printf '%%s\\n' '%s' > /app/hello.txt && cat /app/hello.txt", answer)})
+			args, _ := json.Marshal(map[string]string{"command": fmt.Sprintf("printf '%%s\\n' '%s' > %s && cat %s", answer, file, file)})
 			writeJSON(w, completion(req.Model, map[string]any{
 				"role": "assistant", "content": nil,
 				"tool_calls": []any{map[string]any{
@@ -93,7 +98,7 @@ func main() {
 			return
 		}
 		writeJSON(w, completion(req.Model, map[string]any{
-			"role": "assistant", "content": "@S DONE wrote /app/hello.txt\n@E 30",
+			"role": "assistant", "content": "@S DONE wrote " + file + "\n@E 30",
 		}, "stop", usage))
 	})
 	log.Printf("fakevllm mode=%s model=%s on %s", mode, *model, *addr)
