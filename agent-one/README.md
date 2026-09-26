@@ -138,3 +138,10 @@ markers), `kind.unsaid.*`, `kind.memory.*`, `tier.*`, `toolbox.kind.*`, `lane.*`
 | truth-current · verdict-current · anima-thread | ground-truth link · verdict link · skill link | `bond.*` |
 | GREAT-SAGE → RAPHAEL → CIEL | ANALYST → JUDGE → DRAFTER | `triad.*` |
 | holidays · party · genesis watch · census | consolidation run · confirm need · provisioning watch · roster | `ui.*` |
+
+## Role badges
+
+`portraits/` holds one 512×512 badge per role — the same white rounded tile as isekai's portraits,
+with a [Tabler Icons](https://tabler.io/icons) glyph (MIT, `portraits/LICENSE-tabler-icons`) in the
+role's colour; principal roles carry a crown. They are generated, never hand-edited:
+`presentations/src/make_role_badges.js`.
