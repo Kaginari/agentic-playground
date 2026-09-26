@@ -684,3 +684,24 @@ Append-only. Newest entries at the bottom. One entry per change.
     outward/destructive, never unknown→write — else a read table is overruled by its own input.
   - A shell timeout kills the command's descendants but spares the session; the rest of a `;`
     list may still run within the grace — chosen over losing the session's state.
+
+### [2026-09-26T12:47:57+02:00] rimuru — the board: eight pages on the Bootstrap grid; bench scaffolding
+- **Task:** Human: "a really powerful UI … bootstrap griding … responsive"; "when I launch isekai
+  it will launch tempest?"; Harbor benchmarks in Docker, tracked in the repo, on a fake vLLM first.
+- **Files:** isekai/board/ (Overview · Court · Usage · Colony · Memory · Toolbox · Log · Config;
+  SSE; lexicon-driven labels; Bootstrap 5.3.8 embedded) · .isekai/canon/ui.md §Proving a page ·
+  bench/ (Harbor runner image, adapter, fake vLLM, hello-file task, configs, runs.jsonl).
+- **Gate:** n/a (no orcs). Instruments: board `go vet` + `go test -race` green (20 tests);
+  screenshots at 360px and desktop, dark and light, reviewed by Rimuru; hello-file task validated
+  under Harbor — oracle 1.0, nop 0.0, both launches in bench/runs.jsonl.
+- **Result:** done; the board is wired by the integrator (Court, Config, Session feeds).
+- **Learned:**
+  - Markup tests passed while three render bugs lived (lanes sorted alphabetically, a pointer
+    printed, missing labels) — only screenshots caught them → ui.md: a page is proven by render.
+  - tempest's audited palette does not fully pass for the rare ranks (kijin↔high-orc CVD ΔE 2.0;
+    dark-elf↔elf light normal-vision 13.7 < 15; dark-elf gold L .671 > .67): mitigated by a text
+    label on every coloured node; chart series re-stepped and pass all five checks. Named, not
+    fixed — a palette pass for the six-rank set is future work (Nature 4, first naming).
+  - Harbor restricts agent egress by allowlist (`--allow-agent-host`) and runs with the repo
+    mounted at its host path so compose paths resolve; the runner needs the docker CLI + compose
+    plugin (Debian's docker.io in python:slim is not enough).

@@ -1,0 +1,54 @@
+{{define "live"}}{{with .Data}}
+<div class="row g-3 align-items-center">
+  <div class="col-12 col-md-8">
+    <ul class="nav nav-pills nav-sm">
+      {{$r := .Range}}{{$s := .Session}}{{range .Ranges}}<li class="nav-item"><a class="nav-link{{if eq . $r}} active{{end}}" href="?range={{.}}{{if $s}}&session={{$s}}{{end}}">{{.}}</a></li>{{end}}
+    </ul>
+  </div>
+  <div class="col-12 col-md-4 text-md-end">{{template "readingBadge" .Reading}}</div>
+</div>
+
+{{if not .Reading.Lit}}
+<div class="alert alert-warning mt-3">silent — {{.Reading.Why}}</div>
+{{else}}
+<div class="row g-3 mt-1">
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">cost · {{.Range}}</div><div class="stat-value">{{usd .Total.USD}}</div>{{if .Total.Unpriced}}<div class="small text-warning">{{.Total.Unpriced}} unpriced call{{if gt .Total.Unpriced 1}}s{{end}} — a floor, not a total</div>{{end}}</div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">tokens</div><div class="stat-value">{{tok .Total.Tokens}}</div><div class="small text-secondary">in {{tok .Total.Input}} · out {{tok .Total.Output}}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">cache</div><div class="stat-value">{{tok (add .Total.CacheRead .Total.CacheWrite)}}</div><div class="small text-secondary">read {{tok .Total.CacheRead}} · write {{tok .Total.CacheWrite}}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">calls</div><div class="stat-value">{{n .Total.Calls}}</div><div class="small text-secondary">{{len .Sessions}} {{L "session"}}{{if ne (len .Sessions) 1}}s{{end}}</div></div></div></div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-8">
+    <div class="card"><div class="card-header">tokens by day</div><div class="card-body">
+      <div class="chart" data-chart="columns" id="chartDays"></div>
+    </div></div>
+  </div>
+  <div class="col-12 col-xl-4">
+    <div class="card"><div class="card-header">cost by day</div><div class="card-body">
+      <div class="chart" data-chart="cost" id="chartCost"></div>
+    </div></div>
+  </div>
+</div>
+<script type="application/json" id="chartData">{{.Chart}}</script>
+
+{{$now := $.Now}}
+<div class="row g-3 mt-1">
+  {{template "usageTable" (dict "title" (L "body") "rows" .ByBody "kind" "body")}}
+  {{template "usageTable" (dict "title" (L "office") "rows" .ByOffice "kind" "office")}}
+  {{template "usageTable" (dict "title" (L "rank") "rows" .ByRank "kind" "rank")}}
+  {{template "usageTable" (dict "title" "model" "rows" .ByModel "kind" "model")}}
+</div>
+{{if gt (len .Sessions) 1}}<div class="mt-3 small text-secondary">{{L "session"}}s: {{$r := .Range}}{{range .Sessions}}<a class="me-2" href="?range={{$r}}&session={{.}}">{{.}}</a>{{end}}{{if .Session}}· <a href="?range={{.Range}}">all</a>{{end}}</div>{{end}}
+{{end}}
+{{end}}{{end}}
+
+{{define "usageTable"}}
+<div class="col-12 col-md-6">
+  <div class="card h-100"><div class="card-header">by {{.title}}</div>
+  <div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>{{.title}}</th><th class="num">calls</th><th class="num">in</th><th class="num">out</th><th class="num">cache</th><th class="num">tokens</th><th class="num">usd</th></tr></thead>
+    <tbody>{{$k := .kind}}{{range .rows}}<tr class="{{if eq $k "rank"}}{{rankcls .Key}}{{end}}"><td>{{if eq $k "rank"}}<span class="dot"></span>{{end}}{{.Key}}</td><td class="num">{{n .Calls}}</td><td class="num">{{tok .Input}}</td><td class="num">{{tok .Output}}</td><td class="num">{{tok (add .CacheRead .CacheWrite)}}</td><td class="num">{{tok .Tokens}}</td><td class="num">{{usd .USD}}{{if .Unpriced}}<sup title="{{.Unpriced}} unpriced">+</sup>{{end}}</td></tr>{{end}}</tbody>
+  </table></div></div>
+</div>
+{{end}}

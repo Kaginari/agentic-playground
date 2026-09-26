@@ -1,0 +1,3 @@
+{"at":"2026-09-25T16:00:00.000Z","by":"rimuru","world":"fixture","tag":"auth","kind":"colony","text":"the auth tests need the fake clock or they flake"}
+{"at":"2026-09-25T16:01:00.000Z","by":"slime-auth","world":"fixture","tag":"ttl","kind":"territory","text":"token TTL is 15m"}
+{"at":"2026-09-25T16:02:00.000Z","by":"rimuru","world":"fixture","tag":null,"kind":null,"text":"an untyped note"}

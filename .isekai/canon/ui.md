@@ -34,3 +34,10 @@ design system, so a reader who learned one page can read them all.
 - Numbers are instruments: every figure on a page says where it came from (file, time), and a
   silent or stale instrument is shown as such, never as zero.
 - Assets are embedded or served locally; a page works offline.
+
+## Proving a page
+
+The ladder (`isekai.md` §The loop) holds for pages too, with one rung more: a page is not done
+when its handler tests pass, but when it has been **rendered** — screenshots at 360px and at a
+desktop width, in both themes — and looked at. Markup tests pass on pages that still sort lanes
+alphabetically, print a pointer instead of a value, or miss a label; only the render shows it.

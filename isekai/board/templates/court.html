@@ -1,0 +1,28 @@
+{{define "live"}}{{with .Data}}
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>live {{L "bodies"}}</span>{{template "readingBadge" .Reading}}</div>
+      {{if not .Live}}<div class="card-body text-secondary">silent — no live {{L "page.court"}} feed wired; nothing is known about running {{L "bodies"}}.</div>
+      {{else if not .Bodies}}<div class="card-body text-secondary">no {{L "body"}} running · the {{L "page.court"}} is empty</div>
+      {{else}}
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>{{L "body"}}</th><th>{{L "rank"}}</th><th>{{L "office"}}</th><th>model</th><th>state</th><th class="num">elapsed</th><th>context</th><th class="num">tokens</th><th class="num">cost</th></tr></thead>
+        <tbody>
+        {{range .Bodies}}<tr class="{{rankcls .Rank}}">
+          <td><span class="dot"></span>{{.Name}}</td>
+          <td>{{L (print "rank." (lower .Rank))}}</td>
+          <td>{{if .Office}}{{.Office}}{{else}}<span class="text-secondary">—</span>{{end}}</td>
+          <td><small>{{.Provider}}{{if .Provider}}/{{end}}{{.Model}}</small></td>
+          <td><span class="badge {{stateCls .State}}">{{.State}}</span></td>
+          <td class="num"><span class="elapsed" data-started="{{.Started.Format "2006-01-02T15:04:05Z07:00"}}">{{since .Started $.Now}}</span></td>
+          <td>{{if .ContextLimit}}<div class="meter" title="{{n .ContextTokens}} / {{n .ContextLimit}}"><div class="meter-fill {{if ge (.ContextPct) 90}}text-bg-danger{{else if ge (.ContextPct) 67}}text-bg-warning{{else}}text-bg-success{{end}}" style="width:{{.ContextPct}}%"></div></div><small class="text-secondary">{{.ContextPct}}% · {{tok .ContextTokens}}</small>{{else}}<small class="text-secondary">window unknown</small>{{end}}</td>
+          <td class="num" title="in {{n .Input}} · out {{n .Output}} · cache read {{n .CacheRead}} · cache write {{n .CacheWrite}}">{{tok .Tokens}}</td>
+          <td class="num">{{derefF .USD}}</td>
+        </tr>{{end}}
+        </tbody></table></div>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}{{end}}

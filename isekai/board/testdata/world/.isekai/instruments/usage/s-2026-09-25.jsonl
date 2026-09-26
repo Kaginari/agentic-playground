@@ -1,0 +1,4 @@
+{"ts":"2026-09-25T09:00:00Z","session":"s-2026-09-25","body":"rimuru","rank":"rimuru","office":"","model":"claude-opus-5-5","provider":"anthropic","input":1200,"output":300,"cacheRead":20000,"cacheWrite":5000,"usd":0.0421}
+{"ts":"2026-09-25T09:05:00Z","session":"s-2026-09-25","body":"slime-auth","rank":"slime","office":"findings","model":"claude-sonnet-4-5","provider":"anthropic","input":800,"output":900,"cacheRead":0,"cacheWrite":0,"usd":0.0159}
+{"ts":"2026-09-25T09:06:00Z","session":"s-2026-09-25","body":"orc-core","rank":"orc","office":"verdict","model":"llama-3.3-70b","provider":"ollama","input":500,"output":100,"cacheRead":0,"cacheWrite":0,"usd":null}
+not json

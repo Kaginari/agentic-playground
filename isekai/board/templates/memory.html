@@ -1,0 +1,55 @@
+{{define "live"}}{{with .Data}}
+{{if not .Reading.Lit}}<div class="alert alert-warning">silent — {{.Reading.Why}}</div>{{end}}
+{{with .Status}}
+<div class="row g-3">
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card h-100"><div class="card-header">{{L "tier.short"}}</div><div class="card-body small">
+      <div class="stat-label">context window</div>
+      {{if .Short.ContextWindow.Available}}<div>{{tok .Short.ContextWindow.Tokens}} / {{tok .Short.ContextWindow.Limit}} · <span class="badge {{stressCls .Short.ContextWindow.Zone}}">{{.Short.ContextWindow.Zone}}</span></div>{{else}}<div class="text-secondary">unmeasured — {{.Short.ContextWindow.Why}}</div>{{end}}
+      <div class="stat-label mt-2">working memory</div>
+      <div>{{.Short.WorkingMemory.Desks}} {{L "desk"}}s{{if .Short.WorkingMemory.Stressed}} · stressed: {{join .Short.WorkingMemory.Stressed ", "}}{{end}}{{if .Short.WorkingMemory.AtLimit}} · at limit: {{join .Short.WorkingMemory.AtLimit ", "}}{{end}}</div>
+      <div class="stat-label mt-2">semantic cache</div>
+      <div>{{.Short.SemanticCache.Entries}} entries · {{.Short.SemanticCache.Hits}} hits <span class="text-secondary">· {{.Short.SemanticCache.Src}}</span></div>
+    </div></div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card h-100"><div class="card-header">{{L "tier.long"}}</div><div class="card-body small">
+      {{if .Long.Indexed}}
+      <div><span class="badge {{if .Long.Stale}}text-bg-warning{{else}}text-bg-success{{end}}">{{if .Long.Stale}}stale{{else}}indexed{{end}}</span> built {{derefS .Long.BuiltAt}}{{with .Long.Head}} · head <code>{{.}}</code>{{end}}</div>
+      <div class="row g-2 mt-1"><div class="col-4"><div class="stat-label">episodic</div><div class="stat-value">{{deref .Long.Episodic}}</div></div><div class="col-4"><div class="stat-label">procedural</div><div class="stat-value">{{deref .Long.Procedural}}</div></div><div class="col-4"><div class="stat-label">semantic</div><div class="stat-value">{{deref .Long.Semantic}}</div></div></div>
+      {{else}}<div class="text-secondary">silent — no index built <span class="text-secondary">({{.Long.Src}})</span></div>{{end}}
+    </div></div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card h-100"><div class="card-header">{{L "tier.shared"}}</div><div class="card-body small">
+      <div>{{.Shared.World}} {{L "world"}} notes · {{.Shared.Machine}} machine notes</div>
+      <div class="stat-label mt-2">{{L "unsaid"}} by kind</div>
+      <div class="d-flex flex-wrap gap-2 mt-1">
+        <span class="badge text-bg-secondary">{{L "kind.law"}} {{.Shared.Unsaid.Law}}</span>
+        <span class="badge text-bg-secondary">{{L "kind.colony"}} {{.Shared.Unsaid.Colony}}</span>
+        <span class="badge text-bg-secondary">{{L "kind.territory"}} {{.Shared.Unsaid.Territory}}</span>
+      </div>
+      <div class="text-secondary mt-2">{{join .Shared.Src " · "}}</div>
+    </div></div>
+  </div>
+</div>
+{{if .Holes}}<div class="mt-3 small">{{range .Holes}}<div class="text-warning">@? {{.}}</div>{{end}}</div>{{end}}
+{{end}}
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-5">
+    <div class="card h-100"><div class="card-header">{{L "desk"}}s</div>
+      {{if .Desks}}<div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>{{L "mind"}}</th><th>worn by</th><th class="num">{{L "thoughts"}}</th><th>{{L "stress"}}</th></tr></thead><tbody>
+      {{range .Desks}}<tr><td>{{.Mind}}</td><td>{{derefS .WornBy}}</td><td class="num">{{.Thoughts}} / {{.Limit}}</td><td><span class="badge {{stressCls .Stress}}">{{.Stress}}</span></td></tr>{{end}}
+      </tbody></table></div>{{else}}<div class="card-body small text-secondary">no {{L "desk"}} on any {{L "mind"}}</div>{{end}}
+    </div>
+  </div>
+  <div class="col-12 col-xl-7">
+    <div class="card h-100"><div class="card-header">shared notes</div>
+      {{if .Notes}}<ul class="list-group list-group-flush">{{range .Notes}}<li class="list-group-item small"><div class="text-secondary">{{.At}} · {{.By}}{{with derefS .Kind}} · <span class="badge text-bg-secondary">{{L (print "kind." .)}}</span>{{end}}{{with derefS .Tag}} · #{{.}}{{end}}</div><div>{{.Text}}</div></li>{{end}}</ul>
+      {{else}}<div class="card-body small text-secondary">no shared note yet</div>{{end}}
+    </div>
+  </div>
+</div>
+<div class="small text-secondary mt-3">{{template "readingBadge" .Reading}}</div>
+{{end}}{{end}}
