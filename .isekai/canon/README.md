@@ -50,6 +50,8 @@ unambiguous enough to build directly.
   ships in v0, what it defers, what it refuses, and how each capability meets the law
 - [`config.md`](config.md) — the binary's config: locations, precedence, the full schema with every
   feature switchable, per-distribution defaults, and the rule that a switched-off law is a finding
+- [`tui.md`](tui.md) — the terminal UI, Claude Code style: inline scrollback, streamed markdown,
+  tool blocks with diffs, inline approvals, the slash menu, the spinner and footer
 - [`ui.md`](ui.md) — how the world draws its pages: the Bootstrap 5 grid, mobile first,
   components before custom markup, an isekai theme over Bootstrap's tokens, SVG sized by column
 - [`runtime.md`](runtime.md) — the v0.2 design: the container runtime (permissions follow what is at

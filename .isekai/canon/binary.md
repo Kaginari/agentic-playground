@@ -10,8 +10,9 @@ Source: `isekai/` at the repository root (Go module, stdlib only). Build with
 
 ## Principles of the build
 
-- **Minimal.** Standard library only. No TUI, no LSP, no web, no plugin system. A line REPL and a
-  one-shot mode. A feature enters when a session names the need twice (Nature 4).
+- **Minimal.** Standard library only — except the terminal UI, built on the Charm libraries
+  (`canon/tui.md`). No LSP, no plugin system. A feature enters when a session names the need twice
+  (Nature 4).
 - **Files are truth.** The binary reads and writes the same files the JS instruments do
   (`log.md`, `memory/`, `toolbox/`, `instruments/`) in the same formats. It never keeps a private
   store the world cannot read without it.
