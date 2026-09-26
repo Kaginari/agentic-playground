@@ -1,14 +1,15 @@
-"""Harbor adapter for the isekai binary (and agent-one, same engine).
+"""Harbor adapter for the agent binary.
 
 Harbor gives one task container and one instruction; this adapter installs the static Go binary,
-seeds a minimal world, runs `isekai run --json`, and reports tokens and cost from isekai's usage
-journal. Load it with:  harbor run --agent isekai_agent:IsekaiAgent  (PYTHONPATH=bench/harbor)
+seeds a minimal world, runs `<dist> run --json`, and reports tokens and cost from the usage
+journal. Load it with:  harbor run --agent harbor_agent:HarborAgent  (PYTHONPATH=bench/harbor)
 
 Host environment it reads:
-  ISEKAI_BIN            path to the linux/amd64 static binary to install (required)
-  ISEKAI_DIST           isekai | agent-one                                  (default isekai)
-  ISEKAI_BENCH_CONFIG   path to the bench config (YAML/JSON), passed in as ISEKAI_CONFIG_CONTENT
-  ISEKAI_FORWARD_ENV    comma-separated env var names to forward (API keys by name, never values
+  BENCH_BIN             path to the linux/amd64 static binary to install (required)
+  BENCH_DIST            the binary's name (required); its world dir is .<dist>, its env prefix
+                        the name upper-cased with - → _ (my-agent → MY_AGENT_)
+  BENCH_CONFIG          path to the bench config (YAML/JSON), passed in as <PREFIX>CONFIG_CONTENT
+  BENCH_FORWARD_ENV     comma-separated env var names to forward (API keys by name, never values
                         written to disk), e.g. VLLM_API_KEY
 """
 
@@ -26,36 +27,39 @@ from harbor.models.agent.context import AgentContext
 WORLD = "/app"  # the task's working directory; the world dir is seeded inside it
 
 
-class IsekaiAgent(BaseInstalledAgent):
+class HarborAgent(BaseInstalledAgent):
     @staticmethod
     def name() -> str:
-        return "isekai"
+        return os.environ.get("BENCH_DIST", "agent")
 
     def _dist(self) -> str:
-        return os.environ.get("ISEKAI_DIST", "isekai")
+        dist = os.environ.get("BENCH_DIST")
+        if not dist:
+            raise ValueError("BENCH_DIST must name the agent binary")
+        return dist
 
     def _dist_dir(self) -> str:
-        return ".agent-one" if self._dist() == "agent-one" else ".isekai"
+        return "." + self._dist()
 
     def _env_prefix(self) -> str:
-        return "AGENT_ONE_" if self._dist() == "agent-one" else "ISEKAI_"
+        return self._dist().upper().replace("-", "_") + "_"
 
     def get_version_command(self) -> str | None:
         return f"{self._dist()} version"
 
     async def install(self, environment: BaseEnvironment) -> None:
-        binary = os.environ.get("ISEKAI_BIN")
+        binary = os.environ.get("BENCH_BIN")
         if not binary or not Path(binary).is_file():
-            raise ValueError("ISEKAI_BIN must point at the static linux/amd64 isekai binary")
+            raise ValueError("BENCH_BIN must point at the static linux/amd64 agent binary")
         await environment.upload_file(binary, f"/usr/local/bin/{self._dist()}")
         await self.exec_as_root(environment, command=f"chmod 755 /usr/local/bin/{self._dist()}")
 
     def _run_env(self) -> dict[str, str]:
         env: dict[str, str] = {}
-        cfg = os.environ.get("ISEKAI_BENCH_CONFIG")
+        cfg = os.environ.get("BENCH_CONFIG")
         if cfg:
             env[self._env_prefix() + "CONFIG_CONTENT"] = Path(cfg).read_text()
-        for name in filter(None, (n.strip() for n in os.environ.get("ISEKAI_FORWARD_ENV", "").split(","))):
+        for name in filter(None, (n.strip() for n in os.environ.get("BENCH_FORWARD_ENV", "").split(","))):
             if name in os.environ:
                 env[name] = os.environ[name]
         return env

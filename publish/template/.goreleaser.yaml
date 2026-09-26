@@ -1,0 +1,67 @@
+# GoReleaser v2 — builds, archives, checksums, changelog, GitHub Release and the GHCR image.
+# Stamped by publish/publish.sh: __DIST__ is the binary name, __OWNER__/__REPO__ the GitHub repo.
+version: 2
+project_name: __DIST__
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+
+builds:
+  - id: __DIST__
+    main: ./cmd/__DIST__
+    binary: __DIST__
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }} -X main.date={{ .Date }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    # no version in the name, so releases/latest/download/<name> always resolves (install.sh)
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files: [LICENSE, README.md, CHANGELOG.md]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Other changes
+      order: 999
+  filters:
+    exclude: ['^docs:', '^test:', '^chore\(deps\):', 'Merge pull request', 'Merge branch']
+
+dockers_v2:
+  - ids: [__DIST__]
+    dockerfile: Dockerfile.release
+    images: ["ghcr.io/__OWNER_LC__/__DIST__"]
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"   # never move :latest on a pre-release
+    platforms: [linux/amd64, linux/arm64]
+    labels:
+      "org.opencontainers.image.source": "https://github.com/__OWNER__/__REPO__"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.licenses": "MIT"
+
+release:
+  github:
+    owner: __OWNER__
+    name: __REPO__
+  prerelease: auto     # v0.x.y-rc.1 and the like are marked pre-release
+  name_template: "__TITLE__ {{ .Tag }}"

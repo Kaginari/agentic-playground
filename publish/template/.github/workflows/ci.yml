@@ -1,0 +1,76 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then echo "$out"; exit 1; fi
+      - run: go vet ./...
+      - name: Enable bwrap (Ubuntu 24.04 restricts unprivileged user namespaces)
+        run: |
+          sudo apt-get update && sudo apt-get install -y bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: go test -race ./...
+      - run: go run ./cmd/__DIST__ selftest
+
+  build:
+    needs: test
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath -o /dev/null ./cmd/__DIST__
+
+  goreleaser-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check
+
+  # The €0 benchmark smoke: Harbor runs the hello-file task in Docker with the agent inside it,
+  # talking to a fake OpenAI-compatible server. The right script must score 1.0, the wrong 0.0.
+  bench-smoke:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build the agent and the fake vLLM
+        run: |
+          CGO_ENABLED=0 go build -trimpath -o bin/__DIST__ ./cmd/__DIST__
+          (cd bench/fakevllm && go build -o ../../bin/fakevllm .)
+      - name: Build the Harbor runner image
+        run: docker build -t __DIST__-harbor bench/harbor
+      - name: Smoke — right answer must pass, wrong answer must fail
+        run: bench/smoke.sh

@@ -1,0 +1,7 @@
+# The release image: the static binary on a small Debian base that has bash (the agent's shell).
+# No RUN steps, so the multi-platform build needs no emulation.
+FROM debian:bookworm-slim
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/__DIST__ /usr/local/bin/__DIST__
+WORKDIR /work
+ENTRYPOINT ["/usr/local/bin/__DIST__"]
