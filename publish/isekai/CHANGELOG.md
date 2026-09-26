@@ -6,6 +6,12 @@ All notable changes to __TITLE__ are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.4] - __DATE__
+
+### Highlights
+
+`run "<ask>"` no longer reads stdin — an inherited pipe that never closes (CI, another agent, cron) could hang it; stdin is read only for `run` with no ask or `run -`. Background jobs killed by a timeout no longer print a stray "Killed" line into the next command's output.
+
 ## [0.1.3] - __DATE__
 
 ### Highlights

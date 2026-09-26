@@ -1,0 +1,2 @@
+{"t":"2026-09-26T13:57:27.400197403Z","kind":"user","body":"rimuru","message":{"role":"user","text":"say hi"}}
+{"t":"2026-09-26T13:57:27.400294847Z","kind":"assistant","body":"rimuru","message":{"role":"assistant","text":"@S DONE hi\n@E 10"},"usage":{"input":1500,"output":50,"cache_read":0,"cache_write":0},"model":"mock/m"}

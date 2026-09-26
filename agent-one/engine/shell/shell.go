@@ -337,7 +337,15 @@ type proc struct {
 	eof      chan struct{}
 	shellPid int // the shell itself (a grandchild under bwrap); its group is spared by killChildren
 	mu       sync.Mutex
-	gone     bool // the shell exited (its EXIT trap spoke); EOF follows
+	gone     bool     // the shell exited (its EXIT trap spoke); EOF follows
+	notices  []string // the shell's own stderr (job notices such as "Killed"), kept apart from command output
+}
+
+// Notices returns the shell's own diagnostics seen so far (the last 64 lines).
+func (p *proc) Notices() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]string(nil), p.notices...)
 }
 
 // exitTrap prints the sentinel of the running frame when the shell exits (an `exit N` inside a
@@ -354,12 +362,29 @@ func startProc(sb *sandbox.Sandbox, call sandbox.Call, env []string, shell strin
 	if err != nil {
 		return nil, err
 	}
-	cmd.Stderr = cmd.Stdout
+	// A command's own stderr is merged into its output by the frame (eval … 2>&1); the shell's
+	// stderr carries only bash's own notices — a background job "Killed" by a timeout, say — which
+	// must not surface at the start of the next, unrelated command's output.
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start %s: %w", shell, err)
 	}
 	p := &proc{cmd: cmd, stdin: stdin, lines: make(chan string, 1024), eof: make(chan struct{})}
 	p.shellPid = cmd.Process.Pid
+	go func() {
+		sc := bufio.NewScanner(stderr)
+		for sc.Scan() {
+			p.mu.Lock()
+			p.notices = append(p.notices, sc.Text())
+			if len(p.notices) > 64 {
+				p.notices = p.notices[len(p.notices)-64:]
+			}
+			p.mu.Unlock()
+		}
+	}()
 	go func() {
 		r := bufio.NewReaderSize(stdout, 64<<10)
 		for {

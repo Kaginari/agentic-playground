@@ -821,3 +821,25 @@ Append-only. Newest entries at the bottom. One entry per change.
     It now names the JS tool only when the world ships it, else the binary.
   - Both were caught by running the released binaries in a plain world for the deck — the render
     rung, applied to a CLI: a harness is proven by being used, not only by its suite.
+
+### [2026-09-26T16:01:27+02:00] rimuru — first real use: `isekai` in ~/kaginari/pfcli; two hangs fixed; decks done
+- **Task:** Human ran `isekai` in a real project (no API key); "remove rimuru in opencode if it
+  causes issue"; earlier: the two decks.
+- **Files:** both engines — app/cli.go (run reads stdin only for no ask or "-"), shell/shell.go (the
+  shell's own stderr apart from command output), board off-list + wrapping, agent-one plural ·
+  presentations/{isekai,agent-one}-binary.pptx + src/build_binary.js + captures · Makefile.
+- **Gate:** n/a (no orcs). Instruments: TestRunIgnoresAnOpenStdin fails on the old code (blocks 20s)
+  and passes on the fix; shell tests 6× race-clean per engine; full suites green except one
+  TestREPLLive failure under full-suite load (0 of 60 race runs alone) — a timing flake, named.
+- **Result:** isekai v0.1.3 released; v0.1.4 + agent-one v0.1.2 follow. Both decks built, validated,
+  every slide rendered and reviewed; agent-one deck scanned: zero isekai terms.
+- **Learned:**
+  - **OpenCode's free tier refuses other clients** ("can only be used from within OpenCode", 403).
+    Not worked around: no client impersonation. Free paths left: a free API tier that allows
+    third-party clients, a local model, or Veldora's vLLM.
+  - **`run "<ask>"` read stdin when it was not a TTY**: an inherited open pipe hung it forever,
+    silently (my own first Zen test sat 5 minutes). Arguments win; stdin only when asked for.
+  - **A background job killed by a timeout leaked bash's "Killed" notice into the next command's
+    output** — flaky in CI (agent-one failed, isekai passed on the same code).
+  - The ~/.config/opencode/agents/rimuru.md file stays: it is OpenCode's throne body, and the
+    binary now reserves the session's name, so it can no longer become a creature.

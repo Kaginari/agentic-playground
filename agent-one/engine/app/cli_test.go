@@ -310,3 +310,26 @@ func TestBenchOnMock(t *testing.T) {
 		t.Errorf("real providers are skipped by name, never faked:\n%s", out)
 	}
 }
+
+// TestRunIgnoresAnOpenStdin: with the ask on the command line, run never reads stdin — an
+// inherited pipe that never closes (CI, another agent, cron) must not hang it.
+func TestRunIgnoresAnOpenStdin(t *testing.T) {
+	w := newTestWorkspace(t, "agent-one", agentOneMembers())
+	w.script(".agent-one/tmp/s.json", when("say hi", text("@S DONE hi\n@E 10")))
+	w.write(".agent-one/config.yaml", "models: {default: mock/m}\nproviders: {mock: {enabled: true, script: .agent-one/tmp/s.json}}\nui: {board: {autostart: false}}\n")
+	r, pw := io.Pipe() // never written, never closed
+	defer pw.Close()
+	done := make(chan int, 1)
+	go func() {
+		var out, errb bytes.Buffer
+		done <- Main("agent-one", []string{"--root", w.root, "--quiet", "--no-board", "run", "say hi"}, IO{In: r, Out: &out, Err: &errb, Env: func(string) string { return "" }}, Version{Version: "test"})
+	}()
+	select {
+	case code := <-done:
+		if code != 0 {
+			t.Fatalf("run exited %d", code)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("run blocked on an open stdin")
+	}
+}

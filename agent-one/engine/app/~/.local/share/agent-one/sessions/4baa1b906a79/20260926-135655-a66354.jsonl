@@ -1,0 +1,2 @@
+{"t":"2026-09-26T13:56:55.799206411Z","kind":"user","agent":"orchestrator","message":{"role":"user","text":"say hi"}}
+{"t":"2026-09-26T13:56:55.799386686Z","kind":"assistant","agent":"orchestrator","message":{"role":"assistant","text":"@S DONE hi\n@E 10"},"usage":{"input":1500,"output":50,"cache_read":0,"cache_write":0},"model":"mock/m"}

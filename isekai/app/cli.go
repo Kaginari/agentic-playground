@@ -305,12 +305,17 @@ func findWorld(dir, worldDir string) (string, bool) {
 	}
 }
 
-// cmdRun is the non-interactive form: stdin (when not a TTY) is appended to the ask; the
-// answer is printed in the output format; the exit code is the loop's.
+// cmdRun is the non-interactive form. The ask comes from the arguments; stdin is read only when
+// it is asked for — no ask, or the ask "-" — so an inherited pipe that never closes (CI, another
+// agent, cron) cannot hang a run. The answer is printed in the output format; the exit code is
+// the loop's.
 func (a *App) cmdRun(ctx context.Context, ask string, io IO) int {
-	if f, ok := io.In.(*os.File); !ok || f != os.Stdin || !isTerminal(f) {
-		if extra, _ := readAllLimited(io.In, 4<<20); strings.TrimSpace(extra) != "" {
-			ask = strings.TrimSpace(ask + "\n" + extra)
+	if strings.TrimSpace(ask) == "" || strings.TrimSpace(ask) == "-" {
+		ask = ""
+		if f, ok := io.In.(*os.File); !ok || f != os.Stdin || !isTerminal(f) {
+			if in, _ := readAllLimited(io.In, 4<<20); strings.TrimSpace(in) != "" {
+				ask = strings.TrimSpace(in)
+			}
 		}
 	}
 	if ask == "" {
