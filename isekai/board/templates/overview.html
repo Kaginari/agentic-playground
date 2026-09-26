@@ -49,7 +49,7 @@
   <div class="col-12 col-xl-6">
     <div class="card h-100"><div class="card-header">{{L "law"}} · {{L "off_list"}}</div><div class="card-body">
       {{if not .OffLive}}<p class="text-secondary small mb-0">silent — no config feed wired; the {{L "off_list"}} is unknown, not empty.</p>
-      {{else if .Off}}<ul class="list-group list-group-flush">{{range .Off}}<li class="list-group-item d-flex justify-content-between"><span>{{.Feature}}</span><span class="badge text-bg-secondary">{{.Origin}}</span></li>{{end}}</ul>
+      {{else if .Off}}<ul class="list-group list-group-flush">{{range .Off}}<li class="list-group-item"><div class="fw-semibold">{{.Feature}}</div><div class="small text-body-secondary text-break">{{.Origin}}</div></li>{{end}}</ul>
       {{else}}<p class="mb-0"><span class="badge text-bg-success">everything on</span> <span class="small text-secondary">no {{L "law"}} feature disabled by config</span></p>{{end}}
     </div></div>
   </div>

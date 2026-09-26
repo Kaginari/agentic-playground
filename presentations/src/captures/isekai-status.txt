@@ -1,0 +1,28 @@
+tools off: webfetch — disabled by tools.webfetch.enabled in ~/demo/.isekai/config.yaml:17
+ranks: rimuru [rankSet: extend] ·   dark-elf (court, office raphael) ·   elf (court, office ciel) ·     high-orc (gate, sideways, ascends orc, court, office raphael) ·     orc (gate, sideways, court, office raphael) ·       slime (authors, court, office great-sage) ·   high-elf (ascends elf, court, office ciel) ·   kijin (authors, gate, keeper, office raphael) ·
+model default    vllm/fake/vllm-coder                     ~/demo/.isekai/config.yaml:11
+model office great-sage  vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model office raphael     vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model office ciel        vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model rank   elf         vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model rank   orc         vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model rank   slime       vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model rank   kijin       vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model rank   high-elf    vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model rank   high-orc    vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model rank   dark-elf    vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model task   drain       vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model task   gate        vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model task   log         vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+model task   bench       vllm/fake/vllm-coder             ~/demo/.isekai/config.yaml:11
+sandbox: bwrap (/usr/bin/bwrap bubblewrap 0.4.0)
+compaction: drain · passes pointerize,trimSpent,unsaid,desk,episode,verify
+budget session: off
+budget court: off
+world: ~/demo · isekai · 0 creatures · 0 minds · 4 commands · 1 foreign bodies
+runs: 3 journals under .isekai/instruments/loop
+  rimuru-20260926133611-ebbf — DONE — as rimuru — 2 steps
+  rimuru-20260926133611-9b98 — DONE — as rimuru — 2 steps
+  rimuru-20260926131840-00c7 — DENIED — as rimuru — 1 steps
+sessions: 3 under ~/.local/share/isekai/sessions/b2b759726aa2
+board: off (ui.board.autostart ~/demo/.isekai/config.yaml:25)

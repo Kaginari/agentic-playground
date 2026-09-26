@@ -6,6 +6,12 @@ All notable changes to __TITLE__ are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - __DATE__
+
+### Highlights
+
+The board's off-list now names switched-off tools (it said "everything on" while a tool was off), and long origins wrap inside their card.
+
 ## [0.1.2] - __DATE__
 
 ### Highlights

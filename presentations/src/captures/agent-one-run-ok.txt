@@ -1,0 +1,6 @@
+→ s1 bash [write] printf '%s\n' 'hello bench' > hello.txt && cat hello.txt
+  ok (21ms) wrote hello.txt
+@S DONE wrote hello.txt
+@E 30
+gate: Gate: n/a (no domain owners)
+agent-one · vllm/fake/vllm-coder · ctx 0% (OK) · 2780 tok · $0.0006

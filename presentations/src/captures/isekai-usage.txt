@@ -1,0 +1,11 @@
+usage: 4 calls · 2 sessions · in 5400 (cache read 0, write 0) · out 160 · $0.0012
+by body:
+  rimuru                         4 calls  in     5400  out     160  $0.0012
+by office:
+  —                              4 calls  in     5400  out     160  $0.0012
+by rank:
+  rimuru                         4 calls  in     5400  out     160  $0.0012
+by model:
+  vllm/fake/vllm-coder           4 calls  in     5400  out     160  $0.0012
+by day:
+  2026-09-26                     4 calls  in     5400  out     160  $0.0012

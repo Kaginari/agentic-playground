@@ -6,6 +6,12 @@ All notable changes to __TITLE__ are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - __DATE__
+
+### Highlights
+
+The dashboard's off-list now names switched-off tools (it said "everything on" while a tool was off), long origins wrap inside their card, and `memory status` reads "working N note sets".
+
 ## [0.1.1] - __DATE__
 
 ### Highlights

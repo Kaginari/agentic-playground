@@ -1,0 +1,21 @@
+@S OK agent-one founded at ~/demo
+@F .agent-one/
+@F .agent-one/instruments/
+@F .agent-one/instruments/loop/
+@F .agent-one/instruments/usage/
+@F .agent-one/instruments/working-notes/
+@F .agent-one/instruments/toolbox/
+@F .agent-one/memory/
+@F .agent-one/memory/short/
+@F .agent-one/memory/long/
+@F .agent-one/memory/shared/
+@F .agent-one/toolbox/
+@F .agent-one/ontology/
+@F .agent-one/ontology/graph/
+@F .agent-one/tmp/
+@F .agent-one/name
+@F .agent-one/ontology/schema.ttl
+@F .agent-one/log.md
+@F .agent-one/memory/shared/notes.jsonl
+@F .agent-one/.gitignore
+@F .agent-one/AGENT-ONE.md

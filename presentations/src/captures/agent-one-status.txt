@@ -1,0 +1,28 @@
+tools off: webfetch — disabled by tools.webfetch.enabled in ~/demo/.agent-one/config.yaml:17
+ranks: orchestrator [rankSet: extend] ·   auditor (ephemeral, role judge) ·   coord (ephemeral, role drafter) ·     domain (gate, sideways, ephemeral, role judge) ·       zone (authors, ephemeral, role analyst) ·     principal-domain-owner (gate, sideways, promotes domain, ephemeral, role judge) ·   principal-coordinator (promotes coord, ephemeral, role drafter) ·   service (authors, gate, persistent, role judge) ·
+model default    vllm/fake/vllm-coder                     ~/demo/.agent-one/config.yaml:11
+model role analyst     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model role judge       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model role drafter     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model rank   coord       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model rank   domain      vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model rank   zone        vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model rank   service     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model rank   principal-coordinator vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model rank   principal-domain-owner vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model rank   auditor     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model task   drain       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model task   gate        vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model task   log         vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+model task   bench       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+sandbox: bwrap (/usr/bin/bwrap bubblewrap 0.4.0)
+compaction: drain · passes pointerize,trimSpent,unsaid,workingNotes,episode,verify
+budget session: off
+budget subagent: off
+workspace: ~/demo · agent-one · 1 members · 0 skills · 4 commands · 1 foreign agents
+runs: 3 journals under .agent-one/instruments/loop
+  orchestrator-20260926133611-2caa — DONE — as orchestrator — 2 steps
+  orchestrator-20260926133611-0bbe — DONE — as orchestrator — 2 steps
+  orchestrator-20260926131840-122b — DENIED — as orchestrator — 1 steps
+sessions: 3 under ~/.local/share/agent-one/sessions/c464b8c8a59a
+board: off (ui.board.autostart ~/demo/.agent-one/config.yaml:25)

@@ -224,7 +224,7 @@ func printStatus(out io.Writer, r *StatusReport) {
 	} else {
 		fmt.Fprintf(out, "SHORT   context @? %s\n", c.Why)
 	}
-	line := fmt.Sprintf("        working %d workingNotes%s", wm.WorkingNotes, plural(wm.WorkingNotes))
+	line := fmt.Sprintf("        working %d note set%s", wm.WorkingNotes, plural(wm.WorkingNotes))
 	if len(wm.Stressed) > 0 {
 		line += " · STRESSED: " + strings.Join(wm.Stressed, ", ")
 	}

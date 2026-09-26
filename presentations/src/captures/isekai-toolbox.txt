@@ -1,0 +1,2 @@
+@TOOLS as=rimuru k=0 cost=0/1500 — level 2 on decision only: isekai toolbox load <name> [--map|--sec N] · Claude Code: Skill <name> / ToolSearch "select:<name>" / Agent <body> · OpenCode: load skill <name>
+@? registry empty — nothing under .claude/skills, .opencode/skill(s), .claude/commands, .opencode/command(s), .isekai/tools, .claude/agents, .opencode/agent(s) or .isekai/toolbox/extra.jsonl

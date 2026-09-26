@@ -1,0 +1,21 @@
+@S OK isekai founded at ~/demo
+@F .isekai/
+@F .isekai/instruments/
+@F .isekai/instruments/loop/
+@F .isekai/instruments/usage/
+@F .isekai/instruments/desk/
+@F .isekai/instruments/toolbox/
+@F .isekai/memory/
+@F .isekai/memory/short/
+@F .isekai/memory/long/
+@F .isekai/memory/shared/
+@F .isekai/toolbox/
+@F .isekai/ontology/
+@F .isekai/ontology/graph/
+@F .isekai/tmp/
+@F .isekai/log.md
+@F .isekai/memory/shared/notes.jsonl
+@F .isekai/.gitignore
+@F .isekai/isekai.md
+@F .isekai/name
+@F .isekai/ontology/schema.ttl

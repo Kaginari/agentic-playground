@@ -1,0 +1,8 @@
+memory — world-agent-one · as orchestrator
+SHORT   context @? no Claude Code transcripts for this root
+        working 0 workingNotess
+        cache   3 recalls cached, 2 hits  (.agent-one/memory/short/orchestrator.jsonl)
+LONG    episodic 1 · procedural 0 · semantic 17  (built 2026-09-26T13:36:11.764Z) — STALE
+SHARED  workspace 0 · machine 0 · unsaid policy 0 · team 0 · domain 0
+@? index older than its sources — 1 changed: .agent-one/log.md — rerun `memory.js index`
+@? context window unmeasured — no Claude Code transcripts for this root

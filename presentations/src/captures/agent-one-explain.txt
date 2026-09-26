@@ -1,0 +1,286 @@
+# agent-one · root ~/demo · 7 layers
+# default  present default
+# global   absent  ~/.config/agent-one/config.yaml
+# project  present ~/demo/.agent-one/config.yaml
+# local    absent  ~/demo/.agent-one/config.local.yaml
+# env-file absent  env
+# env      absent  env
+# flag     absent  flag
+
+budgets.session.tokens: 0                                             # default
+budgets.session.usd: 0                                                # default
+budgets.subagent.tokens: 0                                            # default
+budgets.subagent.usd: 0                                               # default
+compaction.enabled: true                                              # default
+compaction.journal: true                                              # default
+compaction.keepRecentTurns: 4                                         # default
+compaction.passes.episode.enabled: true                               # default
+compaction.passes.pointerize.enabled: true                            # default
+compaction.passes.trimSpent.enabled: true                             # default
+compaction.passes.unsaid.enabled: true                                # default
+compaction.passes.verify.enabled: true                                # default
+compaction.passes.workingNotes.enabled: true                          # default
+compaction.strategy: "drain"                                          # default
+compaction.trigger.fraction: 0.85                                     # default
+compaction.trigger.tokens: 180000                                     # default
+discovery.agents.enabled: true                                        # default
+discovery.agents.paths[0]: "[dist-dir]/{[rank-dirs]}"                 # default
+discovery.agents.paths[1]: ".claude/agents"                           # default
+discovery.agents.paths[2]: ".opencode/agents"                         # default
+discovery.agents.paths[3]: ".opencode/agent"                          # default
+discovery.agents.paths[4]: "~/.config/[dist]/agents"                  # default
+discovery.agents.paths[5]: "~/.claude/agents"                         # default
+discovery.agents.paths[6]: "~/.config/opencode/agents"                # default
+discovery.agents.paths[7]: "~/.config/opencode/agent"                 # default
+discovery.commands.enabled: true                                      # default
+discovery.commands.paths[0]: "[dist-dir]/commands"                    # default
+discovery.commands.paths[1]: ".claude/commands"                       # default
+discovery.commands.paths[2]: ".opencode/commands"                     # default
+discovery.commands.paths[3]: ".opencode/command"                      # default
+discovery.commands.paths[4]: "~/.config/[dist]/commands"              # default
+discovery.commands.paths[5]: "~/.claude/commands"                     # default
+discovery.commands.paths[6]: "~/.config/opencode/commands"            # default
+discovery.commands.paths[7]: "~/.config/opencode/command"             # default
+discovery.instructions.enabled: true                                  # default
+discovery.instructions.files[0]: "AGENTS.md"                          # default
+discovery.instructions.files[1]: "CLAUDE.md"                          # default
+discovery.instructions.global[0]: "~/.config/[dist]/AGENTS.md"        # default
+discovery.instructions.global[1]: "~/.config/opencode/AGENTS.md"      # default
+discovery.instructions.global[2]: "~/.claude/CLAUDE.md"               # default
+discovery.instructions.walkUp: true                                   # default
+discovery.skills.enabled: true                                        # default
+discovery.skills.paths[0]: "[dist-dir]/skills"                        # default
+discovery.skills.paths[1]: ".claude/skills"                           # default
+discovery.skills.paths[2]: ".opencode/skills"                         # default
+discovery.skills.paths[3]: ".opencode/skill"                          # default
+discovery.skills.paths[4]: ".agents/skills"                           # default
+discovery.skills.paths[5]: "~/.config/[dist]/skills"                  # default
+discovery.skills.paths[6]: "~/.claude/skills"                         # default
+discovery.skills.paths[7]: "~/.config/opencode/skills"                # default
+discovery.skills.paths[8]: "~/.config/opencode/skill"                 # default
+hooks.enabled: true                                                   # default
+hooks.postTool: []                                                    # default
+hooks.preCompact: []                                                  # default
+hooks.preTool: []                                                     # default
+hooks.sessionStart: []                                                # default
+hooks.stop: []                                                        # default
+hooks.timeout: "10s"                                                  # default
+hooks.userPrompt: []                                                  # default
+instruments.context.enabled: true                                     # default
+instruments.loop.enabled: true                                        # default
+instruments.loop.journalDir: "[dist-dir]/instruments/loop"            # default
+instruments.status.showOff: true                                      # default
+instruments.toolbox.enabled: true                                     # default
+instruments.toolbox.journalDir: "[dist-dir]/instruments/toolbox"      # default
+logLevel: "WARN"                                                      # default
+mcp.enabled: true                                                     # default
+mcp.import.claudeCode.enabled: true                                   # default
+mcp.import.claudeCode.path: ".mcp.json"                               # default
+mcp.import.opencode.enabled: true                                     # default
+mcp.servers: {}                                                       # default
+mcp.timeout: "5s"                                                     # default
+memory.long.enabled: true                                             # default
+memory.long.index: "[dist-dir]/memory/long/index.json"                # default
+memory.long.rebuildOnStale: true                                      # default
+memory.recall.k: 5                                                    # default
+memory.recall.relationBoost: true                                     # default
+memory.shared.machine.enabled: true                                   # default
+memory.shared.machine.path: "~/.[dist]/shared/notes.jsonl"            # default
+memory.shared.workspace.enabled: true                                 # default
+memory.shared.workspace.path: "[dist-dir]/memory/shared/notes.jsonl"  # default
+memory.short.cacheDir: "[dist-dir]/memory/short"                      # default
+memory.short.enabled: true                                            # default
+mode: "build"                                                         # default
+models.default: "vllm/fake/vllm-coder"                                # ~/demo/.agent-one/config.yaml:11
+models.members: {}                                                    # default
+models.ranks: {}                                                      # default
+models.roles: {}                                                      # default
+models.tasks: {}                                                      # default
+ontology.enabled: true                                                # default
+ontology.graphDir: "[dist-dir]/ontology/graph"                        # default
+ontology.projectBudgetTokens: 800                                     # default
+ontology.schema: "[dist-dir]/ontology/schema.ttl"                     # default
+ontology.validate: true                                               # default
+output.color: "auto"                                                  # default
+output.format: "text"                                                 # default
+output.stream: true                                                   # default
+output.thinking: false                                                # default
+permissions.enabled: true                                             # default
+permissions.import.claudeCode.enabled: true                           # default
+permissions.import.opencode.enabled: true                             # default
+permissions.rules[0].action: "ask"                                    # ~/demo/.agent-one/config.yaml:14
+permissions.rules[0].match: "bash:git push*"                          # ~/demo/.agent-one/config.yaml:14
+permissions.rules[1].action: "deny"                                   # ~/demo/.agent-one/config.yaml:15
+permissions.rules[1].match: "bash:git push --force*"                  # ~/demo/.agent-one/config.yaml:15
+plan.dir: "[dist-dir]/tmp/plans"                                      # default
+plan.enabled: true                                                    # default
+policy.budget.contextTokens: 200000                                   # default
+policy.budget.minutes: 60                                             # default
+policy.budget.steps: 40                                               # default
+policy.budget.stressTokens: 180000                                    # default
+policy.docsAsCode.enabled: true                                       # default
+policy.doomLoop.enabled: false                                        # default
+policy.doomLoop.threshold: 3                                          # default
+policy.escalation.enabled: true                                       # default
+policy.escalation.maxRetries: 2                                       # default
+policy.gate.docTruthful: true                                         # default
+policy.gate.dutiesDone: true                                          # default
+policy.gate.enabled: true                                             # default
+policy.gate.invariantsHold: true                                      # default
+policy.gate.rightAuthor: true                                         # default
+policy.humanGate.approve: []                                          # default
+policy.humanGate.dryRun: false                                        # default
+policy.humanGate.enabled: true                                        # default
+policy.humanGate.strict: false                                        # default
+policy.log.enabled: true                                              # default
+policy.log.path: "[dist-dir]/log.md"                                  # default
+policy.ownership.enabled: true                                        # default
+policy.principles.enabled: true                                       # default
+policy.wire.cap: 2048                                                 # default
+policy.wire.enabled: true                                             # default
+policy.wire.raw: false                                                # default
+policy.wire.requireUnsaid: true                                       # default
+providers.anthropic.apiKeyEnv: "ANTHROPIC_API_KEY"                    # default
+providers.anthropic.baseURL: "https://api.anthropic.com"              # default
+providers.anthropic.contextWindow: "auto"                             # default
+providers.anthropic.enabled: true                                     # default
+providers.anthropic.fallbacks: "default"                              # default
+providers.anthropic.maxOutputTokens: 8192                             # default
+providers.anthropic.models: {}                                        # default
+providers.anthropic.thinking: "adaptive"                              # default
+providers.anthropic.timeout: "10m"                                    # default
+providers.anthropic.toolCalls: "native"                               # default
+providers.anthropic.type: "anthropic"                                 # default
+providers.mock.enabled: false                                         # default
+providers.mock.script: ""                                             # default
+providers.mock.type: "mock"                                           # default
+providers.ollama.apiKeyEnv: ""                                        # default
+providers.ollama.baseURL: "http://127.0.0.1:11434/v1"                 # default
+providers.ollama.contextWindow: "auto"                                # default
+providers.ollama.enabled: false                                       # default
+providers.ollama.models: {}                                           # default
+providers.ollama.timeout: "10m"                                       # default
+providers.ollama.toolCalls: "native"                                  # default
+providers.ollama.type: "openai"                                       # default
+providers.openai.apiKeyEnv: "OPENAI_API_KEY"                          # default
+providers.openai.baseURL: "https://api.openai.com/v1"                 # default
+providers.openai.contextWindow: "auto"                                # default
+providers.openai.enabled: true                                        # default
+providers.openai.models: {}                                           # default
+providers.openai.timeout: "10m"                                       # default
+providers.openai.toolCalls: "native"                                  # default
+providers.openai.type: "openai"                                       # default
+providers.openrouter.apiKeyEnv: "OPENROUTER_API_KEY"                  # default
+providers.openrouter.baseURL: "https://openrouter.ai/api/v1"          # default
+providers.openrouter.contextWindow: "auto"                            # default
+providers.openrouter.enabled: false                                   # default
+providers.openrouter.models: {}                                       # default
+providers.openrouter.timeout: "10m"                                   # default
+providers.openrouter.toolCalls: "native"                              # default
+providers.openrouter.type: "openai"                                   # default
+providers.vllm.apiKeyEnv: "VLLM_API_KEY"                              # ~/demo/.agent-one/config.yaml:5
+providers.vllm.baseURL: "http://127.0.0.1:18099/v1"                   # ~/demo/.agent-one/config.yaml:4
+providers.vllm.contextWindow: "auto"                                  # ~/demo/.agent-one/config.yaml:7
+providers.vllm.models.fake/vllm-coder.price.input: 0.2                # ~/demo/.agent-one/config.yaml:9
+providers.vllm.models.fake/vllm-coder.price.output: 0.6               # ~/demo/.agent-one/config.yaml:9
+providers.vllm.models.fake/vllm-coder.tier: 1                         # ~/demo/.agent-one/config.yaml:9
+providers.vllm.toolCalls: "native"                                    # ~/demo/.agent-one/config.yaml:6
+providers.vllm.type: "openai"                                         # ~/demo/.agent-one/config.yaml:3
+rules: []                                                             # default
+sessions.dir: "~/.local/share/[dist]/sessions"                        # default
+sessions.enabled: true                                                # default
+sessions.keepDays: 30                                                 # default
+sessions.title: true                                                  # default
+smallModel: ""                                                        # default
+toolbox.budgetTokens: 1500                                            # default
+toolbox.enabled: true                                                 # default
+toolbox.extra: "[dist-dir]/toolbox/extra.jsonl"                       # default
+toolbox.registry: "[dist-dir]/toolbox/registry.json"                  # default
+tools.ask.enabled: true                                               # default
+tools.bash.background: true                                           # default
+tools.bash.enabled: true                                              # default
+tools.bash.envAllow: []                                               # default
+tools.bash.jobsDir: "[dist-dir]/tmp/jobs"                             # default
+tools.bash.maxTimeout: "10m"                                          # default
+tools.bash.sandbox: "bwrap"                                           # default
+tools.bash.shell: ""                                                  # default
+tools.bash.timeout: "2m"                                              # default
+tools.custom.lsl.class: "read"                                        # ~/demo/.agent-one/config.yaml:23
+tools.custom.lsl.description: "List a directory"                      # ~/demo/.agent-one/config.yaml:20
+tools.custom.lsl.params.path.type: "string"                           # ~/demo/.agent-one/config.yaml:21
+tools.custom.lsl.run[0]: "ls"                                         # ~/demo/.agent-one/config.yaml:22
+tools.custom.lsl.run[1]: "-la"                                        # ~/demo/.agent-one/config.yaml:22
+tools.custom.lsl.run[2]: "{{path}}"                                   # ~/demo/.agent-one/config.yaml:22
+tools.dispatch.background: false                                      # default
+tools.dispatch.enabled: true                                          # default
+tools.dispatch.maxDepth: 1                                            # default
+tools.edit.enabled: true                                              # default
+tools.git.enabled: true                                               # default
+tools.git.timeout: "2m"                                               # default
+tools.glob.enabled: true                                              # default
+tools.glob.limit: 100                                                 # default
+tools.grep.enabled: true                                              # default
+tools.grep.limit: 100                                                 # default
+tools.ls.enabled: true                                                # default
+tools.ls.limit: 500                                                   # default
+tools.missing.doomLoopRepeats: 2                                      # default
+tools.missing.liveReload: true                                        # default
+tools.missing.proposeOnSecondNaming: true                             # default
+tools.multiedit.enabled: true                                         # default
+tools.onto.enabled: true                                              # default
+tools.output.dumpDir: "[dist-dir]/tmp/tool-out"                       # default
+tools.output.keepDays: 7                                              # default
+tools.output.maxBytes: 51200                                          # default
+tools.output.maxLines: 2000                                           # default
+tools.patch.enabled: true                                             # default
+tools.profile: "max"                                                  # default
+tools.read.enabled: true                                              # default
+tools.read.maxBytes: 51200                                            # default
+tools.read.maxLines: 2000                                             # default
+tools.recall.enabled: true                                            # default
+tools.remember.enabled: true                                          # default
+tools.skill.enabled: true                                             # default
+tools.toolbox.enabled: true                                           # default
+tools.webfetch.enabled: false                                         # ~/demo/.agent-one/config.yaml:17
+tools.webfetch.maxBytes: 5242880                                      # default
+tools.webfetch.timeout: "1m"                                          # default
+tools.websearch.backend: ""                                           # default
+tools.websearch.enabled: true                                         # default
+tools.websearch.timeout: "1m"                                         # default
+tools.workingNotes.enabled: true                                      # default
+tools.workingNotes.limit: 5                                           # default
+tools.write.enabled: true                                             # default
+ui.announceSubagents: true                                            # default
+ui.board.autostart: false                                             # ~/demo/.agent-one/config.yaml:25
+ui.board.port: 7411                                                   # default
+ui.statusLine: true                                                   # default
+undo.dir: "~/.local/share/[dist]/undo"                                # default
+undo.enabled: true                                                    # default
+undo.keepDays: 7                                                      # default
+
+# ranks
+# orchestrator [rankSet: extend]
+#   auditor (ephemeral, role judge)
+#   coord (ephemeral, role drafter)
+#     domain (gate, sideways, ephemeral, role judge)
+#       zone (authors, ephemeral, role analyst)
+#     principal-domain-owner (gate, sideways, promotes domain, ephemeral, role judge)
+#   principal-coordinator (promotes coord, ephemeral, role drafter)
+#   service (authors, gate, persistent, role judge)
+
+# models
+# default    vllm/fake/vllm-coder                     ~/demo/.agent-one/config.yaml:11
+# role analyst     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# role judge       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# role drafter     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# rank   coord       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# rank   domain      vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# rank   zone        vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# rank   service     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# rank   principal-coordinator vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# rank   principal-domain-owner vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# rank   auditor     vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# task   drain       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# task   gate        vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# task   log         vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11
+# task   bench       vllm/fake/vllm-coder             ~/demo/.agent-one/config.yaml:11

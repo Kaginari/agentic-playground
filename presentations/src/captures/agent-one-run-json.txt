@@ -1,0 +1,4 @@
+→ s1 bash [write] printf '%s\n' 'hello bench' > hello.txt && cat hello.txt
+  ok (25ms) wrote hello.txt
+{"@?":[],"@S":"DONE","context":{"available":true,"tokens":1500,"limit":200000,"stress":27852,"zone":"OK"},"exit":0,"journal":".agent-one/instruments/loop/orchestrator-20260926133611-2caa.jsonl","report":{"Status":"DONE wrote hello.txt","Findings":null,"Verdicts":null,"Holes":null,"Unsaid":null,"Tools":null,"Other":null,"Bytes":30},"run":"orchestrator-20260926133611-2caa","session":"20260926-133611-a9a7fa","status":"DONE","steps":[{"id":"s1","tool":"bash","class":"write","status":"done","ms":25}],"text":"@S DONE wrote hello.txt\n@E 30","usage":{"cacheRead":0,"cacheWrite":0,"input":2700,"output":80},"usageJournal":"~/demo/.agent-one/instruments/usage/20260926-133611-a9a7fa.jsonl","usd":0.000588,"verdict":"Gate: n/a (no domain owners)","wire":true}
+agent-one · vllm/fake/vllm-coder · ctx 0% (OK) · 2780 tok · $0.0006
