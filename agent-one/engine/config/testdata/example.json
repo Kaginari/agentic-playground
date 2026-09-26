@@ -1,0 +1,122 @@
+{
+  // .agent-one/config.json — the same document as example.yaml
+  "models": {
+    "default": "anthropic/claude-sonnet-5",
+    "roles": {
+      "analyst": "anthropic/claude-haiku-4-5",
+      "judge": "anthropic/claude-opus-5",
+      "drafter": {"model": "anthropic/claude-fable-5-1", "effort": "high", "fallback": "anthropic/claude-opus-5"}
+    },
+    "ranks": {"zone": "anthropic/claude-sonnet-5", "service": "anthropic/claude-opus-5"},
+    "members": {"zone-changelog": "anthropic/claude-haiku-4-5"},
+    "tasks": {"log": "anthropic/claude-haiku-4-5", "bench": "vllm/meta-llama/Llama-3.1-70B-Instruct"}
+  },
+  "smallModel": "ollama/qwen2.5:7b",
+  "providers": {
+    "anthropic": {
+      "models": {
+        "claude-haiku-4-5": {"tier": 1, "contextWindow": 200000, "price": {"input": 1, "output": 5}},
+        "claude-sonnet-5": {"tier": 2, "contextWindow": 200000, "price": {"input": 2, "output": 10}},
+        "claude-opus-5": {"tier": 3, "contextWindow": 200000, "price": {"input": 5, "output": 25}},
+        "claude-fable-5-1": {"tier": 3, "contextWindow": 200000, "price": {"input": 10, "output": 50}}
+      }
+    },
+    "ollama": {"enabled": true},
+    "vllm": {
+      "type": "openai",
+      "baseURL": "http://gpu-box:8000/v1",
+      "apiKeyEnv": "VLLM_API_KEY",
+      "headers": {"X-Team": "platform"},
+      "timeout": "5m",
+      "tls": {"insecureSkipVerify": false, "caFile": "/etc/ssl/internal-ca.pem"},
+      "toolCalls": "native",
+      "guidedDecoding": true,
+      "contextWindow": "auto",
+      "models": {"meta-llama/Llama-3.1-70B-Instruct": {"tier": 2}}
+    }
+  },
+  "tools": {
+    "profile": "max",
+    "bash": {"timeout": "3m", "sandbox": "bwrap", "envAllow": ["GOFLAGS", "PATH"]},
+    "webfetch": {"enabled": false},
+    "websearch": {"class": "outward"},
+    "custom": {
+      "lsl": {
+        "description": "long listing of one directory",
+        "class": "read",
+        "params": {"path": {"type": "string", "description": "directory", "required": true}},
+        "run": ["ls", "-la", "{{path}}"]
+      },
+      "kget": {
+        "description": "kubectl get <kind> in a namespace",
+        "class": "read",
+        "params": {
+          "kind": {"type": "string", "required": true, "enum": ["pods", "svc", "deploy"]},
+          "ns": {"type": "string", "default": "default"}
+        },
+        "run": ["kubectl", "get", "{{kind}}", "-n", "{{ns}}", "-o", "wide"],
+        "timeout": "30s",
+        "sandbox": "none",
+        "profiles": ["anthropic", "openai"]
+      }
+    },
+    "missing": {"doomLoopRepeats": 2, "proposeOnSecondNaming": true, "liveReload": true}
+  },
+  "policy": {
+    "humanGate": {"strict": false, "approve": []},
+    "wire": {"cap": 4096},
+    "budget": {"steps": 60}
+  },
+  "permissions": {
+    "rules": [
+      {"match": "bash:git push*", "action": "allow"},
+      {"match": "bash:git push --force*", "action": "deny"},
+      {"match": "edit:**/*.lock", "action": "deny"},
+      {"match": "read:**/.env*", "action": "ask"},
+    ]
+  },
+  "rules": [
+    {"id": "no-force", "text": "Never force-push a shared branch.\n", "scope": "all"},
+    {"file": "rules/zone-zone.md", "scope": "rank:zone"},
+    {"id": "vet", "check": "go vet ./...", "scope": "all", "timeout": "60s"}
+  ],
+  "hooks": {
+    "postTool": [{"match": "write|edit", "command": "gofmt -l -w \"$FILE\" >/dev/null 2>&1 || true"}]
+  },
+  "mcp": {
+    "servers": {
+      "files": {
+        "type": "stdio",
+        "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "."],
+        "env": {"LOG_LEVEL": "warn"},
+        "envAllow": ["PATH"],
+        "network": false,
+        "inward": true,
+        "tools": {"read_file": {"class": "read"}}
+      },
+      "docs": {
+        "type": "http",
+        "url": "https://mcp.example.com/docs",
+        "headersEnv": {"Authorization": "DOCS_MCP_TOKEN"},
+        "timeout": "20s",
+        "tools": {"search": {"description": "search the docs"}}
+      }
+    }
+  },
+  "budgets": {"session": {"tokens": 2000000, "usd": 20}, "subagent": {"tokens": 400000, "usd": 4}},
+  "ui": {"statusLine": true, "announceSubagents": true},
+  "ranks": {
+    "domain": {"model": "anthropic/claude-opus-5"},
+    "scribe": {
+      "reportsTo": "domain",
+      "job": "keeps the workspace's changelog",
+      "authors": true,
+      "agent": "ephemeral",
+      "role": "drafter",
+      "tools": ["read", "write", "edit", "git"]
+    }
+  },
+  "compaction": {"trigger": {"tokens": 150000, "fraction": 0.8}, "keepRecentTurns": 6},
+  "sessions": {"keepDays": 90},
+  "output": {"format": "text", "thinking": false}
+}

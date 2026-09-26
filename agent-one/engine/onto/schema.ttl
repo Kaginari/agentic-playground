@@ -1,0 +1,58 @@
+# The agent-one ontology — one prefix, the workspace's own bonds.
+# Read by the agent-one binary (package onto); the copy in .agent-one/ontology/schema.ttl is the workspace's.
+@prefix ao: <agent-one:> .
+
+# ---- meta: the vocabulary the reasoner understands
+ao:Class a ao:Class .
+ao:Property a ao:Class .
+ao:Transitive a ao:Class ; ao:subClassOf ao:Property .
+ao:Shape a ao:Class .
+ao:subClassOf a ao:Property, ao:Transitive .
+ao:subPropertyOf a ao:Property, ao:Transitive .
+ao:domain a ao:Property .
+ao:range a ao:Property .
+ao:inverseOf a ao:Property .
+
+# ---- classes
+ao:Member a ao:Class .
+ao:Orchestrator a ao:Class ; ao:subClassOf ao:Member .
+ao:Coordinator a ao:Class ; ao:subClassOf ao:Member .
+ao:DomainOwner a ao:Class ; ao:subClassOf ao:Member .
+ao:ZoneWorker a ao:Class ; ao:subClassOf ao:Member .
+ao:ServiceOwner a ao:Class ; ao:subClassOf ao:Member .
+ao:Skill a ao:Class .
+ao:Doc a ao:Class .
+ao:Fact a ao:Class .
+ao:Policy a ao:Class ; ao:subClassOf ao:Fact .
+ao:Team a ao:Class ; ao:subClassOf ao:Fact .
+ao:Domain a ao:Class ; ao:subClassOf ao:Fact .
+
+# ---- bonds: the chain analysis climbs and wisdom descends
+ao:above a ao:Transitive ; ao:domain ao:Member ; ao:range ao:Member .
+ao:below a ao:Property ; ao:inverseOf ao:above .
+ao:truth a ao:Property ; ao:subPropertyOf ao:above ; ao:domain ao:ZoneWorker ; ao:range ao:DomainOwner .
+ao:verdict a ao:Property ; ao:subPropertyOf ao:above ; ao:domain ao:DomainOwner ; ao:range ao:Coordinator .
+ao:reports a ao:Property ; ao:subPropertyOf ao:above ; ao:domain ao:Member ; ao:range ao:Orchestrator .
+
+# ---- the other bonds
+ao:holds a ao:Property ; ao:domain ao:Member ; ao:range ao:Skill .
+ao:heldBy a ao:Property ; ao:inverseOf ao:holds .
+ao:owns a ao:Property ; ao:domain ao:Member .
+ao:knows a ao:Property ; ao:domain ao:Member ; ao:range ao:Fact .
+ao:knownBy a ao:Property ; ao:inverseOf ao:knows .
+ao:about a ao:Property ; ao:domain ao:Fact .
+ao:doc a ao:Property ; ao:range ao:Doc .
+ao:shared a ao:Property ; ao:domain ao:Skill .
+
+# ---- attributes (literal-valued)
+ao:name a ao:Property .
+ao:path a ao:Property ; ao:domain ao:Doc .
+ao:text a ao:Property ; ao:domain ao:Fact .
+ao:said a ao:Property ; ao:domain ao:Fact .
+
+# ---- shapes: what check enforces (ao:unless names a boolean property that exempts an instance)
+ao:unless a ao:Property ; ao:domain ao:Shape .
+ao:ZoneTruth a ao:Shape ; ao:on ao:ZoneWorker ; ao:property ao:truth ; ao:minCount 1 ; ao:maxCount 1 .
+ao:ZoneOwnership a ao:Shape ; ao:on ao:ZoneWorker ; ao:property ao:owns ; ao:disjoint true .
+ao:SkillHeld a ao:Shape ; ao:on ao:Skill ; ao:property ao:heldBy ; ao:minCount 1 ; ao:unless ao:shared .
+ao:BondTarget a ao:Shape ; ao:on ao:Member ; ao:property ao:above ; ao:valuesHave ao:doc .

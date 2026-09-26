@@ -69,8 +69,9 @@ func (a *App) liveBodies() []board.Body {
 		if p, _, err := config.SplitModel(b.Model); err == nil {
 			body.Provider = p
 		}
-		if b.Session != nil && b.Session.Context.Available {
-			body.ContextTokens, body.ContextLimit = b.Session.Context.Tokens, b.Session.Context.Limit
+		if b.Session != nil && b.Session.Reading().Available {
+			r := b.Session.Reading()
+			body.ContextTokens, body.ContextLimit = r.Tokens, r.Limit
 		}
 		if sp.Calls > 0 && sp.Unpriced == 0 {
 			usd := sp.USD

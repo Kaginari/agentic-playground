@@ -8,7 +8,7 @@ import (
 )
 
 func TestPatchReload(t *testing.T) {
-	w := newWorld(t, map[string]string{".isekai/config.yaml": "# world\nmodel: anthropic/claude-sonnet-4-5   # mount\ntools:\n  bash: {timeoutMs: 120000}\n"})
+	w := newWorld(t, map[string]string{".isekai/config.yaml": "# world\nmodel: anthropic/claude-opus-5   # mount\ntools:\n  bash: {timeoutMs: 120000}\n"})
 	c := w.load()
 	file := c.ProjectFile()
 	if file != w.path(".isekai/config.yaml") {
@@ -46,7 +46,7 @@ func TestPatchReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(file)
-	if !strings.HasPrefix(string(b), "# world\nmodel: anthropic/claude-sonnet-4-5   # mount\n") {
+	if !strings.HasPrefix(string(b), "# world\nmodel: anthropic/claude-opus-5   # mount\n") {
 		t.Errorf("comments lost:\n%s", b)
 	}
 	next, changes, err := c.Reload()

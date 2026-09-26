@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Kaginari/agentic-playground/isekai/instrument"
 	"github.com/Kaginari/agentic-playground/isekai/loop"
 )
 
@@ -193,8 +194,8 @@ func (c *Court) Lines() []string {
 			end = b.Ended
 		}
 		ctx := "ctx —"
-		if b.Session != nil && b.Session.Context.Available {
-			ctx = fmt.Sprintf("ctx %d%%", b.Session.Context.Percent())
+		if b.Session != nil && b.Session.Reading().Available {
+			ctx = fmt.Sprintf("ctx %d%%", b.Session.Reading().Percent())
 		}
 		sp := c.app.Journal.Body(b.Name)
 		cost := "unpriced"
@@ -214,8 +215,8 @@ func (c *Court) StatusLine(s *loop.Session) string {
 		cost = fmt.Sprintf("$%.4f", tot.USD)
 	}
 	ctx := "ctx —"
-	if s != nil && s.Context.Available {
-		ctx = fmt.Sprintf("ctx %d%% (%s)", s.Context.Percent(), s.Context.Zone)
+	if r := readingOf(s); r.Available {
+		ctx = fmt.Sprintf("ctx %d%% (%s)", r.Percent(), r.Zone)
 	}
 	live := c.Live()
 	courts := ""
@@ -232,4 +233,11 @@ func (c *Court) Close() {
 			c.Finish(b.Name, "")
 		}
 	}
+}
+
+func readingOf(s *loop.Session) instrument.Context {
+	if s == nil {
+		return instrument.Context{}
+	}
+	return s.Reading()
 }

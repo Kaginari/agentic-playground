@@ -6,7 +6,7 @@ import (
 )
 
 func TestEmitRoundTrip(t *testing.T) {
-	src := `model: anthropic/claude-sonnet-4-5
+	src := `model: anthropic/claude-opus-5
 providers:
   vllm:
     type: openai
@@ -37,7 +37,7 @@ empty: ""
 
 func TestEditInPlace(t *testing.T) {
 	src := `# world config
-model: anthropic/claude-sonnet-4-5   # the mount
+model: anthropic/claude-opus-5   # the mount
 tools:
   webfetch: {enabled: true}
   bash:

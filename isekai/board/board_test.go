@@ -151,7 +151,7 @@ func TestLexiconSwapChangesLabels(t *testing.T) {
 
 func TestCourtFeedAndAPI(t *testing.T) {
 	usd := 0.12
-	bodies := []Body{{Name: "slime-auth", Rank: "slime", Office: "findings", Model: "claude-sonnet-4-5", Provider: "anthropic", State: "tool", Started: fixedNow.Add(-90 * time.Second), ContextTokens: 50000, ContextLimit: 200000, Input: 1000, Output: 200, USD: &usd}, {Name: "orc-core", Rank: "orc", State: "waiting on gate", Started: fixedNow.Add(-5 * time.Second)}}
+	bodies := []Body{{Name: "slime-auth", Rank: "slime", Office: "findings", Model: "claude-opus-5", Provider: "anthropic", State: "tool", Started: fixedNow.Add(-90 * time.Second), ContextTokens: 50000, ContextLimit: 200000, Input: 1000, Output: 200, USD: &usd}, {Name: "orc-core", Rank: "orc", State: "waiting on gate", Started: fixedNow.Add(-5 * time.Second)}}
 	b := newBoard(t, "world", Options{Sources: Sources{Court: func() []Body { return bodies }}})
 	code, html := get(t, b, "/court")
 	if code != 200 {

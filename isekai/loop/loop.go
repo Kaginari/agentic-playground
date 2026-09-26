@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Kaginari/agentic-playground/isekai/gate"
@@ -217,9 +218,10 @@ type Session struct {
 	Steps    int
 	Spend    provider.Usage
 	Last     provider.Usage
-	Context  instrument.Context
-	Wrote    []string // the writes the gate has yet to see; cleared once a turn's gate ran
-	Ask      string   // the first ask of the session (the commission)
+	Context  instrument.Context // the session's own goroutine reads it directly; others use Reading
+	ctxMu    sync.RWMutex       // guards Context against readers on other goroutines (status line, board)
+	Wrote    []string           // the writes the gate has yet to see; cleared once a turn's gate ran
+	Ask      string             // the first ask of the session (the commission)
 	failures int
 	base     snapshot // the world tree as last stamped (snapshot.go)
 	nowatch  bool     // the tree could not be stamped: shell writes go unseen, the hole named
@@ -292,7 +294,7 @@ func newRunID(as string) string {
 // NewSession opens a session: a run id, a journal (unless off or dry), an empty conversation.
 func (e *Engine) NewSession() *Session {
 	s := &Session{Engine: e, RunID: newRunID(e.as()), Started: time.Now()}
-	s.Context = e.Budget.Context.Unread("no provider call yet")
+	s.setContext(e.Budget.Context.Unread("no provider call yet"))
 	if dir := e.JournalDir(); dir != "" && !(e.Gate != nil && e.Gate.DryRun) {
 		s.Journal = &Journal{Path: filepath.Join(dir, s.RunID+".jsonl")}
 	}
@@ -318,17 +320,33 @@ func tail(str string) string {
 }
 
 func (s *Session) perceive() instrument.Context {
+	var hooked *instrument.Context
 	if s.Engine.Hooks.Perceive != nil {
-		if c := s.Engine.Hooks.Perceive(s); c != nil {
-			s.Context = *c
-			return s.Context
-		}
+		hooked = s.Engine.Hooks.Perceive(s)
 	}
-	if s.Turns == 0 {
-		s.Context = s.Engine.Budget.Context.Unread("no provider call yet")
-	} else {
-		s.Context = s.Engine.Budget.Context.Reading(s.Last)
+	var c instrument.Context
+	switch {
+	case hooked != nil:
+		c = *hooked
+	case s.Turns == 0:
+		c = s.Engine.Budget.Context.Unread("no provider call yet")
+	default:
+		c = s.Engine.Budget.Context.Reading(s.Last)
 	}
+	s.setContext(c)
+	return c
+}
+
+func (s *Session) setContext(c instrument.Context) {
+	s.ctxMu.Lock()
+	s.Context = c
+	s.ctxMu.Unlock()
+}
+
+// Reading is the session's context occupancy, safe from any goroutine.
+func (s *Session) Reading() instrument.Context {
+	s.ctxMu.RLock()
+	defer s.ctxMu.RUnlock()
 	return s.Context
 }
 

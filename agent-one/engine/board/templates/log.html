@@ -1,0 +1,15 @@
+{{define "live"}}{{with .Data}}
+<div class="row g-3 align-items-center">
+  <div class="col-12 col-md-6"><form method="get" class="d-flex gap-2" role="search"><input type="search" class="form-control form-control-sm" id="logSearch" name="q" value="{{.Q}}" placeholder="search entries" aria-label="search"><button class="btn btn-sm btn-outline-secondary" type="submit">go</button></form></div>
+  <div class="col-12 col-md-6 text-md-end small">{{template "readingBadge" .Reading}}{{if .Reading.Lit}} · {{len .Entries}} of {{.Total}}{{end}}</div>
+</div>
+{{if not .Reading.Lit}}<div class="alert alert-warning mt-3">silent — {{.Reading.Why}}</div>
+{{else}}
+<div class="list-group mt-3" id="logList">
+  {{range .Entries}}<div class="list-group-item log-entry">
+    <div class="d-flex flex-wrap justify-content-between gap-2"><strong>{{.Title}}</strong><small class="text-secondary">{{.At}} · {{.Who}}</small></div>
+    <details class="mt-1"><summary class="small text-secondary">details</summary><pre class="docbox small mt-1">{{.Body}}</pre></details>
+  </div>{{end}}
+</div>
+{{end}}
+{{end}}{{end}}

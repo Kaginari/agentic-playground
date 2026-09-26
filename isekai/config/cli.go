@@ -168,7 +168,7 @@ func SelftestIn(out io.Writer) (n int, err error) {
 	}
 	must(filepath.Join(home, ".config", "isekai", "config.yaml"), "law:\n  wire: {cap: 1024}\nproviders:\n  ollama: {enabled: true}\n")
 	must(filepath.Join(root, ".isekai", "config.yaml"), strings.TrimSpace(`
-model: anthropic/claude-sonnet-4-5
+model: anthropic/claude-opus-5
 law:
   wire: {cap: 4096}
 permissions:
@@ -215,7 +215,7 @@ tools:
 		{"env single key", c.LogLevel == "DEBUG" && c.Where("logLevel") == "env:ISEKAI_LOG_LEVEL"},
 		{"flag layer", c.Law.Budget.Steps == 7 && c.Where("law.budget.steps") == "flag:--max-steps"},
 		{"default origin", c.Where("law.budget.minutes") == "default"},
-		{"model alias to models.default", c.Models.Default.Model == "anthropic/claude-sonnet-4-5"},
+		{"model alias to models.default", c.Models.Default.Model == "anthropic/claude-opus-5"},
 		{"rule file resolved relative to its config", strings.HasPrefix(c.Rules[1].Text, "Slimes write")},
 		{"rule scope by rank", len(c.RulesFor("slime", "")) == 3 && len(c.RulesFor("orc", "")) == 2},
 		{"prompt rules after crest", strings.Contains(c.PromptRules("orc", ""), "[no-force] Never force-push.")},

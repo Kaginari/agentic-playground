@@ -1,0 +1,6 @@
+{"t":"run","id":"run-1","as":"zone-auth","ask":"verify the token TTL","provider":"anthropic","at":"2026-09-26T08:00:00Z"}
+{"t":"turn","id":"run-1","at":"2026-09-26T08:00:01Z","context":{"tokens":12000,"limit":200000,"zone":"OK"}}
+{"t":"gate","id":"s1","tool":"bash","effective":"read","decision":"allowed","at":"2026-09-26T08:00:02Z"}
+{"t":"act","id":"s1","start":true,"attempt":1,"at":"2026-09-26T08:00:03Z"}
+{"t":"record","id":"s1","status":"done","attempts":1,"at":"2026-09-26T08:00:04Z"}
+{"t":"end","id":"run-1","status":"PASS","at":"2026-09-26T08:00:05Z"}

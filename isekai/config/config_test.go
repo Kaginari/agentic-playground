@@ -66,7 +66,7 @@ func (w *world) loadErr() error {
 func TestDefaultsAlone(t *testing.T) {
 	w := newWorld(t, nil)
 	c := w.load()
-	if c.Models.Default.Model != "anthropic/claude-sonnet-4-5" || c.Law.Wire.Cap != 2048 || !c.Law.HumanGate.Enabled {
+	if c.Models.Default.Model != "anthropic/claude-opus-5" || c.Law.Wire.Cap != 2048 || !c.Law.HumanGate.Enabled {
 		t.Fatalf("defaults: %+v", c.Law)
 	}
 	if c.Where("law.wire.cap") != "default" {
@@ -324,7 +324,7 @@ func TestAgentOne(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "ws")
 	_ = os.MkdirAll(filepath.Join(root, ".agent-one"), 0o755)
-	_ = os.WriteFile(filepath.Join(root, ".agent-one", "config.yaml"), []byte("models:\n  offices: {analyst: anthropic/claude-haiku-4-5, judge: anthropic/claude-sonnet-4-5, drafter: anthropic/claude-opus-4-5}\n  ranks: {zone: anthropic/claude-haiku-4-5}\nrules: [{text: x, scope: rank:zone}]\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(root, ".agent-one", "config.yaml"), []byte("models:\n  offices: {analyst: anthropic/claude-haiku-4-5, judge: anthropic/claude-opus-5, drafter: anthropic/claude-opus-4-5}\n  ranks: {zone: anthropic/claude-haiku-4-5}\nrules: [{text: x, scope: rank:zone}]\n"), 0o644)
 	env := map[string]string{"AGENT_ONE_LOG_LEVEL": "INFO", "XDG_CONFIG_HOME": filepath.Join(dir, "xdg")}
 	c, err := LoadWith(Options{Root: root, Home: filepath.Join(dir, "home"), Env: func(k string) string { return env[k] }})
 	if err != nil {

@@ -756,3 +756,32 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Honest limits: providers' streaming, caching, thinking, fallbacks, guided decoding and MCP
     over HTTP are tested against httptest only; the Harbor bench config runs with sandbox none and
     the gate off, so the smoke proves plumbing and Vitality, not containment (attacked locally).
+
+### [2026-09-26T14:56:17+02:00] rimuru — isekai v0.1.0 released; agent-one forked into its own codebase
+- **Task:** Human: "two separate codebases"; publish each with its benchmark; releases, versioning,
+  a good .github workflow, free publishing.
+- **Files:** agent-one/engine/ (the fork: module github.com/Kaginari/agent-one, agent-one's
+  vocabulary down to Go identifiers, leak_test.go keeps it at zero) · both engines: loop.Session
+  context guarded (Reading()), default model claude-opus-5 · publish/template workflows (Node 24
+  actions, no Go cache, release notes outside the tree, provenance on public repos only) ·
+  publish/drift.sh · bench/runs.jsonl.
+- **Gate:** n/a (no orcs). Instruments: both engines vet + test green; 4× race runs of app+loop
+  clean in each; agent-one leak test zero; agent-one board rendered at 1280 and 360 and looked at;
+  isekai CI green with 0 warnings (test, goreleaser check, 4 builds, Harbor smoke on GitHub's
+  runners); a local GoReleaser snapshot before the real tag.
+- **Result:** Kaginari/isekai v0.1.0 released — 4 archives, checksums, ghcr.io/kaginari/isekai
+  0.1.0 + latest. The v0.1.0 tag was moved once, from a commit whose release failed before
+  publishing anything (Law 6: named here). agent-one publishes next.
+- **Learned:**
+  - **A mechanical rename broke the third-party vocabulary and the tests followed it.** "body" →
+    "agent" turned Bootstrap's `--bs-body-*` and `bg-body-tertiary` into names nothing defines
+    — and renamed the test that asserted them, so the suite stayed green on a broken board. Only
+    the render caught it (ui.md §Proving a page). A rename excludes vendored vocabularies (CSS
+    framework names, HTTP/HTML/stdlib identifiers), and tests are never renamed blind.
+  - The config default model was `claude-sonnet-4-5` since the config wave — every test agreed
+    with it, because the tests were written from the same guess. A default model is checked
+    against the model table, never recalled (the lesson of the opus-5-5 entry, repeated).
+  - An inherited REPL race (status line read Session.Context while perceive wrote it) showed in 1
+    of 4 race runs; fixed in both engines — the first fix to cross the fork, logged for drift.
+  - Releases: GoReleaser refuses a dirty tree (write notes to $RUNNER_TEMP); build provenance is
+    public-repos-only on this plan; root-owned dist/ from a containerized snapshot.

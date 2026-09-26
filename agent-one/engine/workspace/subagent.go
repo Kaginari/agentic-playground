@@ -1,0 +1,256 @@
+package workspace
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"strings"
+	"time"
+
+	"github.com/Kaginari/agent-one/gate"
+	"github.com/Kaginari/agent-one/loop"
+	"github.com/Kaginari/agent-one/provider"
+	"github.com/Kaginari/agent-one/tool"
+	"github.com/Kaginari/agent-one/wire"
+)
+
+// SubagentOptions is tools.dispatch as the workspace applies it: who may dispatch, how deep, what a
+// Subagent's report is capped at. Which ranks may dispatch, and whom, is the rank table's: a agent
+// dispatches ranks below its own (or its own when the rank is Sideways); the shelf is the
+// rank's Tools.
+type SubagentOptions struct {
+	Enabled    bool
+	MaxDepth   int                                     // 0 = 1
+	Cap        int                                     // 0 = the wire's default
+	Unsaid     bool                                    // commission +unsaid by default (a report with no @U is flagged either way)
+	Agents     []string                                // names a session may dispatch; nil = any member on the roster
+	Trace      io.Writer                               // a Subagent's step trace; nil is quiet
+	Background bool                                    // background Subagents allowed (tools.dispatch.background)
+	Wake       func(agent, report string, failed bool) // a background Subagent's report lands here
+}
+
+// Route is what the integrator's model router sees for one engine: the role the ask names
+// (findings → analyst, verdict → judge, draft → drafter), the rank and the member.
+type Route struct {
+	Role   string
+	Rank   string
+	Member string
+	Task   string // dispatch | session
+}
+
+// Build is what an engine for a agent is made of: the provider and gate it shares with its
+// dispatcher, the base shelf, budgets, and every switch.
+type Build struct {
+	Provider  provider.Provider
+	Models    func(Route) provider.Provider // nil = Provider for every route; the integrator routes models.roles/ranks/members here
+	Gate      *gate.Gate
+	Tools     *tool.Registry                                      // the base shelf; nil = tool.Builtins()
+	Shelf     func(as string, depth int) (*tool.Registry, func()) // per-agent shelf (its own shell); nil = Tools; the closer runs when the agent's engine is closed
+	Budget    loop.Budget
+	Hooks     HookOptions
+	Ownership OwnershipOptions
+	Subagent  SubagentOptions
+	Journal   string
+	Trace     io.Writer
+	Depth     int // 0 for the session; a dispatched agent is Depth+1
+	Extra     loop.Hooks
+	Role      string // the role this engine serves (set by the dispatcher from @ASK; "" = the session's)
+}
+
+// providerFor resolves the provider for a route.
+func (b Build) providerFor(r Route) provider.Provider {
+	if b.Models != nil {
+		if p := b.Models(r); p != nil {
+			return p
+		}
+	}
+	return b.Provider
+}
+
+// Engine builds a full engine for a agent: tools cut to its rank and ownership (plus dispatch
+// when its rank and depth allow), the ownership policy, the workspace's hooks, the lexicon.
+func (w *Workspace) Engine(as string, b Build) *loop.Engine {
+	base := b.Tools
+	var closer func()
+	if b.Shelf != nil {
+		base, closer = b.Shelf(as, b.Depth)
+	}
+	if base == nil {
+		base = tool.Builtins()
+	}
+	shelf := tool.NewRegistry()
+	for _, n := range base.Names() {
+		if t, ok := base.Get(n); ok {
+			shelf.Add(t)
+		}
+	}
+	shelf.Add(w.PolicyTool())
+	rank := w.RankOf(as)
+	names := ExpandTools(w.Ranks.Tools(rank.Name), append(shelf.Names(), "dispatch"))
+	role := b.Role
+	if role == "" {
+		role = rank.Role
+	}
+	task := "session"
+	if b.Depth > 0 {
+		task = "dispatch"
+	}
+	e := &loop.Engine{
+		Provider: b.providerFor(Route{Role: role, Rank: rank.Name, Member: as, Task: task}), Gate: b.Gate, Root: w.Root, As: as, Budget: b.Budget, Journal: b.Journal, Trace: b.Trace,
+		Lexicon: w.Lex.Loop(), Policy: w.ToolPolicy(as, b.Ownership), Cap: b.Subagent.Cap,
+	}
+	if e.Cap == 0 {
+		e.Cap = wire.DefaultCap
+	}
+	max := b.Subagent.MaxDepth
+	if max <= 0 {
+		max = 1
+	}
+	if b.Subagent.Enabled && contains(names, "dispatch") && b.Depth < max {
+		shelf.Add(tool.DispatchTool(tool.DispatchOptions{Enabled: true, Depth: b.Depth, MaxDepth: max, Cap: b.Subagent.Cap, Unsaid: b.Subagent.Unsaid, Agents: b.Subagent.Agents, Background: b.Subagent.Background && b.Depth == 0, Wake: b.Subagent.Wake}, w.Dispatcher(e, b)))
+	}
+	e.Tools = shelf.Only(names...)
+	e.Hooks = MergeHooks(w.Hooks(b.Hooks), b.Extra)
+	if closer != nil {
+		w.mu.Lock()
+		w.closers[e] = closer
+		w.mu.Unlock()
+	}
+	return e
+}
+
+// Close ends what an engine's agent held (its shell, its jobs). A dispatcher closes a Subagent's
+// engine when the report is taken; the session closes its own at exit.
+func (w *Workspace) Close(e *loop.Engine) {
+	w.mu.Lock()
+	c := w.closers[e]
+	delete(w.closers, e)
+	delete(w.sessions, e)
+	delete(w.subagentWrote, e)
+	w.mu.Unlock()
+	if c != nil {
+		c()
+	}
+}
+
+// Dispatcher runs a commission as a Ephemeral subagent under a parent engine: a fresh loop with its
+// own context, the parent's provider and gate, budgets cut to what the parent has left, one
+// wire report back. The Subagent's spend is added to the parent's.
+func (w *Workspace) Dispatcher(parent *loop.Engine, b Build) tool.Dispatcher {
+	return func(ctx context.Context, env tool.Env, c tool.Commission) (tool.DispatchReport, error) {
+		agent := strings.ToLower(strings.TrimSpace(c.Agent))
+		cr := w.Member(agent)
+		if cr == nil {
+			return tool.DispatchReport{}, fmt.Errorf("no agent named %q on the roster (%s/{%s}/<name>/) — a Subagent is registered for a rank, never generic", agent, w.Lex.WorkspaceDir, strings.Join(rankDirs(w.Ranks), ","))
+		}
+		me := w.RankOf(parent.As)
+		if me.Name != Orchestrator && !w.Ranks.Below(cr.Rank, me.Name) && !(me.Sideways && cr.Rank == me.Name) {
+			return tool.DispatchReport{}, fmt.Errorf("%s (%s) may not dispatch %s (%s): work goes down the ranks, never up or sideways (Policy 2) — escalate with @? instead", parent.As, me.Name, cr.Name, cr.Rank)
+		}
+		child := b
+		child.Depth = b.Depth + 1
+		child.Role = RoleOf(c.Ask)
+		if c.Role != "" {
+			child.Role = c.Role
+		}
+		child.Trace = b.Subagent.Trace
+		child.Budget = b.Budget
+		if ps := w.SessionOf(parent); ps != nil {
+			if steps := parent.Budget.Steps; steps >= 0 {
+				if steps == 0 {
+					steps = loop.DefaultSteps
+				}
+				left := steps - ps.Steps
+				if left <= 0 {
+					return tool.DispatchReport{}, fmt.Errorf("parent step budget spent (%d of %d) — nothing left for a Subagent", ps.Steps, steps)
+				}
+				child.Budget.Steps = left
+			}
+			if m := parent.Budget.Minutes; m >= 0 {
+				if m == 0 {
+					m = loop.DefaultMinutes
+				}
+				left := m - time.Since(ps.Started).Minutes()
+				if left <= 0 {
+					return tool.DispatchReport{}, fmt.Errorf("parent wall-clock budget spent (%g min) — nothing left for a Subagent", m)
+				}
+				child.Budget.Minutes = left
+			}
+		}
+		e := w.Engine(cr.Name, child)
+		defer w.Close(e) // the Subagent's context dies with the task
+		e.Unsaid = c.Unsaid
+		e.Wire = true
+		if c.Cap > 0 {
+			e.Cap = c.Cap
+		}
+		c.Cap = e.Cap // the ceiling in force rides the commission
+		r, err := e.Run(ctx, c.String())
+		if err != nil {
+			return tool.DispatchReport{}, err
+		}
+		if ps := w.SessionOf(parent); ps != nil {
+			ps.Spend = ps.Spend.Add(r.Usage)
+		}
+		rep := tool.DispatchReport{Text: r.Emit(e.Cap), Status: r.Status, Unsaid: len(r.Report.Unsaid), Failed: r.Status == loop.Fail, Holes: r.Holes, Wrote: wroteOf(r), Journal: r.Journal}
+		w.subagentGated(parent, rep.Wrote)
+		return rep, nil
+	}
+}
+
+// subagentGated records what a Subagent of the parent engine wrote (and gated itself).
+func (w *Workspace) subagentGated(parent *loop.Engine, wrote []string) {
+	if len(wrote) == 0 {
+		return
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	m := w.subagentWrote[parent]
+	if m == nil {
+		m = map[string]bool{}
+		w.subagentWrote[parent] = m
+	}
+	for _, p := range wrote {
+		m[normRel(p)] = true
+	}
+}
+
+// ownWrites is a session's writes less what its Subagents wrote and gated on their own account.
+func (w *Workspace) ownWrites(s *loop.Session) []string {
+	w.mu.Lock()
+	m := w.subagentWrote[s.Engine]
+	w.mu.Unlock()
+	if len(m) == 0 {
+		return s.Wrote
+	}
+	var out []string
+	for _, p := range s.Wrote {
+		if !m[normRel(p)] {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func rankDirs(rs Ranks) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, r := range rs {
+		if r.Dir != "" && !seen[r.Dir] {
+			seen[r.Dir] = true
+			out = append(out, r.Dir)
+		}
+	}
+	return out
+}
+
+func wroteOf(r *loop.Result) []string {
+	if len(r.Wrote) > 0 {
+		return r.Wrote // every write the Subagent's gate saw, whatever tool made it
+	}
+	var out []string
+	for _, st := range r.Steps {
+		out = append(out, st.Wrote...)
+	}
+	return out
+}

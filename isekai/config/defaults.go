@@ -4,7 +4,7 @@ package config
 // substituted by the lexicon at decode. Every feature object carries `enabled`.
 const defaultsJSON = `{
   "models": {
-    "default": "anthropic/claude-sonnet-4-5",
+    "default": "anthropic/claude-opus-5",
     "offices": {},
     "ranks": {},
     "creatures": {},

@@ -1,0 +1,40 @@
+{{define "live"}}{{with .Data}}
+<div class="row g-3">
+  <div class="col-12 col-xl-9">
+    <div class="card">
+      <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>{{L "members"}} and {{L "skills"}}</span>
+        {{template "readingBadge" .Reading}}
+      </div>
+      <div class="card-body">
+        {{if not .Reading.Lit}}<p class="text-secondary mb-0">silent — {{.Reading.Why}}</p>{{end}}
+        <div id="team" class="team" data-focus=""></div>
+        <div class="legend mt-2 small">
+          <span class="legend-item"><span class="key key-truth"></span>{{L "bond.truth"}}</span>
+          <span class="legend-item"><span class="key key-verdict"></span>{{L "bond.verdict"}}</span>
+          <span class="legend-item"><span class="key key-reports"></span>{{L "bond.reports"}}</span>
+          <span class="legend-item"><span class="key key-holds"></span>{{L "bond.holds"}}</span>
+          {{range .Lanes}}<span class="legend-item"><span class="dot {{if eq .Kind "skill"}}{{lanecls (trimPrefix .ID "skill:")}}{{else}}{{rankcls .ID}}{{end}}"></span>{{.Label}}</span>{{end}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-3">
+    <div class="card h-100"><div class="card-header">shape</div><div class="card-body small">
+      {{if .Findings}}<ul class="mb-2 ps-3">{{range .Findings}}<li class="text-warning">{{.}}</li>{{end}}</ul>{{else}}<p class="mb-2"><span class="badge text-bg-success">no finding</span> every shape holds</p>{{end}}
+      {{if .Notes}}<ul class="mb-0 ps-3 text-secondary">{{range .Notes}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    </div></div>
+  </div>
+</div>
+<script type="application/json" id="teamData">{{.JSON}}</script>
+<div class="offcanvas offcanvas-end" tabindex="-1" id="nodePanel" aria-labelledby="nodeTitle">
+  <div class="offcanvas-header"><h2 class="offcanvas-title h6" id="nodeTitle">—</h2><button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+  <div class="offcanvas-body">
+    <div id="nodeMeta" class="small text-secondary mb-2"></div>
+    <div class="stat-label">neighbours</div>
+    <ul id="nodeNear" class="list-unstyled small mb-3"></ul>
+    <div class="stat-label">doc</div>
+    <pre id="nodeDoc" class="docbox small"></pre>
+  </div>
+</div>
+{{end}}{{end}}

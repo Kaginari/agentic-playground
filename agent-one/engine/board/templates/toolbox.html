@@ -1,0 +1,25 @@
+{{define "live"}}{{with .Data}}
+{{if not .Reading.Lit}}<div class="alert alert-warning">silent — {{.Reading.Why}}</div>{{end}}
+{{with .Status}}
+<div class="row g-3">
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">registry</div><div class="stat-value">{{len .Loaded.Reg.Entries}}</div><div class="small text-secondary">{{if .Loaded.Live}}live harvest{{else}}on disk{{end}}{{if .Stale}} · <span class="text-warning">stale</span>{{end}}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">{{L "toolbox.offered"}}</div><div class="stat-value">{{.Ins.OfferedDistinct}}</div><div class="small text-secondary">{{.Ins.Offers}} offers · {{printf "%.0f" .Ins.ResidentTokens}} resident tokens</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">{{L "toolbox.loaded"}}</div><div class="stat-value">{{.Ins.LoadedDistinct}}</div><div class="small text-secondary">{{.Ins.Loads}} loads · {{printf "%.0f" .Ins.LoadedTokens}} tokens</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body"><div class="stat-label">external</div><div class="stat-value">{{.Ext}}</div>{{if .Missing}}<div class="small text-warning">missing: {{join .Missing ", "}}</div>{{end}}</div></div></div>
+</div>
+{{if .Holes}}<div class="mt-3 small">{{range .Holes}}<div class="text-warning">@? {{.}}</div>{{end}}</div>{{end}}
+{{end}}
+{{$v := .}}
+<div class="row g-3 mt-1">
+  {{range .Kinds}}{{$k := .}}
+  <div class="col-12 col-xl-6">
+    <div class="card h-100"><div class="card-header">{{L (print "toolbox.kind." $k)}}</div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>name</th><th>description</th><th class="num">resident</th><th class="num">full</th><th>state</th></tr></thead><tbody>
+      {{range $v.Entries}}{{if eq .Kind $k}}<tr><td><code>{{.Name}}</code>{{if .Holders}}<div class="small text-secondary">{{join .Holders ", "}}</div>{{end}}</td><td class="small">{{.Description}}</td><td class="num">{{printf "%.0f" .Cost.Resident}}</td><td class="num">{{printf "%.0f" .Cost.Full}}</td><td>{{if index $v.Loaded .Name}}<span class="badge text-bg-primary">{{L "toolbox.loaded"}}</span>{{else if index $v.Offered .Name}}<span class="badge text-bg-info">{{L "toolbox.offered"}}</span>{{else}}<span class="badge text-bg-secondary">idle</span>{{end}}</td></tr>{{end}}{{end}}
+      </tbody></table></div>
+    </div>
+  </div>
+  {{end}}
+</div>
+<div class="small text-secondary mt-3">{{template "readingBadge" .Reading}}</div>
+{{end}}{{end}}

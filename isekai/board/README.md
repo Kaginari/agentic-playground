@@ -30,7 +30,7 @@ instrument renders as "silent since …" or "never lit", never as zero.
 
 ```json
 {"ts":"2026-09-26T08:00:00Z","session":"s-2026-09-26","body":"slime-auth","rank":"slime",
- "office":"findings","model":"claude-sonnet-4-5","provider":"anthropic",
+ "office":"findings","model":"claude-opus-5","provider":"anthropic",
  "input":800,"output":900,"cacheRead":0,"cacheWrite":0,"usd":0.0159}
 ```
 

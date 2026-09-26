@@ -139,7 +139,7 @@ document is JSON here; the same keys in YAML are the same config.
 
   // ---------------------------------------------------------------- models
   "models": {
-    "default": "anthropic/claude-sonnet-4-5",         // the mount: the human's choice, never routed
+    "default": "anthropic/claude-opus-5",         // the mount: the human's choice, never routed
     "offices":   {},                                  // great-sage | raphael | ciel  (analyst | judge | drafter)
     "ranks":     {},                                  // elf | orc | slime | kijin | high-elf | high-orc | dark-elf | any configured rank
     "creatures": {},                                  // <name>

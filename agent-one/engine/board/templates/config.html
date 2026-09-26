@@ -1,0 +1,16 @@
+{{define "live"}}{{with .Data}}
+<div class="row g-3">
+  <div class="col-12 col-xl-8">
+    <div class="card"><div class="card-header d-flex justify-content-between align-items-center"><span>effective config</span>{{template "readingBadge" .Reading}}</div>
+      <div class="card-body cfg">{{if .Live}}{{.Tree}}{{else}}<p class="text-secondary small mb-0">silent — {{.Reading.Why}}</p>{{end}}</div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-4">
+    <div class="card h-100"><div class="card-header">{{L "off_list"}}</div><div class="card-body">
+      {{if not .Live}}<p class="text-secondary small mb-0">unknown — no config feed</p>
+      {{else if .Off}}<ul class="list-group list-group-flush">{{range .Off}}<li class="list-group-item d-flex justify-content-between small"><span>{{.Feature}}</span><span class="badge text-bg-secondary">{{.Origin}}</span></li>{{end}}</ul>
+      {{else}}<p class="mb-0"><span class="badge text-bg-success">everything on</span></p>{{end}}
+    </div></div>
+  </div>
+</div>
+{{end}}{{end}}

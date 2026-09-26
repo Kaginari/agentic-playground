@@ -1,0 +1,86 @@
+{{define "live"}}{{with .Data}}
+<div class="row g-3">
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="stat-label">{{L "session"}}</div>
+      {{if .SessionSeen}}
+      <div class="stat-value">{{.Session.ID}}</div>
+      <div class="small text-secondary">{{.Session.Provider}}{{if .Session.Model}} · {{.Session.Model}}{{end}}{{if .Session.State}} · {{.Session.State}}{{end}}</div>
+      <div class="small text-secondary">since {{when .Session.Started}}</div>
+      {{else}}<div class="stat-value text-secondary">—</div><div class="small text-secondary">no {{L "session"}} seen: no live feed, no usage journal</div>{{end}}
+    </div></div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="stat-label">cost today</div>
+      {{if .Today.Reading.Lit}}
+      <div class="stat-value">{{usd .Today.Total.USD}}</div>
+      <div class="small text-secondary">{{tok .Today.Total.Tokens}} tokens · {{.Today.Total.Calls}} calls{{if .Today.Total.Unpriced}} · {{.Today.Total.Unpriced}} unpriced{{end}}</div>
+      {{else}}<div class="stat-value text-secondary">silent</div><div class="small text-secondary">{{reading .Today.Reading}}</div>{{end}}
+    </div></div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="stat-label">{{L "page.subagent"}}</div>
+      {{if .SubagentLive}}
+      <div class="stat-value">{{len .Agents}}</div>
+      <div class="small text-secondary">live {{L "agents"}}{{if .Agents}} · max context {{.MaxCtx}}%{{end}}</div>
+      {{else}}<div class="stat-value text-secondary">silent</div><div class="small text-secondary">no live {{L "page.subagent"}} feed wired</div>{{end}}
+    </div></div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="stat-label">{{L "stress"}}</div>
+      {{with .Memory}}{{if .Reading.Lit}}
+        {{with .Status}}
+        {{if .Short.ContextWindow.Available}}
+        <div class="stat-value">{{pct .Short.ContextWindow.Tokens .Short.ContextWindow.Limit}}%</div>
+        <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{pct .Short.ContextWindow.Tokens .Short.ContextWindow.Limit}}"><div class="meter-fill {{stressCls .Short.ContextWindow.Zone}}" style="width:{{pct .Short.ContextWindow.Tokens .Short.ContextWindow.Limit}}%"></div></div>
+        <div class="small text-secondary">context {{tok .Short.ContextWindow.Tokens}} / {{tok .Short.ContextWindow.Limit}} · {{.Short.ContextWindow.Zone}}</div>
+        {{else}}<div class="stat-value text-secondary">unmeasured</div><div class="small text-secondary">context window: {{.Short.ContextWindow.Why}}</div>{{end}}
+        <div class="small mt-1">{{L "workingNotes"}} {{.Short.WorkingMemory.WorkingNotes}}{{if .Short.WorkingMemory.Stressed}} · <span class="badge text-bg-danger">stressed {{len .Short.WorkingMemory.Stressed}}</span>{{end}}{{if .Short.WorkingMemory.AtLimit}} · <span class="badge text-bg-warning">at limit {{len .Short.WorkingMemory.AtLimit}}</span>{{end}}</div>
+        {{end}}
+      {{else}}<div class="stat-value text-secondary">silent</div><div class="small text-secondary">{{reading .Reading}}</div>{{end}}{{end}}
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-6">
+    <div class="card h-100"><div class="card-header">{{L "policy"}} · {{L "off_list"}}</div><div class="card-body">
+      {{if not .OffLive}}<p class="text-secondary small mb-0">silent — no config feed wired; the {{L "off_list"}} is unknown, not empty.</p>
+      {{else if .Off}}<ul class="list-group list-group-flush">{{range .Off}}<li class="list-group-item d-flex justify-content-between"><span>{{.Feature}}</span><span class="badge text-bg-secondary">{{.Origin}}</span></li>{{end}}</ul>
+      {{else}}<p class="mb-0"><span class="badge text-bg-success">everything on</span> <span class="small text-secondary">no {{L "policy"}} feature disabled by config</span></p>{{end}}
+    </div></div>
+  </div>
+  <div class="col-12 col-xl-6">
+    <div class="card h-100"><div class="card-header">{{L "workspace"}}</div><div class="card-body">
+      <div class="row g-2">
+        <div class="col-6 col-md-3"><div class="stat-label">{{L "members"}}</div><div class="stat-value">{{if .Team.Reading.Lit}}{{.Members}}{{else}}<span class="text-secondary">—</span>{{end}}</div></div>
+        <div class="col-6 col-md-3"><div class="stat-label">{{L "skills"}}</div><div class="stat-value">{{.Skills}}</div></div>
+        <div class="col-6 col-md-3"><div class="stat-label">runs</div><div class="stat-value">{{if .Loop.Lit}}{{len .Runs}}{{else}}<span class="text-secondary">—</span>{{end}}</div></div>
+        <div class="col-6 col-md-3"><div class="stat-label">{{L "page.log"}}</div><div class="stat-value">{{if .LogReading.Lit}}{{len .Log}}{{else}}<span class="text-secondary">—</span>{{end}}</div></div>
+      </div>
+      <div class="small text-secondary mt-2">{{template "readingBadge" .Team.Reading}}</div>
+      {{if .Team.Findings}}<div class="small mt-2">{{range .Team.Findings}}<div class="text-warning">⚠ {{.}}</div>{{end}}</div>{{end}}
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-6">
+    <div class="card h-100"><div class="card-header">latest runs</div>
+      {{if .Loop.Lit}}<div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>run</th><th>as</th><th>status</th><th class="num">steps</th></tr></thead><tbody>
+      {{range .Runs}}<tr><td><code>{{.ID}}</code></td><td>{{.As}}</td><td><span class="badge {{if eq .Status "PASS"}}text-bg-success{{else if eq .Status "INTERRUPTED"}}text-bg-warning{{else}}text-bg-secondary{{end}}">{{.Status}}</span></td><td class="num">{{.Steps}}{{if .Failed}} <span class="text-danger">({{.Failed}} failed)</span>{{end}}</td></tr>{{end}}
+      </tbody></table></div>{{else}}<div class="card-body small text-secondary">{{template "readingBadge" .Loop}}</div>{{end}}
+    </div>
+  </div>
+  <div class="col-12 col-xl-6">
+    <div class="card h-100"><div class="card-header">latest {{L "page.log"}} entries</div>
+      {{if .LogReading.Lit}}<ul class="list-group list-group-flush">{{range .Log}}<li class="list-group-item"><div class="small text-secondary">{{.At}} · {{.Who}}</div><div>{{.Title}}</div></li>{{end}}</ul>
+      {{else}}<div class="card-body small text-secondary">{{template "readingBadge" .LogReading}}</div>{{end}}
+    </div>
+  </div>
+</div>
+<div class="small text-secondary mt-3">{{L "instrument"}}s: {{template "readingBadge" .Usage}} · {{template "readingBadge" .Memory.Reading}}</div>
+{{end}}{{end}}

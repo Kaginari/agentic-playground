@@ -1,0 +1,47 @@
+{{define "page"}}<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · {{.Workspace}} · {{L "board"}}</title>
+<link rel="stylesheet" href="{{.Prefix}}/assets/bootstrap.min.css">
+<link rel="stylesheet" href="{{.Prefix}}/static/board.css">
+<script>(function(){try{var t=localStorage.getItem('board-theme');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-bs-theme',t);}else{document.documentElement.setAttribute('data-bs-theme',matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}}catch(e){}})();</script>
+</head>
+<body data-page="{{.Page}}" data-live="{{.Live}}" data-prefix="{{.Prefix}}">
+<nav class="navbar navbar-expand-md border-bottom sticky-top bg-body-tertiary">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{.Prefix}}/"><span class="sigil">◆</span> {{.Workspace}}</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link{{if eq .Page "overview"}} active{{end}}" href="{{.Prefix}}/">{{L "page.overview"}}</a></li>
+        <li class="nav-item"><a class="nav-link{{if eq .Page "subagent"}} active{{end}}" href="{{.Prefix}}/subagent">{{L "page.subagent"}}</a></li>
+        <li class="nav-item"><a class="nav-link{{if eq .Page "usage"}} active{{end}}" href="{{.Prefix}}/usage">{{L "page.usage"}}</a></li>
+        <li class="nav-item"><a class="nav-link{{if eq .Page "team"}} active{{end}}" href="{{.Prefix}}/team">{{L "page.team"}}</a></li>
+        <li class="nav-item"><a class="nav-link{{if eq .Page "memory"}} active{{end}}" href="{{.Prefix}}/memory">{{L "page.memory"}}</a></li>
+        <li class="nav-item"><a class="nav-link{{if eq .Page "toolbox"}} active{{end}}" href="{{.Prefix}}/toolbox">{{L "page.toolbox"}}</a></li>
+        <li class="nav-item"><a class="nav-link{{if eq .Page "log"}} active{{end}}" href="{{.Prefix}}/log">{{L "page.log"}}</a></li>
+        <li class="nav-item"><a class="nav-link{{if eq .Page "config"}} active{{end}}" href="{{.Prefix}}/config">{{L "page.config"}}</a></li>
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        <span id="liveDot" class="live-dot" title="live events"></span>
+        <button id="themeToggle" class="btn btn-sm btn-outline-secondary" type="button" aria-label="theme">auto</button>
+      </div>
+    </div>
+  </div>
+</nav>
+<main class="container-fluid py-3">
+  <h1 class="h5 text-uppercase page-title">{{.Title}}</h1>
+  <div id="live">{{template "live" .}}</div>
+</main>
+<footer class="container-fluid text-secondary small py-3 border-top">
+  <div class="row"><div class="col-12 col-md-6">{{L "workspace"}} <code>{{.Root}}/{{.Dir}}</code></div><div class="col-12 col-md-6 text-md-end">read {{when .Now}}</div></div>
+</footer>
+<div id="tip" class="chart-tip" role="tooltip" hidden></div>
+<script src="{{.Prefix}}/assets/bootstrap.bundle.min.js"></script>
+<script src="{{.Prefix}}/static/board.js"></script>
+</body>
+</html>{{end}}
+
+{{define "readingBadge"}}<span class="badge reading {{litCls .}}" title="{{reading .}}">{{if .Lit}}lit{{else}}silent{{end}}</span> <small class="text-secondary">{{reading .}}</small>{{end}}

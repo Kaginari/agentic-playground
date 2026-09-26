@@ -1,0 +1,2 @@
+{"ts":"2026-09-26T08:00:00Z","session":"s-2026-09-26","agent":"orchestrator","rank":"orchestrator","role":"","model":"claude-opus-5-5","provider":"anthropic","input":2000,"output":400,"cacheRead":30000,"cacheWrite":1000,"usd":0.0512}
+{"ts":"2026-09-26T08:10:00Z","session":"s-2026-09-26","agent":"coord-voice","rank":"coord","role":"draft","model":"claude-opus-5-5","provider":"anthropic","input":700,"output":1500,"cacheRead":0,"cacheWrite":0,"usd":0.0433}
