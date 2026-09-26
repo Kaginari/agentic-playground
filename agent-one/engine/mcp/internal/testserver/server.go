@@ -202,9 +202,9 @@ func (s *Server) Handler(sse bool) http.Handler {
 			http.Error(w, "POST only", http.StatusMethodNotAllowed)
 			return
 		}
-		agent, _ := io.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var m msg
-		_ = json.Unmarshal(agent, &m)
+		_ = json.Unmarshal(body, &m)
 		sid := r.Header.Get("Mcp-Session-Id")
 		mu.Lock()
 		known := sessions[sid]
@@ -225,7 +225,7 @@ func (s *Server) Handler(sse bool) http.Handler {
 			http.Error(w, "Mcp-Session-Id required", http.StatusBadRequest)
 			return
 		}
-		resp := s.Handle(agent)
+		resp := s.Handle(body)
 		if resp == nil {
 			w.WriteHeader(http.StatusAccepted)
 			return

@@ -14,7 +14,7 @@ type Rule struct {
 	Scope string
 }
 
-// Applies reports whether the rule reaches a agent.
+// Applies reports whether the rule reaches an agent.
 func (r Rule) Applies(as, rank string) bool {
 	s := strings.ToLower(strings.TrimSpace(r.Scope))
 	switch {
@@ -63,7 +63,7 @@ func (w *Workspace) System(opt PromptOptions) func(s *loop.Session) string {
 	}
 }
 
-// Prompt builds the system prompt for a agent outside a session (a dispatcher's preview, the
+// Prompt builds the system prompt for an agent outside a session (a dispatcher's preview, the
 // drain's rebuilt context). engine may be nil.
 func (w *Workspace) Prompt(as string, opt PromptOptions, engine *loop.Engine) string {
 	var b strings.Builder
@@ -82,7 +82,7 @@ func (w *Workspace) Prompt(as string, opt PromptOptions, engine *loop.Engine) st
 		if engine != nil {
 			b.WriteString(strings.TrimSpace(engine.DefaultSystem(nil)) + "\n\n")
 		} else {
-			fmt.Fprintf(&b, "You are %s, a agent working inside the workspace rooted at %s.\n\n", as, w.Root)
+			fmt.Fprintf(&b, "You are %s, an agent working inside the workspace rooted at %s.\n\n", as, w.Root)
 		}
 	}
 	if len(opt.Rules) > 0 {

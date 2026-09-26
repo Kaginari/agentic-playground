@@ -1,4 +1,4 @@
-// Package tool holds the tools a agent may run and the class each act reaches: read · write
+// Package tool holds the tools an agent may run and the class each act reaches: read · write
 // (inside the workspace) · outward (Principle 7) · destructive (Policy 6). A tool declares its class; a
 // per-call classifier may tighten it; nothing may loosen it.
 package tool
@@ -237,7 +237,7 @@ func (r *Registry) Only(names ...string) *Registry {
 }
 
 // Builtins is the standard shelf: read, write, edit, bash (on a persistent shell, started
-// lazily on its first call and living until the process ends — a agent's shelf closes its own),
+// lazily on its first call and living until the process ends — an agent's shelf closes its own),
 // glob, grep.
 func Builtins() *Registry {
 	bash, _ := NewBashTool(BashOptions{Enabled: true})

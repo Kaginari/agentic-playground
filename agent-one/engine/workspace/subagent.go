@@ -15,7 +15,7 @@ import (
 )
 
 // SubagentOptions is tools.dispatch as the workspace applies it: who may dispatch, how deep, what a
-// Subagent's report is capped at. Which ranks may dispatch, and whom, is the rank table's: a agent
+// Subagent's report is capped at. Which ranks may dispatch, and whom, is the rank table's: an agent
 // dispatches ranks below its own (or its own when the rank is Sideways); the shelf is the
 // rank's Tools.
 type SubagentOptions struct {
@@ -38,7 +38,7 @@ type Route struct {
 	Task   string // dispatch | session
 }
 
-// Build is what an engine for a agent is made of: the provider and gate it shares with its
+// Build is what an engine for an agent is made of: the provider and gate it shares with its
 // dispatcher, the base shelf, budgets, and every switch.
 type Build struct {
 	Provider  provider.Provider
@@ -67,7 +67,7 @@ func (b Build) providerFor(r Route) provider.Provider {
 	return b.Provider
 }
 
-// Engine builds a full engine for a agent: tools cut to its rank and ownership (plus dispatch
+// Engine builds a full engine for an agent: tools cut to its rank and ownership (plus dispatch
 // when its rank and depth allow), the ownership policy, the workspace's hooks, the lexicon.
 func (w *Workspace) Engine(as string, b Build) *loop.Engine {
 	base := b.Tools

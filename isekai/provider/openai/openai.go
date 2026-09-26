@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -67,10 +68,11 @@ type function struct {
 }
 
 type toolCall struct {
-	Index    *int     `json:"index,omitempty"`
-	ID       string   `json:"id"`
-	Type     string   `json:"type"`
-	Function function `json:"function"`
+	Index        *int            `json:"index,omitempty"`
+	ID           string          `json:"id"`
+	Type         string          `json:"type"`
+	Function     function        `json:"function"`
+	ExtraContent json.RawMessage `json:"extra_content,omitempty"` // Gemini: echoed back as received
 }
 
 type message struct {
@@ -192,7 +194,7 @@ func (c *Client) encode(req provider.Request, stream bool) request {
 		if m.Role == provider.Assistant {
 			am := message{Role: "assistant", Content: m.Text}
 			for _, tc := range m.ToolCalls {
-				am.ToolCalls = append(am.ToolCalls, toolCall{ID: tc.ID, Type: "function", Function: function{Name: tc.Name, Arguments: string(orEmpty(tc.Input))}})
+				am.ToolCalls = append(am.ToolCalls, toolCall{ID: tc.ID, Type: "function", Function: function{Name: tc.Name, Arguments: string(orEmpty(tc.Input))}, ExtraContent: tc.Extra})
 			}
 			r.Messages = append(r.Messages, am)
 		} else if m.Text != "" {
@@ -257,9 +259,9 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 	if err != nil {
 		return provider.Response{}, err
 	}
-	res, err := c.do(ctx, "POST", "/chat/completions", body)
+	res, err := c.doRetry(ctx, body)
 	if err != nil {
-		return provider.Response{}, fmt.Errorf("openai: %w", err)
+		return provider.Response{}, err
 	}
 	defer res.Body.Close()
 	var resp provider.Response
@@ -273,16 +275,15 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 		if err != nil {
 			return provider.Response{}, err
 		}
+		if res.StatusCode != 200 {
+			return provider.Response{}, fmt.Errorf("openai: HTTP %d: %s", res.StatusCode, errorText(rawBody))
+		}
 		var out response
 		if err := json.Unmarshal(rawBody, &out); err != nil {
-			return provider.Response{}, fmt.Errorf("openai: HTTP %d, unreadable body: %w", res.StatusCode, err)
+			return provider.Response{}, fmt.Errorf("openai: HTTP %d, unreadable body: %w — %s", res.StatusCode, err, clip(rawBody))
 		}
-		if res.StatusCode != 200 || out.Error != nil {
-			msg := strings.TrimSpace(string(rawBody))
-			if out.Error != nil {
-				msg = out.Error.Type + ": " + out.Error.Message
-			}
-			return provider.Response{}, fmt.Errorf("openai: HTTP %d: %s", res.StatusCode, msg)
+		if out.Error != nil {
+			return provider.Response{}, fmt.Errorf("openai: HTTP %d: %s: %s", res.StatusCode, out.Error.Type, out.Error.Message)
 		}
 		if len(out.Choices) == 0 {
 			return provider.Response{}, fmt.Errorf("openai: no choices in the response")
@@ -290,7 +291,9 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 		ch := out.Choices[0]
 		resp = provider.Response{Model: out.Model, Message: provider.Message{Role: provider.Assistant, Text: ch.Message.Content}, Usage: out.Usage.reading()}
 		for _, tc := range ch.Message.ToolCalls {
-			resp.Message.ToolCalls = append(resp.Message.ToolCalls, callOf(tc.ID, tc.Function.Name, tc.Function.Arguments))
+			call := callOf(tc.ID, tc.Function.Name, tc.Function.Arguments)
+			call.Extra = tc.ExtraContent
+			resp.Message.ToolCalls = append(resp.Message.ToolCalls, call)
 		}
 		resp.Stop = finishOf(ch.FinishReason)
 		if req.OnDelta != nil && resp.Message.Text != "" && len(tagRe.FindAllString(resp.Message.Text, -1)) == 0 {
@@ -467,6 +470,9 @@ func (c *Client) readStream(r io.Reader, onDelta func(string)) (provider.Respons
 					cur.Function.Name = tc.Function.Name
 				}
 				cur.Function.Arguments += tc.Function.Arguments
+				if len(tc.ExtraContent) > 0 {
+					cur.ExtraContent = tc.ExtraContent
+				}
 			}
 			if ch.FinishReason != "" {
 				finish = ch.FinishReason
@@ -479,7 +485,9 @@ func (c *Client) readStream(r io.Reader, onDelta func(string)) (provider.Respons
 	resp.Message.Text = text.String()
 	for _, i := range order {
 		tc := calls[i]
-		resp.Message.ToolCalls = append(resp.Message.ToolCalls, callOf(tc.ID, tc.Function.Name, tc.Function.Arguments))
+		call := callOf(tc.ID, tc.Function.Name, tc.Function.Arguments)
+		call.Extra = tc.ExtraContent
+		resp.Message.ToolCalls = append(resp.Message.ToolCalls, call)
 	}
 	resp.Stop = finishOf(finish)
 	if c.text() && onDelta != nil {
@@ -534,4 +542,90 @@ func (c *Client) ContextWindow(ctx context.Context) (int, error) {
 		c.winErr = fmt.Errorf("openai: /models does not list %s", c.Model)
 	})
 	return c.window, c.winErr
+}
+
+// retryable statuses: rate limits and transient server faults (a free tier answers 429 and 503
+// routinely); anything else is the caller's to see at once.
+func retryable(code int) bool {
+	return code == 429 || code == 500 || code == 502 || code == 503 || code == 504
+}
+
+// backoff is the wait before retry n (0-based) when the server names none; tests shorten it.
+var backoff = func(attempt int) time.Duration { return time.Duration(1<<attempt) * time.Second }
+
+// doRetry posts a chat completion, retrying transient failures with backoff — Retry-After when
+// the server gives one, else 1s, 2s, 4s — up to 3 retries, and never past the context.
+func (c *Client) doRetry(ctx context.Context, body []byte) (*http.Response, error) {
+	const retries = 3
+	for attempt := 0; ; attempt++ {
+		res, err := c.do(ctx, "POST", "/chat/completions", body)
+		if err == nil && !retryable(res.StatusCode) {
+			return res, nil
+		}
+		if attempt == retries || ctx.Err() != nil {
+			if err != nil {
+				return nil, fmt.Errorf("openai: %w", err)
+			}
+			return res, nil // the caller reads the final status and its message
+		}
+		wait := backoff(attempt)
+		if err == nil {
+			if s, perr := strconv.Atoi(strings.TrimSpace(res.Header.Get("Retry-After"))); perr == nil && s > 0 && s <= 60 {
+				wait = time.Duration(s) * time.Second
+			}
+			_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
+			res.Body.Close()
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("openai: %w", ctx.Err())
+		case <-time.After(wait):
+		}
+	}
+}
+
+// errorText reads a provider error body: OpenAI's {"error":{…}}, Gemini's [{"error":{…}}], or
+// the raw text, clipped.
+func errorText(body []byte) string {
+	type e struct {
+		Error *struct {
+			Message string `json:"message"`
+			Type    string `json:"type"`
+			Status  string `json:"status"`
+		} `json:"error"`
+	}
+	pick := func(x e) string {
+		if x.Error == nil || x.Error.Message == "" {
+			return ""
+		}
+		kind := x.Error.Type
+		if kind == "" {
+			kind = x.Error.Status
+		}
+		if kind != "" {
+			return kind + ": " + x.Error.Message
+		}
+		return x.Error.Message
+	}
+	var one e
+	if json.Unmarshal(body, &one) == nil {
+		if t := pick(one); t != "" {
+			return t
+		}
+	}
+	var many []e
+	if json.Unmarshal(body, &many) == nil && len(many) > 0 {
+		if t := pick(many[0]); t != "" {
+			return t
+		}
+	}
+	return clip(body)
+}
+
+func clip(b []byte) string {
+	t := strings.TrimSpace(string(b))
+	if len(t) > 300 {
+		t = t[:300] + "…"
+	}
+	return t
 }

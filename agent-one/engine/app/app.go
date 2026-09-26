@@ -76,7 +76,7 @@ type App struct {
 	Sessions  *SessionStore
 	Subagent  *Subagent
 
-	// OnState receives a agent's state changes (the live subagent); nil is quiet.
+	// OnState receives an agent's state changes (the live subagent); nil is quiet.
 	OnState func(agent, state string)
 	// OnDelta receives streamed text of the session agent; nil is quiet.
 	OnDelta func(text string)

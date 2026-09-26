@@ -31,7 +31,7 @@ var AnthropicEditor = json.RawMessage(`{"type":"text_editor_20250728","name":"st
 // command is classified before it runs (the classifier path is unchanged), `restart` throws the
 // session away, `background` starts a named logged job. Under an anthropic provider it is
 // declared as bash_20250124; elsewhere the custom schema below. The returned close kills the
-// session and its jobs (a agent's session dies with its task); the caller owns a Session it
+// session and its jobs (an agent's session dies with its task); the caller owns a Session it
 // passed in and close leaves that one alone.
 func NewBashTool(opt BashOptions) (*Tool, func()) {
 	var (

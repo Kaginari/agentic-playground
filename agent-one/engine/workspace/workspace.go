@@ -131,7 +131,7 @@ func (w *Workspace) Reload() error {
 	return nil
 }
 
-// AddForeign puts a agent from another harness's agent file on the roster (a name already on
+// AddForeign puts an agent from another harness's agent file on the roster (a name already on
 // it is one agent with two sources: the native one wins, Principle 2).
 func (w *Workspace) AddForeign(c Member) {
 	w.mu.Lock()
@@ -264,7 +264,7 @@ func VerifyOf(doc string) []string {
 	return out
 }
 
-// Member finds a agent by id (or by its unprefixed name when unambiguous).
+// Member finds an agent by id (or by its unprefixed name when unambiguous).
 func (w *Workspace) Member(name string) *Member {
 	name = strings.ToLower(strings.TrimSpace(name))
 	var hit *Member
@@ -325,7 +325,7 @@ func (w *Workspace) GateHolders() bool {
 func (w *Workspace) DomainOwners() bool { return w.GateHolders() }
 
 // InOwnership reports whether a root-relative path is inside a member's ownership: one of its
-// owned prefixes, or its own directory (a agent may always keep its own doc truthful).
+// owned prefixes, or its own directory (an agent may always keep its own doc truthful).
 func (c *Member) InOwnership(rel string) bool {
 	rel = normRel(rel)
 	if c.Dir != "" && under(rel, c.Dir) {

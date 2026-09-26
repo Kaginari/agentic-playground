@@ -192,7 +192,7 @@ func (w *Workspace) Toolbox() (*toolbox.Workspace, error) {
 	return toolbox.OpenIn(w.Root, w.Lex.WorkspaceDir)
 }
 
-// Recall runs the recall beat: memory hits as `src#sec` anchors, toolbox @T lines. Never a agent.
+// Recall runs the recall beat: memory hits as `src#sec` anchors, toolbox @T lines. Never an agent.
 func (w *Workspace) Recall(as, ask string, opt RecallOptions) loop.Recall {
 	var rc loop.Recall
 	if !opt.Enabled || strings.TrimSpace(ask) == "" {

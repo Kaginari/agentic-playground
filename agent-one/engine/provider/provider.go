@@ -42,6 +42,9 @@ type ToolCall struct {
 	ID    string          `json:"id"`
 	Name  string          `json:"name"`
 	Input json.RawMessage `json:"input"`
+	// Extra is provider data that must travel back unchanged with this call on the next turn
+	// (Gemini's extra_content.google.thought_signature); the harness never reads it.
+	Extra json.RawMessage `json:"extra,omitempty"`
 }
 
 // ToolResult answers one ToolCall. IsError tells the model the act failed.

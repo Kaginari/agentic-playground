@@ -487,7 +487,7 @@ func (w *Workspace) sourceStamps() memory.Stamps {
 	return o
 }
 
-// Entry is one registry entry: a pointer with known costs, never a agent.
+// Entry is one registry entry: a pointer with known costs, never an agent.
 type Entry struct {
 	Kind        string         `json:"kind"`
 	Name        string         `json:"name"`
@@ -1177,7 +1177,7 @@ func pathOr(p string) string {
 	return p
 }
 
-// Brief is level 1 on the wire: the @TOOLS manifest a Subagent brief carries — never a agent.
+// Brief is level 1 on the wire: the @TOOLS manifest a Subagent brief carries — never an agent.
 type Brief struct {
 	*PickResult
 	Head  string

@@ -364,7 +364,7 @@ func TestSystemPrompt(t *testing.T) {
 	opt.Rules = []Rule{{Text: "never push", Scope: "all"}, {Text: "zone workers stay in their zone", Scope: "rank:zone"}, {Text: "only auth", Scope: "member:zone-auth"}, {Text: "domain owners only", Scope: "rank:domain"}}
 	e := w.Engine("zone-auth", build(mock.New()))
 	p := w.Prompt("zone-auth", opt, e)
-	for _, want := range []string{".agent-one/AGENT-ONE.md — Core principles", "1. **Docs-as-code**", "You are zone-auth, a agent working inside", "- never push", "- zone workers stay in their zone", "- only auth",
+	for _, want := range []string{".agent-one/AGENT-ONE.md — Core principles", "1. **Docs-as-code**", "You are zone-auth, an agent working inside", "- never push", "- zone workers stay in their zone", "- only auth",
 		"You are zone-auth (zone: authors). Doc: .agent-one/zone/auth/README.md. Owns: src/auth. One hop up: domain-security. Skills held: drafter. Verify: test ! -f src/auth/BROKEN.",
 		"@ONTO\nzone-auth ⇒truth domain-security", "Instructions (project, CLAUDE.md)", "@U <policy|team|domain>"} {
 		if !strings.Contains(p, want) {

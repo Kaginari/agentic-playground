@@ -36,7 +36,7 @@ type Unsaid struct {
 	Text string
 }
 
-// Report is what a agent sends back.
+// Report is what an agent sends back.
 type Report struct {
 	Status   string
 	Findings []string

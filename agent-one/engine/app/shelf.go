@@ -25,7 +25,7 @@ var shelfOrder = []string{"bash", "read", "ls", "glob", "grep", "write", "edit",
 // for each and reports it disabled with its origin when config switches it off.
 var workspaceToolNames = []string{"dispatch", "recall", "remember", "toolbox", "onto", "skill", "workingNotes"}
 
-// Shelf builds the tool registry for a agent from config: every builtin honours its enabled
+// Shelf builds the tool registry for an agent from config: every builtin honours its enabled
 // switch, the profile and its overrides; custom tools join on the same terms; MCP tools and
 // the workspace's own tools are added by their packages through Extra. Build is called once per
 // agent so each gets its own persistent shell (bash) — a Subagent's dies with its task.
@@ -115,7 +115,7 @@ func (s *Shelf) shellSandbox() *sandbox.Sandbox {
 	return s.Sandbox
 }
 
-// Build makes a fresh registry for a agent. The closer ends the agent's shell and its jobs.
+// Build makes a fresh registry for an agent. The closer ends the agent's shell and its jobs.
 func (s *Shelf) Build(agent string) (*tool.Registry, func()) {
 	reg := tool.NewRegistry()
 	var closers []func()

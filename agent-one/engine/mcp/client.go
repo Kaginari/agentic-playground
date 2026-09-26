@@ -680,27 +680,27 @@ func (t *httpT) call(ctx context.Context, m message) (message, error) {
 		return message{}, ErrDead
 	}
 	if resp.StatusCode/100 != 2 {
-		agent, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return message{}, fmt.Errorf("http %d: %s", resp.StatusCode, strings.TrimSpace(string(agent)))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return message{}, fmt.Errorf("http %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	ct := resp.Header.Get("Content-Type")
 	if strings.HasPrefix(ct, "text/event-stream") {
 		return readSSE(resp.Body, m.ID)
 	}
-	agent, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 	if err != nil {
 		return message{}, err
 	}
 	var r message
-	if err := json.Unmarshal(agent, &r); err != nil {
+	if err := json.Unmarshal(body, &r); err != nil {
 		return message{}, fmt.Errorf("bad json answer: %v", err)
 	}
 	return r, nil
 }
 
 // readSSE reads events until the response with our id arrives.
-func readSSE(agent io.Reader, id json.RawMessage) (message, error) {
-	sc := bufio.NewScanner(agent)
+func readSSE(body io.Reader, id json.RawMessage) (message, error) {
+	sc := bufio.NewScanner(body)
 	sc.Buffer(make([]byte, 0, 64<<10), 64<<20)
 	var data strings.Builder
 	flush := func() (message, bool) {

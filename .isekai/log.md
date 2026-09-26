@@ -859,3 +859,24 @@ Append-only. Newest entries at the bottom. One entry per change.
     failed before publishing anything; tags were re-pointed. CI now fails when tests leave files.
   - `git add -A` swept those stray files into this repo's history (commit 94c23ba), removed in
     561b6f0 — adding by path, not -A, is the safer habit here.
+
+### [2026-09-26T17:12:06+02:00] rimuru — Gemini free tier works end to end; four provider/prompt fixes
+- **Task:** Human: "go with gemini free tier"; ran `isekai` in pfcli → HTTP 503 "unreadable body".
+- **Files:** both engines — provider.ToolCall.Extra + openai extra_content passthrough, doRetry
+  (429/5xx, Retry-After, backoff injectable), errorText (object and array forms), loop system prompt
+  (session speaks plain language; Courts the wire); agent-one: HTTP "body" restored where the fork
+  renamed it "agent", "a agent" → "an agent" · ~/.config/{isekai,agent-one}/config.yaml.
+- **Gate:** n/a (no orcs). Instruments: TestGeminiCompatibility (503 retried, array error read,
+  signature echoed) in both engines; real session on gemini-3.8-flash: write → cat → answer, gate
+  verdict in log.md, $0; plain-language answer confirmed live.
+- **Result:** done; patch releases isekai v0.1.5, agent-one v0.1.3 follow.
+- **Learned:**
+  - Gemini 3 attaches a thought_signature to each tool call and rejects the next turn without it —
+    an OpenAI-compatible endpoint is not an OpenAI-identical one; opaque provider data must travel.
+  - The free tier answers 503 under load: transient statuses are retried, not surfaced as failures.
+  - The session's prompt asked for the wire; the law says the siphon toward the human never narrows.
+  - The fork's blind rename reached HTTP code ("unreadable agent") — third instance of the same
+    lesson (Bootstrap names, tests renamed with code, HTTP bodies).
+  - Veldora pasted the API key into the chat: used once for tests via a 0600 file, then shredded;
+    the key must be rotated.
+  - TestREPLLive failed twice under full-suite -race load (never alone in 60 runs): unresolved flake.

@@ -108,7 +108,7 @@ func TestAPI(t *testing.T) {
 	}
 	for _, l := range b.Lines {
 		if strings.Contains(l, "BODYSENTINEL") {
-			t.Fatal("a agent crossed in level 1")
+			t.Fatal("an agent crossed in level 1")
 		}
 	}
 	lr, err := w.Load("standards-check", LoadOpts{As: "domain-api", Sec: intPtr(3)})

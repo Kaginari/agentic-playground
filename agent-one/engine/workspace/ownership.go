@@ -23,7 +23,7 @@ func (o OwnershipOptions) held(w *Workspace, c *Member) bool {
 	return ok && r.Authors
 }
 
-// Policy is the tool.Policy for a agent: every path a write/edit touches must be inside its
+// Policy is the tool.Policy for an agent: every path a write/edit touches must be inside its
 // ownership. A refusal carries the escalation hint — one hop up, never sideways.
 func (w *Workspace) ToolPolicy(agent string, opt OwnershipOptions) tool.Policy {
 	if !opt.Enabled {

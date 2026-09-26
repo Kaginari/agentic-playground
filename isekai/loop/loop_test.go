@@ -86,8 +86,12 @@ func TestTurnAndJournal(t *testing.T) {
 	if len(last) != 5 || last[2].ToolResults[0].ID != "1" || last[4].ToolResults[0].ID != "2" || !strings.Contains(last[2].ToolResults[0].Content, "hello world") {
 		t.Fatalf("messages %+v", last)
 	}
-	if !strings.Contains(m.Requests[0].System, "slime-test") || !strings.Contains(m.Requests[0].System, "@U") {
-		t.Fatalf("system %q", m.Requests[0].System)
+	// the session speaks plain language to the human; only a dispatched body answers on the wire
+	if sys := m.Requests[0].System; !strings.Contains(sys, "slime-test") || !strings.Contains(sys, "plain language") || strings.Contains(sys, "@U <") {
+		t.Fatalf("system %q", sys)
+	}
+	if court := (&Engine{Wire: true}).DefaultSystem(&Session{}); !strings.Contains(court, "@U") || strings.Contains(court, "plain language") {
+		t.Fatalf("a Court's system %q", court)
 	}
 }
 

@@ -107,7 +107,7 @@ func validScope(s string) bool {
 	return ok && v != "" && (k == "rank" || k == "member")
 }
 
-// scopeApplies matches a rule's scope to a agent: rank words are read in either lexicon.
+// scopeApplies matches a rule's scope to an agent: rank words are read in either lexicon.
 func scopeApplies(scope, rank, member string) bool {
 	switch {
 	case scope == "all":
@@ -121,7 +121,7 @@ func scopeApplies(scope, rank, member string) bool {
 	return false
 }
 
-// RulesFor lists the rules that apply to a agent, in layer order.
+// RulesFor lists the rules that apply to an agent, in layer order.
 func (c *Config) RulesFor(rank, member string) []*Rule {
 	var out []*Rule
 	for _, r := range c.Rules {
@@ -147,7 +147,7 @@ func (c *Config) PromptRules(rank, member string) string {
 	return b.String()
 }
 
-// PolicyFacts returns the prose rules as ontology Policy facts for a agent.
+// PolicyFacts returns the prose rules as ontology Policy facts for an agent.
 func (c *Config) PolicyFacts(rank, member string) []Fact {
 	var out []Fact
 	for _, r := range c.RulesFor(rank, member) {
@@ -159,7 +159,7 @@ func (c *Config) PolicyFacts(rank, member string) []Fact {
 	return out
 }
 
-// Checks returns the commands the end-of-turn gate runs for a agent.
+// Checks returns the commands the end-of-turn gate runs for an agent.
 func (c *Config) Checks(rank, member string) []Check {
 	var out []Check
 	for _, r := range c.RulesFor(rank, member) {
@@ -201,7 +201,7 @@ func RunCheck(ctx context.Context, dir string, env []string, ch Check) CheckResu
 	return res
 }
 
-// RunChecks runs every check for a agent and returns the readings; any failure fails the turn.
+// RunChecks runs every check for an agent and returns the readings; any failure fails the turn.
 func RunChecks(ctx context.Context, dir string, checks []Check) (results []CheckResult, ok bool) {
 	ok = true
 	for _, ch := range checks {

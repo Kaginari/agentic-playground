@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Commission is what the dispatch tool hands its runner: a agent to register and the wire
+// Commission is what the dispatch tool hands its runner: an agent to register and the wire
 // commission it carries (@ROOT @SCOPE @ASK @CAP).
 type Commission struct {
 	Agent  string
@@ -16,7 +16,7 @@ type Commission struct {
 	Root   string
 	Unsaid bool
 	Cap    int
-	Depth  int    // the Subagent's nesting depth (1 for a agent dispatched by the session)
+	Depth  int    // the Subagent's nesting depth (1 for an agent dispatched by the session)
 	Role   string // the role the ask names: findings → analyst, verdict → judge, draft → drafter
 }
 
@@ -129,7 +129,7 @@ func DispatchTool(opt DispatchOptions, run Dispatcher) *Tool {
 				return fail("dispatch: nesting limit reached (depth %d of %d) — a Subagent at this depth may not dispatch; answer with @? one hop up instead", opt.Depth, max)
 			}
 			if opt.Agents != nil && !inList(opt.Agents, a.Agent) {
-				return fail("dispatch: %q is not a agent this session may dispatch (%s)", a.Agent, strings.Join(opt.Agents, ", "))
+				return fail("dispatch: %q is not an agent this session may dispatch (%s)", a.Agent, strings.Join(opt.Agents, ", "))
 			}
 			if run == nil {
 				return fail("dispatch: no runner wired")

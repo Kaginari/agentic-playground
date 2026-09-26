@@ -6,6 +6,12 @@ All notable changes to __TITLE__ are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - __DATE__
+
+### Highlights
+
+Works with Google Gemini's OpenAI-compatible API, free tier included: each tool call's `thought_signature` travels back on the next turn (multi-step tool use failed before), 429 and 5xx answers are retried with backoff (honouring `Retry-After`), and Gemini's array-form errors are shown instead of "unreadable body". The orchestrator answers you in plain language; only dispatched subagents answer on the wire. HTTP messages no longer say "agent" where they mean the request or response body.
+
 ## [0.1.2] - __DATE__
 
 ### Highlights

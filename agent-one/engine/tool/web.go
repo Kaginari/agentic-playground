@@ -84,26 +84,26 @@ func WebFetchTool(opt WebFetchOptions) *Tool {
 			if max <= 0 {
 				max = 5 << 20
 			}
-			agent, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
+			body, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
 			if err != nil {
-				return fail("webfetch: reading agent: %v", err)
+				return fail("webfetch: reading body: %v", err)
 			}
 			truncated := false
-			if int64(len(agent)) > max {
-				agent, truncated = agent[:max], true
+			if int64(len(body)) > max {
+				body, truncated = body[:max], true
 			}
 			ct := resp.Header.Get("Content-Type")
-			if !textual(ct, agent) {
-				return fail("webfetch: %s is %s (%d bytes) — not text", a.URL, ct, len(agent))
+			if !textual(ct, body) {
+				return fail("webfetch: %s is %s (%d bytes) — not text", a.URL, ct, len(body))
 			}
-			text := string(agent)
+			text := string(body)
 			if !a.Raw && strings.Contains(strings.ToLower(ct), "html") {
 				text = HTMLToText(text)
 			}
 			if a.MaxChars > 0 && len(text) > a.MaxChars {
 				text = text[:a.MaxChars] + fmt.Sprintf("\n… [%d more chars]", len(text)-a.MaxChars)
 			}
-			head := fmt.Sprintf("%s %d %s (%d bytes", a.URL, resp.StatusCode, ct, len(agent))
+			head := fmt.Sprintf("%s %d %s (%d bytes", a.URL, resp.StatusCode, ct, len(body))
 			if truncated {
 				head += ", truncated at the cap"
 			}
@@ -112,17 +112,17 @@ func WebFetchTool(opt WebFetchOptions) *Tool {
 	}
 }
 
-func textual(ct string, agent []byte) bool {
+func textual(ct string, body []byte) bool {
 	ct = strings.ToLower(ct)
 	if strings.HasPrefix(ct, "text/") || strings.Contains(ct, "json") || strings.Contains(ct, "xml") || strings.Contains(ct, "javascript") || strings.Contains(ct, "yaml") {
 		return true
 	}
 	if ct == "" || strings.Contains(ct, "octet-stream") {
-		n := len(agent)
+		n := len(body)
 		if n > 512 {
 			n = 512
 		}
-		for _, b := range agent[:n] {
+		for _, b := range body[:n] {
 			if b == 0 {
 				return false
 			}

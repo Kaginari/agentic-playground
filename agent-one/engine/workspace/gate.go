@@ -50,7 +50,7 @@ func (v Verdict) String() string {
 	return v.Word + " — " + strings.Join(v.Reasons, "; ")
 }
 
-// Gate runs the checks over a turn's writes for a agent and returns the verdict. It is the
+// Gate runs the checks over a turn's writes for an agent and returns the verdict. It is the
 // EndGate hook's agent, exposed so a dispatcher can run it on its own account.
 func (w *Workspace) Gate(ctx context.Context, opt GateOptions, as string, wrote []string, rep *wire.Report, isWire bool, ask string) Verdict {
 	v := Verdict{Word: "pass"}

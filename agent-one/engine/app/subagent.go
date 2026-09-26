@@ -51,7 +51,7 @@ func newSubagent(a *App) *Subagent {
 	return c
 }
 
-// Track registers a agent's session as it starts.
+// Track registers an agent's session as it starts.
 func (c *Subagent) Track(name, rank, role, model string, s *loop.Session, depth int) *LiveAgent {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -95,7 +95,7 @@ func (c *Subagent) observe(s *loop.Session, state string) {
 	c.mu.Unlock()
 }
 
-// Finish marks a agent done with its report.
+// Finish marks an agent done with its report.
 func (c *Subagent) Finish(name, report string) {
 	c.mu.Lock()
 	b := c.agents[name]
@@ -125,7 +125,7 @@ func (c *Subagent) Send(name, text string) error {
 	return nil
 }
 
-// Inbox drains a agent's queued lines.
+// Inbox drains an agent's queued lines.
 func (c *Subagent) Inbox(name string) []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()

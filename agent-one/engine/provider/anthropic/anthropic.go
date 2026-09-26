@@ -3,7 +3,7 @@
 //
 // What the client sends, each switchable on the Client: Claude's own trained tools where a
 // ToolDef declares one (bash_20250124, text_editor_20250728 — schema-less); adaptive thinking;
-// output_config.effort; refusal fallbacks (agent `fallbacks: "default"` + the beta header);
+// output_config.effort; refusal fallbacks (body `fallbacks: "default"` + the beta header);
 // cache_control on the last stable system block so the principles and the tools are read from the
 // cache; streaming (SSE) when a delta callback is set. Thinking blocks come back opaque and are
 // replayed on the next call, as the API requires with tool use.
@@ -138,7 +138,7 @@ func raw(v interface{}) json.RawMessage {
 	return b
 }
 
-// Encode turns a Request into the Messages API agent. Exported so tests can read the shape.
+// Encode turns a Request into the Messages API body. Exported so tests can read the shape.
 func Encode(model string, req provider.Request) request {
 	return (&Client{Model: model, Thinking: true, Fallbacks: true, Cache: true, Stream: true}).encode(req, false)
 }
@@ -211,11 +211,11 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 		return provider.Response{}, err
 	}
 	stream := c.Stream && req.OnDelta != nil
-	agent, err := json.Marshal(c.encode(req, stream))
+	body, err := json.Marshal(c.encode(req, stream))
 	if err != nil {
 		return provider.Response{}, err
 	}
-	hr, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(c.BaseURL, "/")+"/v1/messages", bytes.NewReader(agent))
+	hr, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(c.BaseURL, "/")+"/v1/messages", bytes.NewReader(body))
 	if err != nil {
 		return provider.Response{}, err
 	}
@@ -249,7 +249,7 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 	}
 	var out response
 	if err := json.Unmarshal(rawBody, &out); err != nil {
-		return provider.Response{}, fmt.Errorf("anthropic: HTTP %d, unreadable agent: %w", res.StatusCode, err)
+		return provider.Response{}, fmt.Errorf("anthropic: HTTP %d, unreadable body: %w", res.StatusCode, err)
 	}
 	if res.StatusCode != 200 {
 		msg := strings.TrimSpace(string(rawBody))

@@ -32,5 +32,5 @@ func (w *Workspace) Homes() compact.Homes {
 	}
 }
 
-// ScopeOf is the rank the drain journals for a agent (its rank name, or orchestrator).
+// ScopeOf is the rank the drain journals for an agent (its rank name, or orchestrator).
 func (w *Workspace) ScopeOf(as string) string { return strings.ToLower(w.RankOf(as).Name) }
