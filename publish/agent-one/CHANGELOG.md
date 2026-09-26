@@ -6,6 +6,17 @@ All notable changes to __TITLE__ are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - __DATE__
+
+### Highlights
+
+A patch release for two defects found by running the released binary in a plain workspace.
+
+### Fixed
+- A machine-wide agent definition named `orchestrator` could be imported as a member, so the session would run with that member's role, model route and tools. The orchestrator's name is now reserved.
+- The tool registry's load hint named a JavaScript tool that is not shipped; it now names `agent-one toolbox`.
+- The dashboard's theme variables and the default model (`anthropic/claude-opus-5`) match the tested build.
+
 ## [0.1.0] - __DATE__
 
 ### Highlights
