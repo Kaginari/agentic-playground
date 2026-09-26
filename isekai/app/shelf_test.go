@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kaginari/agentic-playground/isekai/config"
 	"github.com/Kaginari/agentic-playground/isekai/gate"
 	"github.com/Kaginari/agentic-playground/isekai/loop"
 	"github.com/Kaginari/agentic-playground/isekai/provider"
@@ -191,7 +192,7 @@ mcp:
 	env := func() tool.Env { return tool.Env{Root: root, WorldDir: ".isekai"} }
 	missing := &MissingPolicy{Cfg: cfg, Disabled: shelf.Disabled}
 	hooksRunner := &ShellHooks{Cfg: cfg, Root: root, Session: "s1"}
-	hooks := loop.Hooks{Decide: decideHook(cfg, env), Missing: missing.Hook(), PreTool: hooksRunner.PreTool, PostTool: hooksRunner.PostTool}
+	hooks := loop.Hooks{Decide: decideHook(func() *config.Config { return cfg }, env), Missing: missing.Hook(), PreTool: hooksRunner.PreTool, PostTool: hooksRunner.PostTool}
 
 	// 1. the custom tool, the persistent shell, secret scrubbing, mcp tool and resource
 	r := drive(t, reg, root, hooks,

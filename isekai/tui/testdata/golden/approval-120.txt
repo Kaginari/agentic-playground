@@ -1,0 +1,12 @@
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Approval                                                                                         │
+│ outward  bash  git push origin main                                                              │
+│ git push reaches beyond the world (outward): it needs your word                                  │
+│                                                                                                  │
+│ ❯ 1. Yes                                                                                         │
+│   2. Yes, and don't ask again for bash:git push*                                                 │
+│      writes a rule to .isekai/config.local.yaml                                                  │
+│   3. No, and tell the model why                                                                  │
+│                                                                                                  │
+│ ↑↓ or a digit picks · enter confirms                                                             │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

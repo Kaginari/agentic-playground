@@ -1,0 +1,4 @@
+● bash  go vet ./...  read
+  ⎿ failed · 800ms
+    vet: ./x.go:3:1: undefined: y
+    exit status 2

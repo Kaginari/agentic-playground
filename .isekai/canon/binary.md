@@ -5,7 +5,8 @@ for harnesses that only *read* it (Claude Code, OpenCode); a model can read a la
 it. Here the law is the harness: the gate, Vitality, the log, the human gate, the instruments and
 the wire are code paths the model cannot route around, and every creature is a native type.
 
-Source: `isekai/` at the repository root (Go module, stdlib only). Build with
+Source: `isekai/` at the repository root (Go module; stdlib plus the Charm libraries for the
+terminal UI, `canon/tui.md`). Build with
 `go build -o bin/isekai ./cmd/isekai` from `isekai/`. Toolchain: Go ≥ 1.23.
 
 ## Principles of the build
@@ -27,7 +28,7 @@ Source: `isekai/` at the repository root (Go module, stdlib only). Build with
 |---|---|---|
 | `provider` | one `Provider` interface (messages + tool calls + usage); `anthropic` (Messages API), `openai` (chat-completions — also OpenRouter, Ollama, any compatible endpoint), `mock` (scripted, for tests) | the provider call is the one standing outward act |
 | `tool` | `Tool{Name, Description, Schema, Class, Run}`; built-ins `read`, `write`, `edit`, `bash`, `glob`, `grep`, `dispatch` | every tool declares a class; `bash` is classified per command (port of `loop.js`'s classifier) — a declared class only tightens |
-| `gate` | the human gate: TTY prompt, `--approve <class>` pre-approval, `--dry-run` | Nature 7, Law 6: outward and destructive always ask; nothing auto-approved; a denial stops the turn |
+| `gate` | the human gate: the TUI's choice block or the TTY prompt (`Gate.Answer` is the seam), `--approve <class>` pre-approval, `--dry-run` | Nature 7, Law 6: outward and destructive always ask; nothing auto-approved; a denial stops the turn |
 | `loop` | the turn engine: perceive → recall → plan → act → verify → record per tool step; journal to `.isekai/instruments/loop/<run-id>.jsonl` | §The loop — budgets are readings; past one, checkpoint and stop honestly |
 | `instrument` | context occupancy from provider-reported usage, 200k budget / 180k stress zone; `status` board | Nature 9, §Instruments — Rimuru's stress is a reading |
 | `memory` | port of `memory.js`: status, index, recall (meaning + relation rank), remember (`--kind law|colony|territory`) | §Memory tiers — same files, same formats |
@@ -40,7 +41,8 @@ Source: `isekai/` at the repository root (Go module, stdlib only). Build with
 | `sandbox` · `shell` | bwrap containment and env scrubbing; one persistent bash per body with background jobs | Nature 7, §Bash below |
 | `mcp` · `discover` | the MCP client (stdio, streamable HTTP); what other harnesses wrote (instructions, Minds, commands, Bodies, MCP imports) | §MCP below; `harness-parity.md` |
 | `board` | the world, seen: an HTTP handler over the same instruments | §The board below |
-| `app` | the one engine behind both binaries: config → world → providers, shelf, MCP, discoveries, hooks; sessions (JSONL), the live REPL, `run`, `bench`, `selftest`, `init`, `board` | everything above, wired |
+| `app` | the one engine behind both binaries: config → world → providers, shelf, MCP, discoveries, hooks; sessions (JSONL), the live session (the TUI on a terminal, the line REPL on a pipe or `--plain`), `run`, `bench`, `selftest`, `init`, `board` | everything above, wired |
+| `tui` | the terminal UI (`canon/tui.md`): the view model (blocks from the loop's events), the Bubble Tea program, the choice block the gate and the `ask` tool answer through | the one siphon that never narrows — the human's |
 | `cmd/isekai` · `cmd/agent-one` | the two distributions: one `main` each, differing only by the name they hand `app.Main` (lexicon, world dir, env prefix, law file follow) | — |
 
 ## Bash — the model's shell, the world's rules
@@ -194,9 +196,15 @@ The throne never chooses its horse: the session (Rimuru) runs on the model the h
 
 ## Live session — talk while the court works
 
-- **The human is never locked out.** A turn runs in the background of the REPL. A line typed
-  mid-turn is queued and delivered to the running body at its next tool step (the way Claude
-  Code does); `Ctrl-C` interrupts the turn, a second `Ctrl-C` exits.
+- **Two faces, one engine.** On a terminal the session is the TUI (`canon/tui.md`); on a pipe,
+  under `TERM=dumb`, or with `--plain`, it is the line REPL. Both run the same engine, sessions,
+  Courts and gate.
+- **The human is never locked out.** A turn runs in the background. A line typed mid-turn is
+  queued and delivered to the running body at its next tool step (the way Claude Code does);
+  `esc` (TUI) or `Ctrl-C` interrupts the turn, a second `Ctrl-C` exits.
+- **A stopped turn is not a dead session.** When a turn ends on its tool results (denied,
+  escalated, checkpointed), the next ask rides that user message rather than following it — two
+  user messages in a row is a shape no provider takes.
 - **Courts run in the background.** `dispatch` may be asynchronous: the dispatcher keeps working
   and is woken by the Court's report. A running Court stays addressable (`/send <court> <text>`)
   until its dispatcher accepts the report; then its context dies (§Minds & Bodies — the task is
@@ -204,7 +212,7 @@ The throne never chooses its horse: the session (Rimuru) runs on the model the h
 - **The court is visible.** `/agents` (and a status line above the prompt) shows every live body:
   rank, office, model, state (thinking · tool · waiting on gate · done), elapsed, context
   occupancy against its window, tokens and cost so far. Starts and reports are announced between
-  prompts, one line each.
+  prompts, one line each (the TUI draws each Court as a block with its report rendered).
 - **Consumption is an instrument** (Nature 9). Every provider call's usage (input, output, cache
   read, cache write) is journaled to `.isekai/instruments/usage/<session>.jsonl`, priced from the
   provider's per-model `price` in config (unpriced models show tokens, never a guessed cost), and

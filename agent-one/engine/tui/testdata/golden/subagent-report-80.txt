@@ -1,0 +1,7 @@
+◆ subagent zone-auth · zone · analyst · gemini/gemini-3.8-flash      done · 9s
+  ⎿ findings on the login zone
+  ⎿ PASS
+    ● src/auth/token.go:1 token ttl is 15m
+    ● src/auth/login.go:12 the session cookie is httpOnly
+    ? src/auth/refresh.go: no test covers the refresh path
+    ∴ domain: the token TTL is 15m, set by the auth zone

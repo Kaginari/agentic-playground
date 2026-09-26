@@ -147,6 +147,10 @@ type Hooks struct {
 	// State reports the agent's state for the live subagent: thinking · tool · waiting on gate ·
 	// done.
 	State func(s *Session, state string)
+	// Observe sees every tool step twice: "start" once its class is settled (before the gate)
+	// and "end" once its record is final (done, failed, denied, refused, would-ask, would-run,
+	// or a missing tool). The terminal UI draws its blocks from it.
+	Observe func(s *Session, st *StepRecord, phase string)
 	// Inbox hands lines typed by the human mid-turn; they ride the next tool-result message.
 	Inbox func(s *Session) []string
 	// Budget reads the session and subagent budgets before a model call; a non-empty reason
@@ -410,7 +414,13 @@ func (s *Session) Turn(ctx context.Context, ask string) (*Result, error) {
 		// the last turn's writes met the gate; this turn gates only its own
 		s.Wrote, s.gated = nil, false
 	}
-	s.Messages = append(s.Messages, provider.Message{Role: provider.User, Text: ask})
+	if n := len(s.Messages); n > 0 && s.Messages[n-1].Role == provider.User {
+		// the last turn stopped on its tool results (denied, escalated, checkpointed): the ask
+		// rides that message — two user messages in a row is a shape no provider takes
+		s.Messages[n-1].Text = strings.TrimSpace(s.Messages[n-1].Text + "\n" + ask)
+	} else {
+		s.Messages = append(s.Messages, provider.Message{Role: provider.User, Text: ask})
+	}
 	return s.drive(ctx)
 }
 
@@ -563,6 +573,12 @@ func (s *Session) state(st string) {
 	}
 }
 
+func (s *Session) observe(st *StepRecord, phase string) {
+	if s.Engine.Hooks.Observe != nil {
+		s.Engine.Hooks.Observe(s, st, phase)
+	}
+}
+
 // step works one tool call through the six beats. It returns the record, the result for the
 // model, and a stop status when the turn must end here.
 func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall, r *Result, stepsThisTurn int) (*StepRecord, provider.ToolResult, string, string) {
@@ -571,6 +587,7 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 	st := &StepRecord{ID: fmt.Sprintf("s%d", s.Steps), N: s.Steps, Tool: call.Name, Input: call.Input, Status: "pending"}
 	deny := func(msg string) provider.ToolResult {
 		st.Result = tool.Result{Output: msg, Err: true} // the record keeps what the model read
+		s.observe(st, "end")
 		return provider.ToolResult{ID: call.ID, Content: msg, IsError: true}
 	}
 	// PERCEIVE: budgets before the step
@@ -607,6 +624,7 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 	for _, h := range holes {
 		r.hole(st.ID + ": " + h)
 	}
+	s.observe(st, "start")
 	if env.Policy != nil {
 		if err := env.Policy(tool.Access{Tool: t.Name, Class: cls.Class, Paths: cls.Paths, Input: call.Input}); err != nil {
 			st.Status = "refused"
@@ -617,7 +635,7 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 		}
 	}
 	dry := g.DryRun
-	greq := gate.Request{ID: st.ID, Tool: t.Name, Class: cls.Class, Why: cls.Why, Summary: summary(call)}
+	greq := gate.Request{ID: st.ID, Tool: t.Name, Class: cls.Class, Why: cls.Why, Summary: summary(call), Agent: e.as(), Input: call.Input}
 	var ans gate.Answer
 	rule := Decision{}
 	if e.Hooks.Decide != nil {
@@ -706,6 +724,7 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 		s.failures++
 		s.Journal.Log(Event{"t": "record", "id": st.ID, "status": "failed", "attempts": 1, "ms": st.Ms, "last": tail(res.Output)})
 		s.trace("  failed (%dms): %s", st.Ms, lastLine(res.Output))
+		s.observe(st, "end")
 		if s.failures > e.Budget.retries() {
 			return st, provider.ToolResult{ID: call.ID, Content: res.Output, IsError: true}, Escalate,
 				fmt.Sprintf("%d consecutive failed acts, last %s (%s) — one hop up: the dispatcher decides; journal %s", s.failures, st.ID, lastLine(res.Output), journalRel(s))
@@ -721,6 +740,7 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 	}
 	s.Journal.Log(Event{"t": "record", "id": st.ID, "status": "done", "attempts": 1, "ms": st.Ms, "wrote": st.Wrote})
 	s.trace("  ok (%dms)%s", st.Ms, map[bool]string{true: " wrote " + strings.Join(st.Wrote, " "), false: ""}[len(st.Wrote) > 0])
+	s.observe(st, "end")
 	out := res.Output
 	if out == "" {
 		out = "(no output)"

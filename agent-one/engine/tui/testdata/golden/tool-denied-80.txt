@@ -1,0 +1,2 @@
+● bash  git push origin main  outward
+  ⎿ denied at the gate · the operator said: not before the tests pass

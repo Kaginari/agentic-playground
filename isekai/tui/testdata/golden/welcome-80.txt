@@ -1,0 +1,14 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ ✦ isekai v0.1.5                                                              │
+│                                                                              │
+│ world   /home/monta/kaginari/pfcli                                           │
+│ model   gemini/gemini-3.8-flash                                              │
+│ offices great-sage → gemini/gemini-3.8-flash · raphael → gemini/gemini-3.8-  │
+│         flash · ciel → gemini/gemini-3.8-flash                               │
+│ board   http://127.0.0.1:7777/                                               │
+│ session 20260926-171200-a1b2c3                                               │
+│ off     2 features switched off by config (/status)                          │
+│ ? GEMINI_API_KEY is not set — the mount has no key                           │
+│                                                                              │
+│ /help for commands · ? for shortcuts · esc interrupts · ctrl+c twice exits   │
+╰──────────────────────────────────────────────────────────────────────────────╯

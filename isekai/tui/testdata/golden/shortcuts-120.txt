@@ -1,0 +1,12 @@
+╭────────────────────────────────────────────────────╮
+│ enter         send                                 │
+│ \ enter       newline (also alt+enter)             │
+│ ↑ ↓           history (on the first / last line)   │
+│ /             commands                             │
+│ @path         complete a file in the world (tab)   │
+│ esc           interrupt the turn · clear the input │
+│ ctrl+c ×2     exit                                 │
+│ ctrl+o        expand the last collapsed block      │
+│ ctrl+l        redraw                               │
+│ ?             this list                            │
+╰────────────────────────────────────────────────────╯

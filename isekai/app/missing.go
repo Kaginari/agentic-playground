@@ -106,6 +106,13 @@ func (p *MissingPolicy) propose(ctx context.Context, name string) string {
 	return fmt.Sprintf("named twice (Genesis): config patched and reloaded live (%d change%s) — %s is available from the next step", len(changes), plural(len(changes)), name)
 }
 
+// SetConfig swaps the policy's config after a reload elsewhere (a rule written by the TUI).
+func (p *MissingPolicy) SetConfig(cfg *config.Config) {
+	p.mu.Lock()
+	p.Cfg = cfg
+	p.mu.Unlock()
+}
+
 func enablePath(cfg *config.Config, name string) string {
 	if _, ok := cfg.Tools.Custom[name]; ok {
 		return "tools.custom." + name + ".enabled"

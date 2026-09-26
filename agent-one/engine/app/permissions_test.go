@@ -24,7 +24,7 @@ func TestRulesHoldOnCommandForms(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := func() tool.Env { return tool.Env{Root: root} }
-	decide := decideHook(cfg, env)
+	decide := decideHook(func() *config.Config { return cfg }, env)
 	ask := func(cmd string) loop.Decision {
 		in, _ := json.Marshal(map[string]string{"command": cmd})
 		st := &loop.StepRecord{Tool: "bash", Input: in}

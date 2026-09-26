@@ -37,6 +37,8 @@ type Subagent struct {
 	order  []string
 	wake   []string // reports of finished background Subagents, for the session's next turn
 	onWake func()
+	// onFinish sees a background subagent's report as it lands (the TUI draws its block).
+	onFinish func(name, report string)
 }
 
 func newSubagent(a *App) *Subagent {
@@ -107,7 +109,11 @@ func (c *Subagent) Finish(name, report string) {
 			close(b.done)
 		}
 	}
+	f := c.onFinish
 	c.mu.Unlock()
+	if f != nil && report != "" {
+		f(name, report)
+	}
 }
 
 // Send queues a line for a running agent (delivered at its next tool step).

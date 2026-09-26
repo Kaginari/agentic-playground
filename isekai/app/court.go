@@ -37,6 +37,8 @@ type Court struct {
 	order  []string
 	wake   []string // reports of finished background Courts, for the session's next turn
 	onWake func()
+	// onFinish sees a background Court's report as it lands (the TUI draws its block).
+	onFinish func(name, report string)
 }
 
 func newCourt(a *App) *Court {
@@ -107,7 +109,11 @@ func (c *Court) Finish(name, report string) {
 			close(b.done)
 		}
 	}
+	f := c.onFinish
 	c.mu.Unlock()
+	if f != nil && report != "" {
+		f(name, report)
+	}
 }
 
 // Send queues a line for a running body (delivered at its next tool step).

@@ -1,0 +1,1 @@
+✗ gate · fail: src/api/rogue.go is outside zone-auth's domain · .agent-one/log.md

@@ -1,0 +1,4 @@
+  /agents  the live subagent
+❯ /status  the honesty rule and the instrument board
+  /send    /send <agent> <text> — a line for a running agent
+  /review  Review $ARGUMENTS carefully (.claude/commands)

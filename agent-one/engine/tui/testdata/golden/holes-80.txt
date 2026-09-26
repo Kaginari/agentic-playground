@@ -1,0 +1,3 @@
+? s3: the tree could not be stamped — shell writes go unseen
+? report carries no @U line — nothing unsaid, or the duty failed (the dispatcher
+  may ask)

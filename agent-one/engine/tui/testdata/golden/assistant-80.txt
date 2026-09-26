@@ -1,0 +1,12 @@
+The gate has **four checks** (Policy 3):
+
+1. Right zone worker authored
+2. Traits hold
+3. Duties done
+4. Doc truthful
+
+func Gate(w *Workspace) Verdict {
+    return w.Check(4)
+}
+
+Run go test ./... to see the verify beat read the exit codes.

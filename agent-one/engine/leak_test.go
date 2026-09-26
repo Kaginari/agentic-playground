@@ -27,7 +27,7 @@ func TestNoForkedVocabularyLeaks(t *testing.T) {
 		}
 		rel := filepath.ToSlash(p)
 		if d.IsDir() {
-			if rel == ".git" || rel == "board/assets" {
+			if rel == ".git" || rel == "board/assets" || rel == "bin" { // bin/: a built binary is bytes, not words
 				return filepath.SkipDir
 			}
 			return nil

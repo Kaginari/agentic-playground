@@ -1,0 +1,2 @@
+> explain the gate in this workspace and then run the tests under src/auth —
+  take your time, I want the full picture of what the verify beat reads

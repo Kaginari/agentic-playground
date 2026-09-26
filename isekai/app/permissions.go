@@ -54,8 +54,9 @@ func subjectOf(name string, in json.RawMessage, env tool.Env) string {
 }
 
 // decideHook is the loop's Decide seam: config.Decide before the gate.
-func decideHook(cfg *config.Config, env func() tool.Env) func(s *loop.Session, st *loop.StepRecord, cls tool.Classification) loop.Decision {
+func decideHook(live func() *config.Config, env func() tool.Env) func(s *loop.Session, st *loop.StepRecord, cls tool.Classification) loop.Decision {
 	return func(s *loop.Session, st *loop.StepRecord, cls tool.Classification) loop.Decision {
+		cfg := live()
 		name := st.Tool
 		if name == "str_replace_based_edit_tool" {
 			name = "edit"

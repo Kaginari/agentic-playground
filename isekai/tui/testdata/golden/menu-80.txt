@@ -1,0 +1,4 @@
+  /agents  the live court
+❯ /status  the honesty rule and the instrument board
+  /send    /send <body> <text> — a line for a running body
+  /review  Review $ARGUMENTS carefully (.claude/commands)

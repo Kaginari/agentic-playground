@@ -53,6 +53,8 @@ type Options struct {
 	IsTTY func() bool
 	// NoBoard keeps the board down whatever ui.board.autostart says (one-shot runs, tests).
 	NoBoard bool
+	// Plain keeps the line REPL on a terminal (--plain); the TUI is never forced on a pipe.
+	Plain bool
 }
 
 // App is one opened engine.
@@ -82,6 +84,10 @@ type App struct {
 	OnDelta func(text string)
 	// Inbox hands lines typed mid-turn to the running body.
 	Inbox func(s *loop.Session) []string
+	// OnStep sees every tool step start and end (loop.Hooks.Observe); nil is quiet.
+	OnStep func(s *loop.Session, st *loop.StepRecord, phase string)
+	// Notify carries one-line notices for the human (a config reload); nil prints on Err.
+	Notify func(text string)
 
 	mount      provider.Provider
 	mountModel config.Model
@@ -247,8 +253,19 @@ func (a *App) reload(next *config.Config, changes []config.Change) {
 	a.Hooks.Cfg = next
 	a.mu.Unlock()
 	for _, c := range changes {
+		if a.Notify != nil {
+			a.Notify("config reloaded: " + c.String())
+			continue
+		}
 		fmt.Fprintln(a.Opt.Err, "config reloaded: "+c.String())
 	}
+}
+
+// liveConfig is the config as reloaded, for hooks that must read the newest rules.
+func (a *App) liveConfig() *config.Config {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.Cfg
 }
 
 // Build is the world's build for this engine: routed models, the gate, the per-body shelf,
@@ -286,7 +303,7 @@ func (a *App) Build() world.Build {
 	}
 	env := func() tool.Env { return tool.Env{Root: a.Root, WorldDir: cfg.Dist.WorldDir} }
 	mine := loop.Hooks{
-		Decide:   decideHook(cfg, env),
+		Decide:   decideHook(a.liveConfig, env),
 		Missing:  a.Missing.Hook(),
 		PreTool:  a.Hooks.PreTool,
 		PostTool: a.Hooks.PostTool,
@@ -304,6 +321,11 @@ func (a *App) Build() world.Build {
 				return a.Inbox(s)
 			}
 			return nil
+		},
+		Observe: func(s *loop.Session, st *loop.StepRecord, phase string) {
+			if a.OnStep != nil {
+				a.OnStep(s, st, phase)
+			}
 		},
 	}
 	b.Extra = world.MergeHooks(a.drainHooks(), mine)

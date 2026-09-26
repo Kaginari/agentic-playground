@@ -32,6 +32,8 @@ type Request struct {
 	Why     string     // the classifier's reason
 	Summary string     // the act, one line (the command, the path)
 	Force   bool       // a permission rule said ask: the gate asks whatever the class
+	Agent   string     // the agent that asks (the session, or a subagent)
+	Input   []byte     // the tool's input as JSON (a rule proposal reads the subject from it)
 }
 
 // Answer is the decision with its provenance.
@@ -53,6 +55,10 @@ type Gate struct {
 	IsTTY   func() bool
 	Prompt  func(Request) string // the human-facing question; defaults to DefaultPrompt
 	Flag    string               // the flag named in a denial ("--approve" by default)
+	// Answer, when set, is asked before the TTY prompt: the terminal UI's choice block. A false
+	// second value falls through to the prompt. It is still the operator's word: nothing here
+	// approves on its own.
+	Answer func(Request) (Answer, bool)
 }
 
 // New builds a gate with no pre-approvals.
@@ -102,6 +108,21 @@ func (g *Gate) Ask(r Request) Answer {
 	}
 	if g.DryRun {
 		return Answer{Needed: true, Decision: WouldAsk, By: "dry-run", Why: r.Why}
+	}
+	if g.Answer != nil {
+		if a, ok := g.Answer(r); ok {
+			a.Needed = true
+			if a.Decision != Approved {
+				a.Decision = Denied
+			}
+			if a.By == "" {
+				a.By = "tui"
+			}
+			if a.Why == "" {
+				a.Why = r.Why
+			}
+			return a
+		}
 	}
 	if g.isTTY() {
 		prompt := g.Prompt

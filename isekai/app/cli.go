@@ -31,6 +31,7 @@ type IO struct {
 type cliFlags struct {
 	root, dist, session, format string
 	json, quiet, noBoard, bench bool
+	plain                       bool
 	since                       string
 }
 
@@ -71,6 +72,8 @@ func splitFlags(args []string) (cliFlags, []string) {
 			f.noBoard = true
 		case "--bench":
 			f.bench = true
+		case "--plain":
+			f.plain = true
 		default:
 			rest = append(rest, a)
 		}
@@ -121,7 +124,7 @@ func Main(dist string, args []string, io IO, v Version) int {
 		for _, c := range commands {
 			fmt.Fprintf(io.Out, "  %-9s %s\n", c.name, c.summary)
 		}
-		fmt.Fprintln(io.Out, "flags: --root <dir> --model <provider/id> --approve <classes> --dry-run --strict --set key=value --no-<feature> --format text|json|wire --json --quiet --session <id>")
+		fmt.Fprintln(io.Out, "flags: --root <dir> --model <provider/id> --approve <classes> --dry-run --strict --set key=value --no-<feature> --format text|json|wire --json --quiet --session <id> --plain")
 		return 0
 	}
 	f, rest := splitFlags(args)
@@ -139,7 +142,7 @@ func Main(dist string, args []string, io IO, v Version) int {
 	if f.format != "" {
 		overrides = append(overrides, config.Override{Path: "output.format", Value: f.format, Flag: "--format"})
 	}
-	opt := Options{Dist: dist, Root: f.root, Env: io.Env, Flags: overrides, In: io.In, Out: io.Out, Err: io.Err, Version: v, Session: f.session, Quiet: f.quiet, NoBoard: f.noBoard}
+	opt := Options{Dist: dist, Root: f.root, Env: io.Env, Flags: overrides, In: io.In, Out: io.Out, Err: io.Err, Version: v, Session: f.session, Quiet: f.quiet, NoBoard: f.noBoard, Plain: f.plain}
 	if opt.Root != "" {
 		opt.Cwd = opt.Root
 	}
@@ -178,6 +181,9 @@ func Main(dist string, args []string, io IO, v Version) int {
 	switch name {
 	case "repl":
 		a.startBoard(ctx)
+		if a.wantsTUI(f.plain) {
+			return a.TUI(ctx)
+		}
 		return a.REPL(ctx)
 	case "run":
 		return a.cmdRun(ctx, strings.TrimSpace(strings.Join(leftover, " ")), io)
@@ -376,6 +382,10 @@ func (a *App) cmdResume(ctx context.Context, id, ask string, io IO) int {
 	}
 	if io.In != nil {
 		if f, ok := io.In.(*os.File); ok && f == os.Stdin && isTerminal(f) {
+			if a.wantsTUI(false) {
+				a.startBoard(ctx)
+				return a.TUI(ctx)
+			}
 			fmt.Fprintf(io.Err, "resumed %s (%d messages)\n", id, len(s.Messages))
 			return a.REPL(ctx)
 		}

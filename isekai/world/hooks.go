@@ -160,6 +160,9 @@ func MergeHooks(base, over loop.Hooks) loop.Hooks {
 	if over.State != nil {
 		out.State = over.State
 	}
+	if over.Observe != nil {
+		out.Observe = over.Observe
+	}
 	if over.Inbox != nil {
 		out.Inbox = over.Inbox
 	}

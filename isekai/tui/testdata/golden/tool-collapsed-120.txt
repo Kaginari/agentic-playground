@@ -1,0 +1,11 @@
+● read  src/auth/login.go  read
+  ⎿ ok · 3ms · 31 lines
+    line 1 of the output
+    line 2 of the output
+    line 3 of the output
+    line 4 of the output
+    line 5 of the output
+    line 6 of the output
+    line 7 of the output
+    line 8 of the output
+    … +23 lines (ctrl+o to expand)

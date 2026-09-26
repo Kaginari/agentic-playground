@@ -880,3 +880,22 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Veldora pasted the API key into the chat: used once for tests via a 0600 file, then shredded;
     the key must be rotated.
   - TestREPLLive failed twice under full-suite -race load (never alone in 60 runs): unresolved flake.
+
+### [2026-09-26T18:36:22+02:00] rimuru — the terminal UI, Claude Code style, in both engines
+- **Task:** Human: "The CLI interface is just shit — I wanted Claude level or OpenCode level";
+  chose Claude Code style (inline) and the Charm libraries over stdlib-only.
+- **Files:** {isekai,agent-one/engine}/tui/ (view model, program, input, diff, markdown, theme,
+  goldens) · app/tui.go + tests · loop Hooks.Observe, gate Answer seam · go.mod/go.sum (Charm,
+  pinned) · canon tui.md + binary.md · .isekai/memory/shared/notes.jsonl (Charm pitfalls).
+- **Gate:** n/a (no orcs). Instruments: ladder rungs 1–5 in isekai, port + leak test in agent-one;
+  vet + full test suites green in both (Rimuru re-ran); screens rendered through pyte at 80×24 and
+  120×40 (13 scenes isekai, 26 screens agent-one) — reviewed by the Court and by Rimuru.
+- **Result:** done; the next patch releases carry it.
+- **Learned:**
+  - Charm's Println commands batched in one Update race each other: finished blocks now leave
+    through one FIFO printer, so scrollback order is the loop's order.
+  - A latent loop bug surfaced: an ask after a stopped turn produced two consecutive user
+    messages; the ask now folds onto the stopped turn's tool-result message.
+  - Known limits, named: shift+enter is indistinguishable from enter in Bubble Tea v1 (use
+    alt+enter / ctrl+j / \+enter); the terminal background is never queried (THEME=light to
+    switch); a Court's own tool steps show as state only; binaries grew ~12 MB.
