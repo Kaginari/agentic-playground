@@ -26,8 +26,8 @@ jobs:
       - name: Release notes — the tag's section of CHANGELOG.md goes on top of the generated list
         run: |
           v="${GITHUB_REF_NAME#v}"
-          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > .release-header.md
-          if [ ! -s .release-header.md ]; then echo "CHANGELOG.md has no section for [$v]"; exit 1; fi
+          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > "$RUNNER_TEMP/release-header.md"
+          if [ ! -s "$RUNNER_TEMP/release-header.md" ]; then echo "CHANGELOG.md has no section for [$v]"; exit 1; fi
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -38,9 +38,11 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean --release-header .release-header.md
+          args: release --clean --release-header ${{ runner.temp }}/release-header.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Attestations are free for public repositories only; a private repository skips them.
       - uses: actions/attest-build-provenance@v4
+        if: ${{ !github.event.repository.private }}
         with:
           subject-path: "dist/*.tar.gz"
