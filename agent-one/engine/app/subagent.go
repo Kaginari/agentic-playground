@@ -173,7 +173,7 @@ func (c *Subagent) Agents() []LiveAgent {
 func (c *Subagent) Live() int {
 	n := 0
 	for _, b := range c.Agents() {
-		if b.State != "done" {
+		if b.State != "done" && b.Depth > 0 { // the session itself is not a dispatched agent
 			n++
 		}
 	}
@@ -211,7 +211,10 @@ func (c *Subagent) Lines() []string {
 func (c *Subagent) StatusLine(s *loop.Session) string {
 	tot := c.app.Journal.Total()
 	cost := "unpriced"
-	if tot.Calls > 0 && tot.Unpriced == 0 {
+	switch {
+	case tot.Calls == 0:
+		cost = "no calls yet"
+	case tot.Unpriced == 0:
 		cost = fmt.Sprintf("$%.4f", tot.USD)
 	}
 	ctx := "ctx —"

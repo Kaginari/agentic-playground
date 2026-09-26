@@ -173,7 +173,7 @@ func (c *Court) Bodies() []LiveBody {
 func (c *Court) Live() int {
 	n := 0
 	for _, b := range c.Bodies() {
-		if b.State != "done" {
+		if b.State != "done" && b.Depth > 0 { // the session itself is not a dispatched agent
 			n++
 		}
 	}
@@ -211,7 +211,10 @@ func (c *Court) Lines() []string {
 func (c *Court) StatusLine(s *loop.Session) string {
 	tot := c.app.Journal.Total()
 	cost := "unpriced"
-	if tot.Calls > 0 && tot.Unpriced == 0 {
+	switch {
+	case tot.Calls == 0:
+		cost = "no calls yet"
+	case tot.Unpriced == 0:
 		cost = fmt.Sprintf("$%.4f", tot.USD)
 	}
 	ctx := "ctx —"
