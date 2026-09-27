@@ -321,6 +321,12 @@ func (a *App) slash(ctx context.Context, line string, s *loop.Session, busy bool
 			a.Sessions.Sync(a.SessionID, s, a.mountModel.Ref.Model)
 		}
 	case "review":
+		if _, own := a.Found.Command("review"); own {
+			// the world's own /review command wins over the built-in one, as its config wins over defaults
+			a.queueTurn(a.foundExpand("review", rest))
+			fmt.Fprintln(errw, "command /review → a turn")
+			return false
+		}
 		if busy {
 			fmt.Fprintln(errw, "a turn is running — /review waits for it")
 			return false
@@ -494,4 +500,10 @@ func (a *App) resultJSON(r *loop.Result) string {
 	}
 	b, _ := jsonMarshal(v)
 	return string(b)
+}
+
+// foundExpand expands a discovered command's template with its arguments.
+func (a *App) foundExpand(name, rest string) string {
+	c, _ := a.Found.Command(name)
+	return c.Expand(rest)
 }

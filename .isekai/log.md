@@ -1157,3 +1157,15 @@ Append-only. Newest entries at the bottom. One entry per change.
   reviewers report, their write refused, the file untouched; the merged shortlist returns); suites green.
 - **Learned:** a reviewer cannot be a dispatched Court — dispatch needs a creature on the roster and
   most worlds have none to spare; the binary runs the two as read-only engines of its own instead.
+
+### [2026-09-27T13:07:52+02:00] rimuru — a world's own /review wins; 73f3ab5 landed with a red suite
+- **Files:** isekai/app/repl.go · world/world_test.go (gofmt) · canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: the full suite green (TestREPLLive's world-defined /review turns
+  again).
+- **Learned:**
+  - The built-in /review shadowed a world's discovered /review command. A world's own command wins,
+    as its config wins over the defaults.
+  - 73f3ab5 was committed although TestREPLLive failed: the script ran the suite and then committed
+    regardless. From here the commit is chained on the suite's success (`test && commit`), never
+    after it.
+  - Veldora asked the review run on ciel's and raphael's models: it does (reviewOffices).

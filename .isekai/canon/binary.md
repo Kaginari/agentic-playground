@@ -394,7 +394,7 @@ finish fails the review — a partial review is not a review. Both reports go to
 merges them: deduplicated, judged (agreement alone does not make an issue real), a numbered shortlist
 marked [both] / [raphael] / [ciel] with the ones both found first, the count dropped as overthinking,
 and a request for the human's approval — nothing is fixed before it. In a session the reviewers run in
-the background and the merge arrives as a turn. (After davidondrej/skills' total-review, MIT.)
+the background and the merge arrives as a turn. A world's own `/review` command wins over the built-in one. (After davidondrej/skills' total-review, MIT.)
 
 ## The first run — a setup form
 

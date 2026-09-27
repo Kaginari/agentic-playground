@@ -689,7 +689,7 @@ func TestGateTestsIntact(t *testing.T) {
 
 func TestTestsIntactLanguages(t *testing.T) {
 	cases := []struct {
-		lang, text string
+		lang, text   string
 		tests, skips int
 	}{
 		{"js", "describe('a', () => {\n  it('x', () => {})\n  test('y', () => {})\n  it.skip('z', () => {})\n  xit('w', () => {})\n  it.only('v', () => {})\n})", 2, 3},
