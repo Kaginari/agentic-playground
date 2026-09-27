@@ -382,6 +382,20 @@ an answer with `@? human: <what it needs>` (exit 3), at the turn ceiling (defaul
 turn fails or checkpoints. The contract forbids weakening tests; the gate's tests-intact enforces it on
 every turn. (After davidondrej/skills' goal-loop, MIT.)
 
+## Review — two reviewers, one shortlist
+
+`/review [range]` (or `<dist> review [range]`) runs two independent reviewers in parallel, on two
+offices' models (raphael and ciel: two models when config gives them two), each with the same neutral
+brief — read the diff, the changed code in full, the code around it and its tests; report serious or
+critical issues with file:line, why and the fix; separate verified from suspected; say whether it is
+ready to merge. The range is the argument, else the uncommitted changes, else the last commit. A
+reviewer's shelf is read-only: anything above a read is refused, never asked. A reviewer that does not
+finish fails the review — a partial review is not a review. Both reports go to the session, which
+merges them: deduplicated, judged (agreement alone does not make an issue real), a numbered shortlist
+marked [both] / [raphael] / [ciel] with the ones both found first, the count dropped as overthinking,
+and a request for the human's approval — nothing is fixed before it. In a session the reviewers run in
+the background and the merge arrives as a turn. (After davidondrej/skills' total-review, MIT.)
+
 ## The first run — a setup form
 
 `init` founds the world; on a terminal it then asks, in a Huh form, which model the world runs on —

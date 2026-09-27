@@ -1150,3 +1150,10 @@ Append-only. Newest entries at the bottom. One entry per change.
 - **Learned:** the validation belongs to the binary, not the model: run outside the loop's tools, it
   cannot be skipped, weakened or rewritten by the turn it judges — the same lesson as the pre-turn
   verify lines.
+
+### [2026-09-27T13:07:11+02:00] rimuru — review: two reviewers, one shortlist (isekai)
+- **Files:** isekai/app/{review.go,repl.go,tui.go,cli.go,e2e_test.go} · canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: TestE2EReview (a git world with an uncommitted change; both
+  reviewers report, their write refused, the file untouched; the merged shortlist returns); suites green.
+- **Learned:** a reviewer cannot be a dispatched Court — dispatch needs a creature on the roster and
+  most worlds have none to spare; the binary runs the two as read-only engines of its own instead.

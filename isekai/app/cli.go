@@ -102,6 +102,7 @@ var commands = []struct{ name, summary string }{
 	{"run", "run one ask to its end: run [--json] [--format text|json|wire] \"<ask>\""},
 	{"resume", "resume a session: resume <id> [ask]"},
 	{"goal", "work to a goal until a command proves it: goal --validate \"<cmd>\" [--read …] [--constraints …] [--max-turns N] \"<objective>\""},
+	{"review", "two reviewers on two models, one merged shortlist: review [range]"},
 	{"handoff", "write a handoff for a fresh session: handoff [focus]"},
 	{"sessions", "list the sessions of this world"},
 	{"status", "the honesty rule and the instrument board"},
@@ -210,6 +211,13 @@ func Main(dist string, args []string, io IO, v Version) int {
 			return a.TUI(ctx)
 		}
 		return a.REPL(ctx)
+	case "review":
+		merge, err := a.runReview(ctx, strings.Join(leftover, " "), func(l string) { fmt.Fprintln(io.Err, l) })
+		if err != nil {
+			fmt.Fprintf(io.Err, "@S FAIL\n@? review: %v\n", err)
+			return 2
+		}
+		return a.cmdRun(ctx, merge, io)
 	case "goal":
 		g := f.goal
 		g.objective = strings.TrimSpace(strings.Join(leftover, " "))

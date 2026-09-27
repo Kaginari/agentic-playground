@@ -288,6 +288,7 @@ var builtinCommands = []tui.MenuItem{
 	{Name: "status", Description: "the honesty rule and the instrument board"},
 	{Name: "config", Description: "config [explain] — the switchboard and where each value came from"},
 	{Name: "compact", Description: "drain the context now"},
+	{Name: "review", Description: "/review [range] — two reviewers on two models, one merged shortlist; nothing fixed before you approve"},
 	{Name: "handoff", Description: "/handoff [focus] writes one for a fresh session · /handoff read picks the last up"},
 	{Name: "sessions", Description: "the sessions of this world"},
 	{Name: "resume", Description: "/resume <id> — reopen a session"},

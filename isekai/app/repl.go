@@ -256,7 +256,7 @@ func (a *App) slash(ctx context.Context, line string, s *loop.Session, busy bool
 	case "quit", "exit", "q":
 		return true
 	case "help", "?":
-		fmt.Fprintln(out, "/agents · /send <body> <text> · /usage · /status · /config [explain] · /compact · /handoff [read] · /sessions · /resume <id> · /quit")
+		fmt.Fprintln(out, "/agents · /send <body> <text> · /usage · /status · /config [explain] · /compact · /review [range] · /handoff [read] · /sessions · /resume <id> · /quit")
 		var names []string
 		for _, c := range a.Found.Commands {
 			names = append(names, "/"+c.Name)
@@ -320,6 +320,30 @@ func (a *App) slash(ctx context.Context, line string, s *loop.Session, busy bool
 			fmt.Fprintf(out, "drained: %d → %d tokens, %d pointers, %d notes, %d facts\n", a.Drainer.Last.Before, a.Drainer.Last.After, len(a.Drainer.Last.Pointers), a.Drainer.Last.Notes, a.Drainer.Last.Facts)
 			a.Sessions.Sync(a.SessionID, s, a.mountModel.Ref.Model)
 		}
+	case "review":
+		if busy {
+			fmt.Fprintln(errw, "a turn is running — /review waits for it")
+			return false
+		}
+		go func() {
+			merge, err := a.runReview(ctx, rest, func(l string) {
+				if a.Notify != nil {
+					a.Notify(l)
+				} else {
+					fmt.Fprintln(errw, l)
+				}
+			})
+			if err != nil {
+				msg := "review: " + err.Error()
+				if a.Notify != nil {
+					a.Notify(msg)
+				} else {
+					fmt.Fprintln(errw, msg)
+				}
+				return
+			}
+			a.queueTurn(merge)
+		}()
 	case "handoff":
 		if busy {
 			fmt.Fprintln(errw, "a turn is running — /handoff waits for it")

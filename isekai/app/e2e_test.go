@@ -479,3 +479,32 @@ func TestE2EGoal(t *testing.T) {
 		t.Fatalf("pause: %d\n%s\n%s", code, out, errb)
 	}
 }
+
+// /review: two read-only reviewers in parallel (a write is refused, not asked), one merged
+// shortlist; nothing fixed.
+func TestE2EReview(t *testing.T) {
+	isekai, _, _ := binaries(t)
+	w := newTestWorld(t, "isekai", isekaiCreatures())
+	git := func(args ...string) {
+		c := exec.Command("git", append([]string{"-C", w.root, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...)
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	git("init", "-q")
+	git("add", "-A")
+	git("commit", "-qm", "base")
+	w.write("src/auth/login.go", "package auth\n\nfunc Login() *int { return nil }\n")
+	w.script(".isekai/tmp/s.json",
+		when("Two independent reviewers", text("1. Login returns nil — src/auth/login.go:3 [both]\nDropped 0 as overthinking.\nApprove fixing these, or adjust the list?")),
+		when("as a thorough senior developer", call("write", map[string]string{"path": "src/auth/login.go", "content": "fixed"})),
+		when("a reviewer reads only", text("Serious: src/auth/login.go:3 Login returns nil. Not ready to merge.")))
+	w.write(".isekai/config.yaml", mockCfg(".isekai/tmp/s.json", ""))
+	code, out, errb := w.exec(isekai, "", nil, "review", "--quiet")
+	if code != 0 || !strings.Contains(out, "[both]") || !strings.Contains(errb, "review: [raphael] reported") || !strings.Contains(errb, "review: [ciel] reported") {
+		t.Fatalf("review: %d\n%s\n%s", code, out, errb)
+	}
+	if strings.Contains(w.read("src/auth/login.go"), "fixed") {
+		t.Fatal("a reviewer wrote a file")
+	}
+}
