@@ -17,8 +17,10 @@ var officeRoles = map[string]string{"great-sage": "reads", "raphael": "verdicts"
 
 // Board is what /board draws, read from the same feeds as the web board: the live court, the
 // reasoned ontology, the offices as config resolves them, the usage journal.
-func (h *tuiHost) Board(rng string) tui.BoardView {
-	a := h.a
+func (h *tuiHost) Board(rng string) tui.BoardView { return h.a.BoardView(rng) }
+
+// BoardView is the board as /board and the SSH board draw it.
+func (a *App) BoardView(rng string) tui.BoardView {
 	now := time.Now()
 	opt := a.boardOptions()
 	src := board.FileSources(opt.WorldRoot, opt.WorldDir, opt.Layout, time.Now)

@@ -91,6 +91,7 @@ type Model struct {
 	intro     *introState // the startup animation; nil when off or over
 	shimmer   int         // the spinner verb's highlight, advanced with the spinner
 	palette   *paletteState
+	boardOnly bool // the board alone (served over SSH): no session, no scrollback; esc quits
 	toasts    []toast
 
 	// the board: full screen while open; blocks that finish meanwhile wait in held
@@ -158,6 +159,10 @@ func (m *Model) Attach(send func(tea.Msg)) {
 // Init starts the ticks and the printer and asks the terminal for its background; the welcome
 // waits for the terminal's width, and briefly for that answer, so it is drawn in the right theme.
 func (m *Model) Init() tea.Cmd {
+	if m.boardOnly {
+		m.bgKnown, m.welcomed = true, true
+		return tea.Batch(tick(), m.openBoard())
+	}
 	cmds := []tea.Cmd{textarea.Blink, tick(), m.printer}
 	if m.intro != nil {
 		cmds = append(cmds, introTick())
@@ -251,6 +256,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		if msg.Width <= 0 || msg.Height <= 0 {
+			return m, nil // a terminal that reports no size keeps the last one (80×24 at first)
+		}
 		m.width, m.height = msg.Width, msg.Height
 		if m.width < 20 {
 			m.width = 20

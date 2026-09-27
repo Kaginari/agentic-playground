@@ -344,6 +344,14 @@ for what dispatch could not avoid.
 Every pass is switchable in config (`compaction.passes.*`); a `summary` strategy exists as the
 generic fallback, and `status` shows which strategy and passes are live.
 
+## The first run — a setup form
+
+`init` founds the world; on a terminal it then asks, in a Huh form, which model the world runs on —
+keep the global config, OpenRouter's free models, Anthropic, OpenAI, Ollama, or any OpenAI-compatible
+server — and writes the world's `config.yaml` (the key's *name* only; the key never lands in a file),
+saying so when that variable is not set in the shell. A pipe, `--plain`, a world that already has a
+config, or `<PREFIX>NO_SETUP` skips it.
+
 ## The board — the world, seen
 
 `isekai` lights the board when it starts (`ui.board.autostart`, default on; `isekai board` alone
@@ -359,6 +367,13 @@ supersedes `tempest.js` once it shows everything tempest shows.
   components — so every page is responsive from a phone to a wide screen, offline. Isekai's own
   look is a thin theme over it (colour tokens for each rank and lane, dark and light), never a
   second layout system. Charts and the colony graph are inline SVG sized by their grid column.
+
+**Over SSH — `board --ssh [addr]`.** Wish serves the terminal board (`canon/tui.md` §The board) to
+any SSH client: each connection its own full-screen board over the world's files. It listens on
+`127.0.0.1:2222` by default (a warning when told to listen beyond the machine), admits only the keys in
+`~/.ssh/authorized_keys` and fails closed without that file; its host key lives in
+`~/.local/share/<dist>/ssh/`. The command's own output — the web board, the SSH server, each session —
+is a Charm Log: levelled, coloured, timed.
 
 ## Tests
 

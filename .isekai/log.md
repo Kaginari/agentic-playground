@@ -1070,3 +1070,14 @@ Append-only. Newest entries at the bottom. One entry per change.
   the board), TestToastLives (slides in, expires); the overlay rendered and looked at twice — the
   palette first overlapped the input's border, then the toast rows were not counted; fixed and
   seen; suites green.
+
+### [2026-09-27T12:33:02+02:00] rimuru — the CLI, phase 5: Huh, Log, Wish (isekai)
+- **Files:** isekai/app/{setup.go,boardssh.go,board.go,cli.go,tuiboard.go,container_test.go} ·
+  tui/{board.go,model.go} · go.mod (huh v2.0.3, log v2.0.1, wish v2.0.4) · canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: every setup preset's config opens a world on its model;
+  `board --ssh` against a scratch HOME: no authorized_keys → refused; a generated key → admitted,
+  the session logged, the Graph page drawn over SSH, q ends it; suites green.
+- **Learned:**
+  - A client without a real terminal reports a 0×0 pty: every line truncated to nothing. The model
+    now keeps its last size when a terminal reports none.
+  - Wish's WithAuthorizedKeys fails closed on a missing file — kept, with a sentence a human reads.

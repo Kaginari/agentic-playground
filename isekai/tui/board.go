@@ -117,6 +117,9 @@ func (m *Model) openBoard() tea.Cmd {
 
 // closeBoard gives the screen back and prints what finished while the board was open.
 func (m *Model) closeBoard() tea.Cmd {
+	if m.boardOnly {
+		return tea.Quit
+	}
 	m.board = nil
 	held := m.held
 	m.held = nil
@@ -732,4 +735,12 @@ func (m *Model) boardTable(headers []string, rows [][]string, right map[int]bool
 			return st
 		})
 	return strings.Split(tb.Render(), "\n")
+}
+
+// NewBoardOnly is the board as its own program (the SSH board): it opens on the board, draws
+// nothing into a scrollback, and quits when the board closes.
+func NewBoardOnly(host Host, theme Theme, words Words) *Model {
+	m := New(host, theme, words)
+	m.boardOnly = true
+	return m
 }
