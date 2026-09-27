@@ -1125,3 +1125,11 @@ Append-only. Newest entries at the bottom. One entry per change.
   - The shell expands `~` before a hook sees it: `rm -rf /home/you` passed the list. The guard now
     knows the home by its own path.
   - Nothing is installed into Veldora's own agents yet: `isekai guard install --yes` is their call.
+
+### [2026-09-27T13:00:03+02:00] rimuru — the gate: tests intact (isekai)
+- **Files:** isekai/loop/{snapshot.go,loop.go} · world/{tests.go,gate.go,hooks.go,world_test.go} ·
+  config/{schema,defaults}.go · app/world.go · canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: TestGateTestsIntact (a lost test and a new skip fail, a new
+  test passes), TestTestsIntactLanguages (Go, JS/TS, Python); suites green.
+- **Learned:** git's HEAD is the wrong baseline — it would count the human's own uncommitted edits;
+  the loop's own snapshot at turn open is the only honest "before".

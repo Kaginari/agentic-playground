@@ -3,7 +3,9 @@ package loop
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -121,6 +123,7 @@ func (s *Session) watch(r *Result) {
 		return
 	}
 	s.base = snap
+	s.TestsBefore = s.Engine.readTests(snap)
 }
 
 // seen re-stamps the tree and returns what changed since the baseline, root-relative; the new
@@ -138,4 +141,29 @@ func (s *Session) seen() []string {
 	changed := s.base.diff(snap)
 	s.base = snap
 	return changed
+}
+
+// testFile names a test file in the languages the gate reads: Go, JS/TS, Python.
+var testFile = regexp.MustCompile(`(_test\.go|\.(test|spec)\.[cm]?[jt]sx?|(^|/)test_[^/]*\.py|_test\.py)$`)
+
+// IsTestFile reports whether a root-relative path is a test file.
+func IsTestFile(rel string) bool { return testFile.MatchString(rel) }
+
+// readTests keeps the test files' text as the turn opens, so the gate can see what a turn did to
+// the tests it is judged by (bounded: 256 KiB a file, 4 MiB in all).
+func (e *Engine) readTests(snap snapshot) map[string]string {
+	out := map[string]string{}
+	total := 0
+	for rel := range snap {
+		if !testFile.MatchString(rel) {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(e.Root, filepath.FromSlash(rel)))
+		if err != nil || len(b) > 256<<10 || total+len(b) > 4<<20 {
+			continue
+		}
+		total += len(b)
+		out[rel] = string(b)
+	}
+	return out
 }

@@ -256,6 +256,10 @@ At the end of any turn that wrote files, before the turn is reported done:
    Vitality makes a body edit its own doc in the same turn, so the post-turn lines alone would let
    it rewrite the check it is judged by. A pre-turn line the turn removed or changed still runs, and
    the change is a hole for the gate holder to confirm.
+- **Tests intact** (`law.gate.testsIntact`) — a turn may not pass by making the tests easier. The
+   loop keeps the test files' text as the turn opens (Go, JS/TS, Python; bounded); a touched test
+   file that lost tests, gained a skip or an `.only`, or was deleted fails the gate. Only the human
+   decides a test goes.
 3. **Duties done** — the commission's `@ASK` is answered (`@S` present, holes named as `@?`).
 4. **Doc truthful** — a change under a territory with no change to its owning doc fails
    (Nature 1). The owning doc is the Slime's doc, else the Orc's.

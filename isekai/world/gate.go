@@ -31,8 +31,11 @@ type GateOptions struct {
 	DutiesDone  bool
 	DocTruthful bool
 	Checks      []Check
-	Log         bool          // append the verdict to log.md
-	Retries     int           // a failed gate goes back to the model this many times per turn
+	Log         bool // append the verdict to log.md
+	Retries     int  // a failed gate goes back to the model this many times per turn
+	TestsIntact bool // a turn may not pass by deleting, skipping or narrowing tests
+	// TestsBefore is the test files' text as the turn opened; the EndGate hook fills it per call.
+	TestsBefore map[string]string
 	Timeout     time.Duration // per verify command; 0 = 120s
 }
 
@@ -123,6 +126,13 @@ func (w *World) Gate(ctx context.Context, opt GateOptions, as string, wrote []st
 		}
 		v.Checked = append(v.Checked, w.Lex.Checks[1])
 	}
+	// tests intact — the turn did not pass by making the tests easier
+	if opt.TestsIntact && opt.TestsBefore != nil {
+		for _, why := range w.testsIntact(opt.TestsBefore, wrote) {
+			fail("Tests intact: " + why + " — only the human decides a test goes")
+		}
+		v.Checked = append(v.Checked, "Tests intact")
+	}
 	// 3. duties done — the commission is answered on the wire
 	if opt.DutiesDone {
 		c := wire.ParseCommission(ask)
@@ -202,7 +212,9 @@ func (w *World) EndGate(opt GateOptions) func(ctx context.Context, s *loop.Sessi
 		if len(s.Wrote) == 0 {
 			return "", nil, nil
 		}
-		v := w.Gate(ctx, opt, as, s.Wrote, &r.Report, r.IsWire, s.Ask)
+		o := opt
+		o.TestsBefore = s.TestsBefore
+		v := w.Gate(ctx, o, as, s.Wrote, &r.Report, r.IsWire, s.Ask)
 		holes := append([]string(nil), v.Holes...)
 		if opt.Log && opt.Enabled {
 			result := "done"

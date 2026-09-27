@@ -660,3 +660,48 @@ func TestLogTitleNoOrcs(t *testing.T) {
 		t.Fatalf("log:\n%s", lg)
 	}
 }
+
+// A turn may not pass by making the tests easier: fewer tests or more skips fail the gate; more
+// tests pass.
+func TestGateTestsIntact(t *testing.T) {
+	dir := fixture(t)
+	w := open(t, dir)
+	doc := ".isekai/slime/auth/README.md"
+	docBody := "# slime-auth\n- **Territory:** `src/auth/`\n- **Reports to:** orc-security\n"
+	two := "package auth\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n\nfunc TestB(t *testing.T) {}\n"
+	os.WriteFile(filepath.Join(dir, "src/auth/token_test.go"), []byte(two), 0o644)
+	run := func(test string) *loop.Result {
+		m := mock.New(writeCall("1", "src/auth/token_test.go", test), writeCall("2", doc, docBody+"- "+test[len(test)-12:]+"\n"), mock.Text("@S DONE\n@U colony c\n@E 0"))
+		r, _ := w.Engine("slime-auth", build(m)).Run(context.Background(), "x")
+		os.WriteFile(filepath.Join(dir, "src/auth/token_test.go"), []byte(two), 0o644)
+		return r
+	}
+	if r := run("package auth\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n"); r.Status != loop.Fail || !strings.Contains(r.Verdict, "src/auth/token_test.go lost 1 test (2 → 1)") {
+		t.Fatalf("a deleted test passed the gate: %s %q", r.Status, r.Verdict)
+	}
+	if r := run("package auth\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) { t.Skip(\"later\") }\n\nfunc TestB(t *testing.T) {}\n"); r.Status != loop.Fail || !strings.Contains(r.Verdict, "gained 1 skip/only marker") {
+		t.Fatalf("a skipped test passed the gate: %s %q", r.Status, r.Verdict)
+	}
+	if r := run(two + "\nfunc TestC(t *testing.T) {}\n"); r.Status != loop.Done || !strings.HasPrefix(r.Verdict, "pass") {
+		t.Fatalf("a new test failed the gate: %s %q %v", r.Status, r.Verdict, r.Holes)
+	}
+}
+
+func TestTestsIntactLanguages(t *testing.T) {
+	cases := []struct {
+		lang, text string
+		tests, skips int
+	}{
+		{"js", "describe('a', () => {\n  it('x', () => {})\n  test('y', () => {})\n  it.skip('z', () => {})\n  xit('w', () => {})\n  it.only('v', () => {})\n})", 2, 3},
+		{"py", "import pytest\n\ndef test_a():\n    pass\n\n@pytest.mark.skip\ndef test_b():\n    pass\n\nasync def test_c():\n    pytest.skip('no')\n", 3, 2},
+		{"go", "func TestA(t *testing.T) { t.Skipf(\"x\") }\nfunc BenchmarkB(b *testing.B) {}\nfunc helper() {}\n", 2, 1},
+	}
+	for _, c := range cases {
+		if n := len(testDecl[c.lang].FindAllString(c.text, -1)); n != c.tests {
+			t.Errorf("%s: %d tests, want %d", c.lang, n, c.tests)
+		}
+		if n := len(testSkip[c.lang].FindAllString(c.text, -1)); n != c.skips {
+			t.Errorf("%s: %d skips, want %d", c.lang, n, c.skips)
+		}
+	}
+}

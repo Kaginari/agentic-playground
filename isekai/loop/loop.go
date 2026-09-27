@@ -238,6 +238,8 @@ type Session struct {
 	nowatch   bool     // the tree could not be stamped: shell writes go unseen, the hole named
 	gated     bool     // the last turn's writes passed the end gate
 	gateTries int      // failed gates sent back to the model this turn
+	// TestsBefore is the test files' text as the turn opened (the gate's "tests intact" check).
+	TestsBefore map[string]string
 }
 
 // Result is one turn's outcome.

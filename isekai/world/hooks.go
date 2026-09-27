@@ -43,7 +43,7 @@ func DefaultHooks() HookOptions {
 	return HookOptions{
 		Recall: RecallOptions{Enabled: true, Memory: true, Toolbox: true},
 		Record: RecordOptions{Enabled: true, Unsaid: true},
-		Gate:   GateOptions{Enabled: true, RightAuthor: true, TraitsHold: true, DutiesDone: true, DocTruthful: true, Log: true, Retries: 1},
+		Gate:   GateOptions{Enabled: true, RightAuthor: true, TraitsHold: true, DutiesDone: true, DocTruthful: true, Log: true, Retries: 1, TestsIntact: true},
 		Prompt: DefaultPrompt(),
 	}
 }
