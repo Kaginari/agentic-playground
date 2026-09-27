@@ -45,7 +45,17 @@ func (t Theme) Welcome(w Welcome, width int) string {
 	}
 	var rows []string
 	title := t.accent.Bold(true).Render("✦ "+w.Dist) + " " + t.dim.Render(w.Version)
-	rows = append(rows, title, "")
+	if inner >= mascotWidth+30 {
+		// the mascot, with the title and the tagline beside it
+		art, tag := Mascot(w.Dist)
+		side := []string{"", title, t.dim.Render(ansi.Truncate(tag, inner-mascotWidth-3, "…")), ""}
+		for i, a := range art {
+			rows = append(rows, a+"   "+side[i])
+		}
+		rows = append(rows, "")
+	} else {
+		rows = append(rows, title, "")
+	}
 	labels := []string{w.WorldWord, "model", "offices", "board", "session", "off"}
 	lw := 0
 	for _, l := range labels {

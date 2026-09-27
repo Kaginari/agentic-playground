@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Host is what the program asks of the app. Every call is made from the program's goroutine;
@@ -85,6 +85,8 @@ type Model struct {
 	blocks    []func(w int) string
 	reflowSeq int
 	lastWidth int // the width the transcript was last printed at
+	bgKnown   bool
+	welcomed  bool
 
 	// the board: full screen while open; blocks that finish meanwhile wait in held
 	board *boardState
@@ -114,8 +116,8 @@ func New(host Host, theme Theme, words Words) *Model {
 	ta := textarea.New()
 	ta.ShowLineNumbers = false
 	ta.Prompt = ""
-	ta.SetPromptFunc(2, func(i int) string {
-		if i == 0 {
+	ta.SetPromptFunc(2, func(p textarea.PromptInfo) string {
+		if p.LineNumber == 0 {
 			return "> "
 		}
 		return "  "
@@ -125,11 +127,13 @@ func New(host Host, theme Theme, words Words) *Model {
 	ta.MaxHeight = 8
 	ta.SetHeight(1)
 	ta.KeyMap.InsertNewline.SetEnabled(false)
-	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
-	ta.FocusedStyle.Base = lipgloss.NewStyle()
-	ta.FocusedStyle.Prompt = theme.dim
-	ta.FocusedStyle.Placeholder = theme.dim
-	ta.BlurredStyle = ta.FocusedStyle
+	st := ta.Styles()
+	st.Focused.CursorLine = lipgloss.NewStyle()
+	st.Focused.Base = lipgloss.NewStyle()
+	st.Focused.Prompt = theme.dim
+	st.Focused.Placeholder = theme.dim
+	st.Blurred = st.Focused
+	ta.SetStyles(st)
 	ta.Focus()
 	sp := spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(theme.accent))
 	m := &Model{host: host, theme: theme, words: words, input: ta, spin: sp, subagents: map[string]*SubagentView{}, pasted: map[string]string{}, width: 80, height: 24,
@@ -146,9 +150,43 @@ func (m *Model) Attach(send func(tea.Msg)) {
 	close(m.attached)
 }
 
-// Init starts the ticks and the printer; the welcome waits for the terminal's width.
+// Init starts the ticks and the printer and asks the terminal for its background; the welcome
+// waits for the terminal's width, and briefly for that answer, so it is drawn in the right theme.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink, tick(), m.printer)
+	cmds := []tea.Cmd{textarea.Blink, tick(), m.printer}
+	if !m.theme.Forced {
+		cmds = append(cmds, tea.RequestBackgroundColor, tea.Tick(bgWait, func(time.Time) tea.Msg { return evBgWait{} }))
+	} else {
+		m.bgKnown = true
+	}
+	return tea.Batch(cmds...)
+}
+
+// bgWait bounds how long the welcome waits for the terminal's background answer; a terminal
+// that never answers keeps the dark theme.
+const bgWait = 150 * time.Millisecond
+
+type evBgWait struct{}
+
+// welcome prints the welcome once the width is known and the theme settled.
+func (m *Model) welcome() tea.Cmd {
+	if m.welcomed || !m.ready || !m.bgKnown {
+		return nil
+	}
+	m.welcomed = true
+	wel := m.host.Welcome()
+	return m.print(func(w int) string { return m.theme.Welcome(wel, w) })
+}
+
+// setTheme switches the palette, the textarea's and the spinner's styles with it.
+func (m *Model) setTheme(t Theme) {
+	m.theme = t
+	st := m.input.Styles()
+	st.Focused.Prompt = t.dim
+	st.Focused.Placeholder = t.dim
+	st.Blurred = st.Focused
+	m.input.SetStyles(st)
+	m.spin.Style = t.accent
 }
 
 // printItem is one FIFO entry: a block, or (clear) the whole transcript that replaces the
@@ -213,8 +251,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.ready {
 			m.ready = true
 			m.lastWidth = m.width
-			wel := m.host.Welcome()
-			return m, m.print(func(w int) string { return m.theme.Welcome(wel, w) })
+			return m, m.welcome()
 		}
 		if m.width == m.lastWidth {
 			return m, nil
@@ -227,6 +264,15 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.reflow()
+	case tea.BackgroundColorMsg:
+		if !m.theme.Forced && msg.IsDark() != m.theme.Dark {
+			m.setTheme(NewTheme(msg.IsDark()))
+		}
+		m.bgKnown = true
+		return m, m.welcome()
+	case evBgWait:
+		m.bgKnown = true
+		return m, m.welcome()
 	case evTick:
 		if m.busy || m.choice != nil {
 			m.footer = m.host.Footer()
@@ -242,8 +288,16 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spin, cmd = m.spin.Update(msg)
 		return m, cmd
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.key(msg)
+	case tea.PasteMsg:
+		if m.choice != nil {
+			if m.view.Typing {
+				m.view.Typed += msg.Content
+			}
+			return m, nil
+		}
+		return m, m.paste(msg.Content)
 	case EvDelta:
 		m.stream.WriteString(msg.Text)
 		m.streamed = true
@@ -545,7 +599,15 @@ func isListLine(l string) bool {
 }
 
 // View draws the live area.
-func (m *Model) View() string {
+// View is the frame: the board takes the alternate screen while it is open.
+func (m *Model) View() tea.View {
+	v := tea.NewView(m.Render())
+	v.AltScreen = m.board != nil
+	return v
+}
+
+// Render is the frame's text: the live area, or the board.
+func (m *Model) Render() string {
 	if m.quit {
 		return ""
 	}

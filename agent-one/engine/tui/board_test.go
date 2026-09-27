@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -59,7 +59,7 @@ func boardAt(t *testing.T, w, h int) *Model {
 	return m
 }
 
-func screen(m *Model) string { return ansi.Strip(m.View()) }
+func screen(m *Model) string { return ansi.Strip(m.Render()) }
 
 func TestBoardPages(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {140, 40}} {
@@ -71,7 +71,7 @@ func TestBoardPages(t *testing.T) {
 			"usage":   {"168k tokens", "42 calls", "by agent", "by model", "by role"},
 		}
 		for i, name := range []string{"agents", "graph", "offices", "usage"} {
-			m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune('1' + i)}})
+			m.Update(tea.KeyPressMsg{Code: rune('1' + i), Text: string(rune('1' + i))})
 			s := screen(m)
 			if dir := os.Getenv("BOARD_SHOTS"); dir != "" {
 				_ = os.WriteFile(filepath.Join(dir, name+"-"+itoa(size[0])+".txt"), []byte(s), 0o644)
@@ -96,19 +96,19 @@ func TestBoardPages(t *testing.T) {
 
 func TestBoardGraphWalk(t *testing.T) {
 	m := boardAt(t, 140, 40)
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	m.Update(tea.KeyPressMsg{Code: '2', Text: "2"})
 	screen(m)
 	if m.board.sel != "orchestrator" {
 		t.Fatalf("the walk starts at the root, got %q", m.board.sel)
 	}
-	for _, k := range []tea.KeyType{tea.KeyDown, tea.KeyDown, tea.KeyDown} {
-		m.Update(tea.KeyMsg{Type: k})
+	for _, k := range []rune{tea.KeyDown, tea.KeyDown, tea.KeyDown} {
+		m.Update(tea.KeyPressMsg{Code: k})
 	}
 	if !strings.HasPrefix(m.board.sel, "zone-") {
 		t.Fatalf("three levels down is a zone, got %q", m.board.sel)
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyRight})
-	m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
 	s := screen(m)
 	if !strings.Contains(s, "answers") || !strings.Contains(s, "‹truth›") {
 		t.Fatalf("the card shows the selected zone's bond up:\n%s", s)
@@ -124,7 +124,7 @@ func TestBoardHoldsBlocksUntilClosed(t *testing.T) {
 	if len(m.prints) != 0 || len(m.held) != 1 {
 		t.Fatalf("a block printed under the board: prints %d held %d", len(m.prints), len(m.held))
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if m.board != nil || len(m.prints) != 1 {
 		t.Fatalf("closing the board prints what was held: board %v prints %d", m.board != nil, len(m.prints))
 	}

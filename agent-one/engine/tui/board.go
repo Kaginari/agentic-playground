@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -107,7 +107,7 @@ type evBoard struct{ view BoardView }
 // openBoard takes the whole screen for the board; the session keeps running below it.
 func (m *Model) openBoard() tea.Cmd {
 	m.board = &boardState{rng: BoardRanges[0]}
-	return tea.Sequence(tea.EnterAltScreen, m.fetchBoard())
+	return m.fetchBoard() // the view takes the alternate screen while m.board is set
 }
 
 // closeBoard gives the screen back and prints what finished while the board was open.
@@ -116,12 +116,13 @@ func (m *Model) closeBoard() tea.Cmd {
 	held := m.held
 	m.held = nil
 	if m.width != m.lastWidth {
-		return tea.Sequence(tea.ExitAltScreen, func() tea.Msg { return evReflow{m.reflowSeq} })
+		seq := m.reflowSeq
+		return func() tea.Msg { return evReflow{seq} }
 	}
 	for _, b := range held {
 		m.enqueue(printItem{text: b})
 	}
-	return tea.ExitAltScreen
+	return nil
 }
 
 func (m *Model) fetchBoard() tea.Cmd {
@@ -146,7 +147,7 @@ func (m *Model) boardUpdate(msg tea.Msg) (tea.Cmd, bool) {
 			return m.fetchBoard(), false
 		}
 		return nil, false
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "esc", "q", "ctrl+c":
 			return m.closeBoard(), true
@@ -188,7 +189,7 @@ func (m *Model) boardUpdate(msg tea.Msg) (tea.Cmd, bool) {
 			}
 		}
 		return nil, true
-	case tea.MouseMsg:
+	case tea.MouseMsg, tea.PasteMsg:
 		return nil, true
 	}
 	return nil, false

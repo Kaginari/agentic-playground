@@ -1009,3 +1009,15 @@ Append-only. Newest entries at the bottom. One entry per change.
     alt screen is a field of the view, not a command.
   - The known limits of v1 retire: shift+enter (where the terminal disambiguates) and the
     background query (answered or 150 ms, never held).
+
+### [2026-09-27T12:00:23+02:00] rimuru — agent-one on Charm v2; the mascots in the welcome
+- **Task:** Human: "use latest" (agent-one's half); "do a representation of slime in isekai cli when it
+  load and agent one for agent one".
+- **Files:** agent-one/engine/{go.mod,go.sum,tui/*,app/tui*.go} · {isekai,agent-one/engine}/tui/
+  {mascot.go,blocks.go,testdata/golden/welcome-*.txt}.
+- **Gate:** n/a (no orcs). Instruments: agent-one goldens unchanged by v2 (widths fixed to them);
+  the sprites rendered to a PNG and looked at; welcome goldens rewritten on purpose (-goldens) for the
+  mascot; vet + full suites green in both engines, the leak test included.
+- **Result:** the welcome opens with a 16×8 half-block sprite — isekai's slime (Rimuru blue, a
+  highlight, two eyes), agent-one's agent (a violet frame, a gold antenna) — the title and a tagline
+  beside it; under 46 columns the sprite steps aside.

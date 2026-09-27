@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/charmbracelet/x/exp/teatest/v2"
 )
 
 // fakeHost records what the program asks of the app.
@@ -126,7 +126,9 @@ func start(t *testing.T, h *fakeHost) (*teatest.TestModel, *Model, *tail) {
 	return tm, m, out
 }
 
-func key(t tea.KeyType) tea.KeyMsg { return tea.KeyMsg{Type: t} }
+func key(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code} }
+
+func ctrl(r rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: r, Mod: tea.ModCtrl} }
 
 func TestTurnStreamsAndLands(t *testing.T) {
 	h := &fakeHost{}
@@ -190,9 +192,9 @@ func TestQueuedInterruptAndCtrlC(t *testing.T) {
 	if len(q) != 1 || q[0] != "also this" {
 		t.Fatalf("queued %v", q)
 	}
-	tm.Send(key(tea.KeyCtrlC))
+	tm.Send(ctrl('c'))
 	out.wait(t, "ctrl+c again to exit")
-	tm.Send(key(tea.KeyCtrlC))
+	tm.Send(ctrl('c'))
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 }
 
@@ -248,7 +250,7 @@ func TestHistoryNewlineAndPaste(t *testing.T) {
 	}
 	tm.Send(EvTurnDone{Status: "DONE", Text: "ok"})
 	out.wait(t, "ok")
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a\nb\nc\nd"), Paste: true})
+	tm.Send(tea.PasteMsg{Content: "a\nb\nc\nd"})
 	out.wait(t, "[pasted 4 lines #1]")
 	tm.Send(key(tea.KeyEnter))
 	deadline := time.Now().Add(2 * time.Second)
@@ -288,7 +290,7 @@ func TestCollapsedExpandsOnCtrlO(t *testing.T) {
 	if strings.Contains(out.String(), "row 12") {
 		t.Fatal("collapsed output shows every line")
 	}
-	tm.Send(key(tea.KeyCtrlO))
+	tm.Send(ctrl('o'))
 	out.wait(t, "row 12")
 	tm.Send(EvQuit{})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))

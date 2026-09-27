@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -45,7 +45,17 @@ func (t Theme) Welcome(w Welcome, width int) string {
 	}
 	var rows []string
 	title := t.accent.Bold(true).Render("✦ "+w.Dist) + " " + t.dim.Render(w.Version)
-	rows = append(rows, title, "")
+	if inner >= mascotWidth+30 {
+		// the mascot, with the title and the tagline beside it
+		art, tag := Mascot(w.Dist)
+		side := []string{"", title, t.dim.Render(ansi.Truncate(tag, inner-mascotWidth-3, "…")), ""}
+		for i, a := range art {
+			rows = append(rows, a+"   "+side[i])
+		}
+		rows = append(rows, "")
+	} else {
+		rows = append(rows, title, "")
+	}
 	labels := []string{w.WorkspaceWord, "model", "roles", "board", "session", "off"}
 	lw := 0
 	for _, l := range labels {
@@ -85,7 +95,7 @@ func (t Theme) Welcome(w Welcome, width int) string {
 		}
 	}
 	rows = append(rows, "", t.dim.Render("/help for commands · ? for shortcuts · esc interrupts · ctrl+c twice exits"))
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.border.GetForeground()).Padding(0, 1).Width(inner + 2)
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.border.GetForeground()).Padding(0, 1).Width(inner + 4)
 	return box.Render(strings.Join(rows, "\n"))
 }
 
@@ -477,7 +487,7 @@ func (t Theme) Choice(v ChoiceView, width int) string {
 	default:
 		rows = append(rows, "", t.dim.Render("↑↓ or a digit picks · enter confirms"))
 	}
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.accent.GetForeground()).Padding(0, 1).Width(inner + 2)
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.accent.GetForeground()).Padding(0, 1).Width(inner + 4)
 	return box.Render(strings.Join(rows, "\n"))
 }
 
@@ -640,7 +650,7 @@ func (t Theme) InputBox(view string, width int, busy bool) string {
 	if busy {
 		col = t.dim.GetForeground()
 	}
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(col).Width(width - 2).Render(view)
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(col).Width(width).Render(view)
 }
 
 // helpers

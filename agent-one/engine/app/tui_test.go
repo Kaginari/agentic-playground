@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/Kaginari/agent-one/tui"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/charmbracelet/x/exp/teatest/v2"
 )
 
 // The junction of the terminal UI with the real engine: the app's host under teatest, the mock
@@ -91,7 +91,7 @@ func tuiSession(t *testing.T, w *testWorkspace) (*App, *teatest.TestModel, *scre
 	return a, tm, sc
 }
 
-func enter(tm *teatest.TestModel) { tm.Send(tea.KeyMsg{Type: tea.KeyEnter}) }
+func enter(tm *teatest.TestModel) { tm.Send(tea.KeyPressMsg{Code: tea.KeyEnter}) }
 
 func TestTUIJunctionTurn(t *testing.T) {
 	w := newTestWorkspace(t, "agent-one", agentOneMembers())
@@ -264,7 +264,7 @@ func TestTUIInterruptAndQueue(t *testing.T) {
 	tm.Type("a note")
 	enter(tm)
 	sc.wait(t, "⏎ queued: a note")
-	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	tm.Send(tea.KeyPressMsg{Code: tea.KeyEsc})
 	sc.wait(t, "■ interrupted")
 	tm.Type("again")
 	enter(tm)

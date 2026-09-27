@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // UI is the running program: the app sends it events; Run blocks until the session ends.

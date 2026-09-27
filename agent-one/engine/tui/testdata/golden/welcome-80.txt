@@ -1,5 +1,8 @@
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│ ✦ agent-one v0.1.5                                                           │
+│        ▀▀                                                                    │
+│    █▀▀▀▀▀▀▀▀█      ✦ agent-one v0.1.5                                        │
+│    ██▀▀██▀▀██      one agent, a whole team · the workspace remembers         │
+│    ▀▀█▀▀▀▀█▀▀                                                                │
 │                                                                              │
 │ workspace /home/monta/kaginari/pfcli                                         │
 │ model     gemini/gemini-3.8-flash                                            │
