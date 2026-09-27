@@ -1142,3 +1142,11 @@ Append-only. Newest entries at the bottom. One entry per change.
 - **Learned:** a slash command that becomes a turn rode the wake queue, and the REPL's select raced it
   against the next line already read: a piped `/cmd\n/quit` could quit first. It now starts at once —
   a latent bug for every template command, found by the first test that piped one.
+
+### [2026-09-27T13:04:39+02:00] rimuru — goal: work until a command proves it (isekai)
+- **Files:** isekai/app/{goal.go,cli.go,e2e_test.go} · canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: TestE2EGoal (met after 2 turns with the failure handed back;
+  `@? human:` pauses with exit 3); suites green.
+- **Learned:** the validation belongs to the binary, not the model: run outside the loop's tools, it
+  cannot be skipped, weakened or rewritten by the turn it judges — the same lesson as the pre-turn
+  verify lines.

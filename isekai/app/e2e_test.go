@@ -455,3 +455,27 @@ func TestE2EHandoff(t *testing.T) {
 		t.Fatalf("read: %d\n%s\n%s", code, out, errb)
 	}
 }
+
+// A goal keeps working until its validation passes: the binary runs the command after each turn
+// and hands the failure back; `@? human:` pauses it.
+func TestE2EGoal(t *testing.T) {
+	isekai, _, _ := binaries(t)
+	w := newTestWorld(t, "isekai", isekaiCreatures())
+	w.script(".isekai/tmp/s.json",
+		when("Validation after turn 1", call("write", map[string]string{"path": "done.txt", "content": "ok"})),
+		when("You are working to a goal", call("write", map[string]string{"path": "notyet.txt", "content": "x"})),
+		when("done.txt", text("@S DONE wrote done.txt\n@E 5")),
+		when("notyet.txt", text("@S DONE wrote notyet.txt\n@E 5")))
+	w.write(".isekai/config.yaml", mockCfg(".isekai/tmp/s.json", ""))
+	code, out, errb := w.exec(isekai, "", nil, "goal", "--quiet", "--validate", "test -f done.txt", "make done.txt exist")
+	if code != 0 || !strings.Contains(out, "goal met after 2 turns") || !strings.Contains(errb, "goal · validation exit 1") {
+		t.Fatalf("goal: %d\n%s\n%s", code, out, errb)
+	}
+	w2 := newTestWorld(t, "isekai", isekaiCreatures())
+	w2.script(".isekai/tmp/s.json", when("You are working to a goal", text("I need the product owner.\n@? human: which provider to bill?")))
+	w2.write(".isekai/config.yaml", mockCfg(".isekai/tmp/s.json", ""))
+	code, out, errb = w2.exec(isekai, "", nil, "goal", "--quiet", "--validate", "false", "bill the right provider")
+	if code != 3 || !strings.Contains(errb, "paused at turn 1 for the human: which provider to bill?") {
+		t.Fatalf("pause: %d\n%s\n%s", code, out, errb)
+	}
+}

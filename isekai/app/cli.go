@@ -34,6 +34,7 @@ type cliFlags struct {
 	plain                       bool
 	since                       string
 	ssh                         string // `board --ssh [addr]`: serve the board over SSH
+	goal                        goalContract
 }
 
 func splitFlags(args []string) (cliFlags, []string) {
@@ -75,6 +76,14 @@ func splitFlags(args []string) (cliFlags, []string) {
 			f.bench = true
 		case "--plain":
 			f.plain = true
+		case "--validate":
+			f.goal.validate = take(&i, name)
+		case "--read":
+			f.goal.read = take(&i, name)
+		case "--constraints":
+			f.goal.constraints = take(&i, name)
+		case "--max-turns":
+			fmt.Sscan(take(&i, name), &f.goal.maxTurns)
 		case "--ssh":
 			f.ssh = defaultSSHAddr
 			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && strings.Contains(args[i+1], ":") {
@@ -92,6 +101,7 @@ var commands = []struct{ name, summary string }{
 	{"repl", "a live session (the default)"},
 	{"run", "run one ask to its end: run [--json] [--format text|json|wire] \"<ask>\""},
 	{"resume", "resume a session: resume <id> [ask]"},
+	{"goal", "work to a goal until a command proves it: goal --validate \"<cmd>\" [--read …] [--constraints …] [--max-turns N] \"<objective>\""},
 	{"handoff", "write a handoff for a fresh session: handoff [focus]"},
 	{"sessions", "list the sessions of this world"},
 	{"status", "the honesty rule and the instrument board"},
@@ -200,6 +210,10 @@ func Main(dist string, args []string, io IO, v Version) int {
 			return a.TUI(ctx)
 		}
 		return a.REPL(ctx)
+	case "goal":
+		g := f.goal
+		g.objective = strings.TrimSpace(strings.Join(leftover, " "))
+		return a.cmdGoal(ctx, g, io)
 	case "handoff":
 		return a.cmdRun(ctx, a.handoffAsk(ctx, strings.TrimSpace(strings.Join(leftover, " ")), ""), io)
 	case "run":
@@ -227,6 +241,7 @@ func Main(dist string, args []string, io IO, v Version) int {
 
 // valueFlags are the config flags that take a value in the next token.
 var valueFlags = map[string]bool{"--model": true, "--mode": true, "--approve": true, "--format": true, "--max-steps": true, "--budget": true, "--small-model": true, "--log-level": true, "--profile": true, "--set": true,
+	"--validate": true, "--read": true, "--constraints": true, "--max-turns": true,
 	"--root": true, "-root": true, "--dist": true, "--session": true, "-session": true, "--since": true}
 
 // command finds the subcommand in an argv where flags may come first (`isekai --root x run

@@ -371,6 +371,17 @@ names a handoff under two weeks old; `/handoff read [path]` hands it to the mode
 every listed file, trust no claim unverified, then wait for the human. The context stress zone points
 at it. (After davidondrej/skills' handoff, MIT.)
 
+## Goals — work until a command proves it
+
+`<dist> goal --validate "<cmd>" [--read <files>] [--constraints <text>] [--max-turns N] "<objective>"`
+runs one session to a contract: objective, what to read first, what must not change, the validation,
+the stop condition. The binary runs the validation itself after every turn (bash in the world root,
+15 min) — the model can neither skip nor edit it — and hands a failure back as the next turn's ask with
+the exit code and the output's tail. It stops when the validation passes (exit 0), when the model ends
+an answer with `@? human: <what it needs>` (exit 3), at the turn ceiling (default 12, exit 1), or when a
+turn fails or checkpoints. The contract forbids weakening tests; the gate's tests-intact enforces it on
+every turn. (After davidondrej/skills' goal-loop, MIT.)
+
 ## The first run — a setup form
 
 `init` founds the world; on a terminal it then asks, in a Huh form, which model the world runs on —
