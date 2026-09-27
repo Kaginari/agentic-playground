@@ -1218,3 +1218,15 @@ Append-only. Newest entries at the bottom. One entry per change.
   rendered by freeze to SVG and by headless Chromium to PNG at 2×, each looked at.
 - **Learned:** freeze's PNG embeds one font without ✦, braille or ⎿; its SVG in a browser falls back
   per glyph like a real terminal — and at line-height 1.0 the half-block sprites stay solid.
+
+### [2026-09-27T13:38:31+02:00] rimuru — isekai v0.2.0 and agent-one v0.2.0 released
+- **Task:** Human: "push … i meant agent one and isekai".
+- **Files:** publish/{isekai,agent-one}/{README,CHANGELOG}.md · publish/publish.sh (screens) ·
+  agent-one/engine/leak_test.go.
+- **Gate:** n/a (no orcs). Instruments: both exports' checks green (gofmt, vet, tests, selftest 195,
+  goreleaser check; agent-one's leak scan); Kaginari/isekai and Kaginari/agent-one: ci and release
+  workflows green; releases v0.2.0 published.
+- **Learned:**
+  - publish.sh's bare gofmt resolves to the system's old one, which cannot parse generics: run it
+    with the project toolchain first on PATH.
+  - The leak test read PNG bytes as words — compressed data spelled "oRc"; images are skipped now.
