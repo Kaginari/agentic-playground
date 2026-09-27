@@ -100,3 +100,27 @@ func TestErrors(t *testing.T) {
 		t.Fatalf("want a 429 error, got %v", err)
 	}
 }
+
+// OpenRouter can end an answer with finish_reason "error" under HTTP 200: a failed call, never a
+// finished answer — in a plain response and in a stream alike.
+func TestFinishReasonErrorIsAFailure(t *testing.T) {
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"model":"m","choices":[{"message":{"role":"assistant","content":"partial"},"finish_reason":"error"}]}`))
+	}))
+	defer plain.Close()
+	c := &Client{Model: "m", BaseURL: plain.URL}
+	if _, err := c.Complete(context.Background(), provider.Request{Messages: []provider.Message{{Role: provider.User, Text: "hi"}}}); err == nil || !strings.Contains(err.Error(), "finish_reason error") {
+		t.Fatalf("plain: want a failed call, got %v", err)
+	}
+	stream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"model\":\"m\",\"choices\":[{\"delta\":{\"content\":\"half an ans\"}}]}\n\n" +
+			"data: {\"model\":\"m\",\"choices\":[{\"delta\":{},\"finish_reason\":\"error\"}]}\n\ndata: [DONE]\n\n"))
+	}))
+	defer stream.Close()
+	c = &Client{Model: "m", BaseURL: stream.URL, Stream: true}
+	_, err := c.Complete(context.Background(), provider.Request{Messages: []provider.Message{{Role: provider.User, Text: "hi"}}, OnDelta: func(string) {}})
+	if err == nil || !strings.Contains(err.Error(), "finish_reason error") {
+		t.Fatalf("stream: want a failed call, got %v", err)
+	}
+}

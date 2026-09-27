@@ -267,5 +267,5 @@ func retryable(err error) bool {
 			return true
 		}
 	}
-	return strings.Contains(s, "connection refused") || strings.Contains(s, "EOF") || strings.Contains(s, "timeout") || strings.Contains(s, "no such host")
+	return strings.Contains(s, "finish_reason error") || strings.Contains(s, "connection refused") || strings.Contains(s, "EOF") || strings.Contains(s, "timeout") || strings.Contains(s, "no such host")
 }

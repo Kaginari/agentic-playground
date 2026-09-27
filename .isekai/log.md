@@ -1094,3 +1094,19 @@ Append-only. Newest entries at the bottom. One entry per change.
     changed and keeps agent-one's own words (operator, team, domain owners). Two conflicts, both from
     the earlier hand port that had kept isekai's field names.
   - A map applied blind renames fields too (sprite.body → agent): the build caught it.
+
+### [2026-09-27T12:48:17+02:00] rimuru — study: davidondrej/skills, what is worth taking
+- **Task:** Human: "check this repo … which one is worth including" (read-only; fetched on the ask).
+- **Files:** none.
+- **Result:** suggestions relayed to Veldora — handoff, goal loop with a 4-part contract, the command
+  guard's block/allow corpus as classifier tests, total-review, anti-reward-hacking at the gate.
+- **Learned:**
+  - Named once: provider/openai finishOf maps finish_reason "error" to StopOther, so an upstream
+    failure that arrives as a normal-looking end (OpenRouter documents this under HTTP 200) is taken
+    as a finished answer. Not yet fixed.
+
+### [2026-09-27T12:51:56+02:00] rimuru — an upstream "error" ending is a failed call (isekai)
+- **Files:** isekai/provider/openai/{openai.go,openai_test.go} · app/{providers.go,providers_test.go}.
+- **Gate:** n/a (no orcs). Instruments: TestFinishReasonErrorIsAFailure red on the old client, green
+  on the new, plain and streamed; the fallback takes it as retryable.
+- **Result:** the gap named at the skills study is closed (named twice: fixed).
