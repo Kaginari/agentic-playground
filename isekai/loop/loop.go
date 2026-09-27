@@ -140,6 +140,9 @@ type Hooks struct {
 	// missing): the error the model reads and whether the turn stops here (the doom-loop
 	// guard). nil: "unknown tool" and never a stop.
 	Missing func(ctx context.Context, s *Session, call provider.ToolCall) (content string, stop bool)
+	// Guard refuses a catastrophic command before the policy and the gate: a non-empty answer is
+	// the refusal, and no approval can run it.
+	Guard func(tool string, input json.RawMessage) string
 	// Decide is the permission rule before the gate (config.Decide): allow silences the gate
 	// for this act (logged as pre-approved by rule), deny refuses it, ask forces the gate even
 	// for a read or a write. An empty Action leaves the class default.
@@ -635,6 +638,15 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 		r.hole(st.ID + ": " + h)
 	}
 	s.observe(st, "start")
+	if e.Hooks.Guard != nil {
+		if why := e.Hooks.Guard(t.Name, call.Input); why != "" {
+			st.Status = "refused"
+			s.Journal.Log(Event{"t": "gate", "id": st.ID, "tool": t.Name, "effective": st.Effective, "why": why, "needed": true, "decision": "refused", "by": "guard"})
+			s.Journal.Log(Event{"t": "record", "id": st.ID, "status": "refused", "attempts": 0})
+			s.trace("✗ %s %s refused by the guard", st.ID, t.Name)
+			return st, deny(why), "", ""
+		}
+	}
 	if env.Policy != nil {
 		if err := env.Policy(tool.Access{Tool: t.Name, Class: cls.Class, Paths: cls.Paths, Input: call.Input}); err != nil {
 			st.Status = "refused"

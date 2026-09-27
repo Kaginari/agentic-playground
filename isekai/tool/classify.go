@@ -29,10 +29,11 @@ type rule struct {
 }
 
 var destructiveRules = []rule{
-	{at(`rm(\s|$)`), "rm"}, {at(`(shred|wipe|srm)(\s|$)`), "shred"}, {at(`(mv|rename)\s`), "mv overwrites"}, {at(`(truncate|dd|mkfs)(\s|$)`), "truncate/dd/mkfs"},
+	{at(`rm(\s|$)`), "rm"}, {at(`(shred|wipe|srm)(\s|$)`), "shred"}, {at(`(mv|rename)\s`), "mv overwrites"}, {at(`(truncate|dd|mkfs(\.\w+)?)(\s|$)`), "truncate/dd/mkfs"}, {at(`diskutil\s+(erase\w*|partitionDisk|zeroDisk|randomDisk|secureErase|reformat)`), "disk erase"},
 	{at(git + `(reset|clean|filter-branch|filter-repo|rebase|gc|prune|rm|mv)\b`), "git history/tree rewrite"}, {at(git + `branch\b[^|;&]*\s-[dDM]\b`), "git branch delete/rename"},
 	{at(git + `push\b[^|;&]*(\s--force\b|\s-f\b|\s\+)`), "git push --force"}, {at(git + `(checkout|restore)\s+(--\s|\.(\s|$))`), "git discard of working changes"},
-	{at(git + `stash\s+(drop|clear|pop)`), "git stash drop"}, {at(git + `tag\s+-d\b`), "git tag delete"}, {regexp.MustCompile(`\s-delete(\s|$)`), "find -delete"},
+	{at(git + `stash\s+(drop|clear|pop)`), "git stash drop"}, {at(git + `reflog\s+(expire|delete)`), "git reflog purge"},
+	{regexp.MustCompile(`:\(\)\s*\{`), "fork bomb"}, {regexp.MustCompile(`>\s*/dev/(r?disk|sd|nvme|hd|mmcblk|xvd|vd)`), "write to a raw disk"}, {at(git + `tag\s+-d\b`), "git tag delete"}, {regexp.MustCompile(`\s-delete(\s|$)`), "find -delete"},
 	{regexp.MustCompile(`(^|[^>])>\s*\S*` + record), "overwrite of a record (> path)"}, {regexp.MustCompile(`sed\s+(-\S*i|--in-place)[^|;&]*` + record), "sed -i on a record"},
 	{regexp.MustCompile(`tee\s+(-[^a\s]\S*\s+)*[^-|;&][^|;&]*` + record), "tee over a record"}, {regexp.MustCompile(`(cp|install)\s+[^|;&]*` + record + `\s*($|[;&|])`), "cp over a record"},
 }
@@ -44,6 +45,11 @@ var outwardRules = []rule{
 	{at(`(gh|glab|hub|aws|gcloud|az|kubectl|helm|terraform|heroku|flyctl|vercel|netlify|firebase)\s`), "external service CLI"}, {at(`(mail|sendmail|mutt|msmtp)\s`), "mail"},
 	{regexp.MustCompile(`https?://`), "URL"}, {at(`(xdg-open|open)\s`), "opens outside"},
 	{at(`go\s+(get|install|mod\s+(download|tidy))\b`), "go module network"},
+	// a secret store's secrets would cross the world's border: anchored at the segment's start, so
+	// the word in prose (`echo "pass the token"`) is not a secret store
+	{regexp.MustCompile(`^(pass|gopass|op|bw|bws|lpass|keepassxc-cli|rbw|nordpass)(\s|$)`), "secret store"},
+	{regexp.MustCompile(`^security\s+(-\S+\s+)*(dump-keychain|find-generic-password|find-internet-password|export)`), "keychain"},
+	{regexp.MustCompile(`^gpg\s[^|;&]*--export-secret`), "secret key export"}, {at(`brew\s+(install|uninstall|reinstall|upgrade|tap)\b`), "system packages"},
 }
 
 var writeRules = []rule{
@@ -58,6 +64,7 @@ var (
 	tokenSplit  = regexp.MustCompile("[\\s\"'`=:,]+")
 	tokenTrail  = regexp.MustCompile(`[)\]}>;,.]+$`)
 	tildePath   = regexp.MustCompile(`^~(/|$)`)
+	homeVar     = regexp.MustCompile(`^\$(HOME|\{HOME\})(/|$)`)
 	absPath     = regexp.MustCompile(`^/[^/]`)
 	climbPath   = regexp.MustCompile(`(^|/)\.\.(/|$)`)
 	cdCmd       = regexp.MustCompile(`^cd\s`)
@@ -104,6 +111,8 @@ func (e Env) OutsideWorld(cmd string) string {
 		switch {
 		case tildePath.MatchString(tok):
 			p = filepath.Join(home, tok[1:])
+		case homeVar.MatchString(tok):
+			p = filepath.Join(home, homeVar.ReplaceAllString(tok, "$2"))
 		case absPath.MatchString(tok) || tok == "/":
 			p = filepath.Clean(tok)
 		case climbPath.MatchString(tok):

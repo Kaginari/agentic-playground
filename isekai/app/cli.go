@@ -102,7 +102,8 @@ var commands = []struct{ name, summary string }{
 	{"bench", "a fixed task set on every configured model (mock always; real providers with keys)"},
 	{"selftest", "every package's selftest, one @S PASS n checks"},
 	{"init", "found a world here: init [--bench]"},
-	{"board", "serve the board without a session"},
+	{"board", "serve the board without a session: board [--ssh [addr]]"},
+	{"guard", "the global dangerous-command guard: check, test, show, export, hook, install"},
 	{"version", "print the version"},
 	{"help", "this list"},
 }
@@ -168,6 +169,8 @@ func Main(dist string, args []string, io IO, v Version) int {
 		return config.CLI(append(cargs, rest...), io.Out, io.Err)
 	case "memory", "toolbox", "onto":
 		return cmdInstrument(name, dist, f, leftover, io)
+	case "guard":
+		return cmdGuard(dist, rest, io)
 	case "selftest":
 		return Selftest(dist, io)
 	}

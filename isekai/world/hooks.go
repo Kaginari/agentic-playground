@@ -118,6 +118,9 @@ func MergeHooks(base, over loop.Hooks) loop.Hooks {
 			}
 		}
 	}
+	if over.Guard != nil {
+		out.Guard = over.Guard
+	}
 	if over.Record != nil {
 		if base.Record == nil {
 			out.Record = over.Record

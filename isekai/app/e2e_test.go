@@ -417,3 +417,21 @@ func TestE2EBothDistributionsAndHarbor(t *testing.T) {
 		t.Errorf("usage from the fake: %v", res["usage"])
 	}
 }
+
+// The guard refuses a catastrophic command even when its class was pre-approved: no approval
+// can run it. The home the command names is untouched.
+func TestE2EGuardRefusesEvenApproved(t *testing.T) {
+	isekai, _, _ := binaries(t)
+	w := newTestWorld(t, "isekai", isekaiCreatures())
+	os.WriteFile(filepath.Join(w.home, "keep.txt"), []byte("mine"), 0o644)
+	w.script(".isekai/tmp/s.json", when("wipe", call("bash", map[string]string{"command": "rm -rf ~"})), text("@S DONE\n@E 5"))
+	w.write(".isekai/config.yaml", mockCfg(".isekai/tmp/s.json", ""))
+	code, out, errb := w.exec(isekai, "", nil, "run", "--json", "--quiet", "--approve", "destructive,outward", "wipe")
+	if _, err := os.Stat(filepath.Join(w.home, "keep.txt")); err != nil {
+		t.Fatalf("the home was touched: %v\n%s\n%s", err, out, errb)
+	}
+	j := w.read(".isekai/instruments/loop/" + firstJournal(w))
+	if !strings.Contains(j, `"by":"guard"`) || !strings.Contains(j, `"decision":"refused"`) {
+		t.Fatalf("the journal does not show the guard's refusal (exit %d):\n%s", code, j)
+	}
+}

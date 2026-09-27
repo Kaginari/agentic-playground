@@ -70,6 +70,18 @@ terminal UI, `canon/tui.md`). Build with
   Dockerfile's hash so a changed runtime is rebuilt; `--image <ref>` runs a richer one. Inside,
   `<PREFIX>CONTAINERED=1` makes the flag a no-op, and `status` says `container: docker <image>` in
   place of the sandbox line: the container is the boundary, bwrap does not nest in it.
+- **The guard, before everything.** A denylist of the catastrophic and irreversible — disk wipes,
+  `rm -rf` of `/`, home or a system dir (by `~`, `$HOME` or the home's own path), force-pushes and
+  remote deletions, repository and secret deletion, history purges, secret-store reads, a script
+  from the network piped into a shell — refuses a bash command before the policy and the gate: no
+  approval runs it. The built-in list (`guard/patterns.txt`) is always on; the machine-wide
+  `~/.agents/hooks/dangerous-patterns.txt` and `guard.files` add to it. `guard test` runs the
+  corpus (151 commands, from davidondrej/skills, MIT) — every block blocked, every allow allowed —
+  and the classifier is held to the same corpus: every command the guard blocks must reach the
+  human (outward or destructive) even with the guard off. `guard install` wires the same list into
+  Claude Code (a PreToolUse hook) and OpenCode (a plugin), showing the change first — one denylist
+  for every agent on the machine. It stops accidents, not a determined agent (`python -c` slips past
+  any regex); the sandbox and the gate stay the containment.
 - **Classified before it runs.** The classifier settles the class; permission rules and the human
   gate decide; the model's own claim only tightens. `git` is read through its global options
   (`git -C . push`, `git -c k=v push`, `git --no-pager push` are the verb's class). A path is

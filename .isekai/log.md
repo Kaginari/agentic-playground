@@ -1110,3 +1110,18 @@ Append-only. Newest entries at the bottom. One entry per change.
 - **Gate:** n/a (no orcs). Instruments: TestFinishReasonErrorIsAFailure red on the old client, green
   on the new, plain and streamed; the fallback takes it as retryable.
 - **Result:** the gap named at the skills study is closed (named twice: fixed).
+
+### [2026-09-27T12:58:02+02:00] rimuru — the global guardrails, and the classifier held to their corpus (isekai)
+- **Task:** Human: "include them and also i want the global guardrails included too".
+- **Files:** isekai/guard/{guard.go,cli.go,patterns.txt,corpus.txt,guard_test.go} · tool/{classify.go,
+  guard_corpus_test.go} · loop/loop.go (Guard hook) · world/hooks.go · config/{schema,defaults}.go ·
+  app/{guard.go,app.go,cli.go,e2e_test.go} · canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: the corpus 151/151 on the built-in list; the classifier held
+  to it — 37 of the 90 must-block commands were a silent write or read before (secret stores, disk
+  tools, reflog purges, a fork bomb, $HOME paths), now all reach the human; e2e: `rm -rf ~` refused
+  with destructive pre-approved, home intact, the journal says by: guard; guard install against a
+  scratch HOME merges into Claude Code's settings (other hooks kept) and is idempotent; suites green.
+- **Learned:**
+  - The shell expands `~` before a hook sees it: `rm -rf /home/you` passed the list. The guard now
+    knows the home by its own path.
+  - Nothing is installed into Veldora's own agents yet: `isekai guard install --yes` is their call.

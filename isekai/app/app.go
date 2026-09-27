@@ -305,6 +305,7 @@ func (a *App) Build() world.Build {
 	mine := loop.Hooks{
 		Decide:   decideHook(a.liveConfig, env),
 		Missing:  a.Missing.Hook(),
+		Guard:    a.guardHook(),
 		PreTool:  a.Hooks.PreTool,
 		PostTool: a.Hooks.PostTool,
 		Budget:   budgetHook,
@@ -452,6 +453,7 @@ func (a *App) StatusLines() []string {
 		} else {
 			out = append(out, sandboxLine(a.Sandbox))
 		}
+		out = append(out, a.guardLine())
 	}
 	if a.MCP != nil {
 		out = append(out, a.MCP.Status()...)

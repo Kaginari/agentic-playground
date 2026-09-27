@@ -18,6 +18,7 @@ type Config struct {
 	Models    Models               `json:"models"`
 	Providers map[string]*Provider `json:"providers"`
 	Tools     Tools                `json:"tools"`
+	Guard     Guard                `json:"guard"`
 	Law       Law                  `json:"law"`
 	Memory    Memory               `json:"memory"`
 	Toolbox   Toolbox              `json:"toolbox"`
@@ -607,3 +608,10 @@ var Profiles = map[string][]string{
 // OutwardCapable names the tools whose acts may leave the world; an `allow` on them is a
 // loosening, and a bare wildcard `allow` on them is refused.
 var OutwardCapable = map[string]bool{"bash": true, "git": true, "webfetch": true, "websearch": true, "*": true}
+
+// Guard is the global dangerous-command guard: the built-in denylist, the machine-wide file
+// (~/.agents/hooks/dangerous-patterns.txt) and these files, refused before any gate.
+type Guard struct {
+	Enabled bool     `json:"enabled"`
+	Files   []string `json:"files"`
+}

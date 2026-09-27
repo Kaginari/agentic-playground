@@ -19,6 +19,7 @@ const defaultsJSON = `{
     "ollama":     { "enabled": false, "type": "openai", "apiKeyEnv": "", "baseURL": "http://127.0.0.1:11434/v1", "timeout": "10m", "toolCalls": "native", "contextWindow": "auto", "models": {} },
     "mock":       { "enabled": false, "type": "mock", "script": "" }
   },
+  "guard": { "enabled": true, "files": [] },
   "tools": {
     "profile":   "max",
     "read":      { "enabled": true, "maxLines": 2000, "maxBytes": 51200 },
