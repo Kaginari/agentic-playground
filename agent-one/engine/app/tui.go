@@ -197,6 +197,9 @@ func (h *tuiHost) send(ev tea.Msg) {
 func (h *tuiHost) Welcome() tui.Welcome {
 	a := h.a
 	w := tui.Welcome{Dist: a.Cfg.Dist.Name, Version: orStr(a.Opt.Version.Version, "dev"), Workspace: tilde(a.Root, a.Opt.Home), WorkspaceWord: h.words.Workspace, Model: a.mountModel.Ref.Model, Session: a.SessionID}
+	if p, age := a.latestHandoff(); p != "" && age < 14*24*time.Hour {
+		w.Handoff = relOrAbs(a.Root, p) + " (" + age.Round(time.Minute).String() + " ago) — /handoff read"
+	}
 	var roles []string
 	for _, o := range sortedKeys(a.Cfg.Models.Roles) {
 		roles = append(roles, o+" → "+a.Cfg.Models.Roles[o].Model)
@@ -285,6 +288,8 @@ var builtinCommands = []tui.MenuItem{
 	{Name: "status", Description: "the honesty rule and the instrument board"},
 	{Name: "config", Description: "config [explain] — the switchboard and where each value came from"},
 	{Name: "compact", Description: "drain the context now"},
+	{Name: "review", Description: "/review [range] — two reviewers on two models, one merged shortlist; nothing fixed before you approve"},
+	{Name: "handoff", Description: "/handoff [focus] writes one for a fresh session · /handoff read picks the last up"},
 	{Name: "sessions", Description: "the sessions of this workspace"},
 	{Name: "resume", Description: "/resume <id> — reopen a session"},
 	{Name: "clear", Description: "clear the screen"},

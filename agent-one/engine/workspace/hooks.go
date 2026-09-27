@@ -43,7 +43,7 @@ func DefaultHooks() HookOptions {
 	return HookOptions{
 		Recall: RecallOptions{Enabled: true, Memory: true, Toolbox: true},
 		Record: RecordOptions{Enabled: true, Unsaid: true},
-		Gate:   GateOptions{Enabled: true, RightAuthor: true, InvariantsHold: true, DutiesDone: true, DocTruthful: true, Log: true, Retries: 1},
+		Gate:   GateOptions{Enabled: true, RightAuthor: true, InvariantsHold: true, DutiesDone: true, DocTruthful: true, Log: true, Retries: 1, TestsIntact: true},
 		Prompt: DefaultPrompt(),
 	}
 }
@@ -117,6 +117,9 @@ func MergeHooks(base, over loop.Hooks) loop.Hooks {
 				return loop.Recall{Anchors: append(a.Anchors, b.Anchors...), Tools: append(a.Tools, b.Tools...), Holes: append(a.Holes, b.Holes...), Rebuilt: a.Rebuilt || b.Rebuilt}
 			}
 		}
+	}
+	if over.Guard != nil {
+		out.Guard = over.Guard
 	}
 	if over.Record != nil {
 		if base.Record == nil {

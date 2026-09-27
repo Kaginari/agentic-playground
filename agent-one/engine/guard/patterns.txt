@@ -1,0 +1,48 @@
+# The global dangerous-command guard: one POSIX-ERE (RE2) pattern per line, # comments.
+# Block only the catastrophic and irreversible — disk wipes, deleting home or root, force-pushes
+# and remote deletions, repository and secret deletion, history purges, secret-store reads.
+# Recoverable local commands stay allowed: the classifier and the human gate see those.
+# A match is refused before any gate: no approval can run it.
+
+# rm -rf on /, a top-level dir, or home; any sudo rm
+(^|[;&|(`[:space:]])rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[fF]?[a-zA-Z]*|-[a-zA-Z]*[fF][a-zA-Z]*[rR][a-zA-Z]*|--recursive[[:space:]]+--force|--force[[:space:]]+--recursive|-[rR][[:space:]]+-[fF]|-[fF][[:space:]]+-[rR])[[:space:]]+(--no-preserve-root[[:space:]]+)?("?(/|/\*|~|~/|~/\*|\$HOME|\$\{HOME\}|\$HOME/\*)"?|/(Users|home|root|etc|usr|var|bin|boot|lib|opt|System|Applications)/?)([[:space:]]|$|;|&)
+(^|[;&|(`[:space:]])rm[[:space:]].*--no-preserve-root
+(^|[;&|(`[:space:]])sudo[[:space:]]+rm([[:space:]]|$)
+# raw disk writes and filesystem creation
+(^|[;&|(`[:space:]])(sudo[[:space:]]+)?dd[[:space:]].*of=/dev/(r?disk|sd|nvme|hd|xvd|vd|mmcblk)
+(^|[;&|(`[:space:]])mkfs(\.[a-z0-9]+)?[[:space:]]
+(^|[;&|(`[:space:]])diskutil[[:space:]]+(eraseDisk|eraseVolume|partitionDisk|zeroDisk|randomDisk|secureErase)
+>[[:space:]]*/dev/(r?disk|sd|nvme|hd)[a-z0-9]*
+# a fork bomb
+:\(\)[[:space:]]*\{[[:space:]]*:[[:space:]]*\|[[:space:]]*:[[:space:]]*&[[:space:]]*\}[[:space:]]*;[[:space:]]*:
+# a script from the network piped into a shell
+(curl|wget)[^|;&]*\|[[:space:]]*(sudo[[:space:]]+)?(ba|z|da|k)?sh([[:space:]]|$)
+# force-push, remote branch deletion
+(^|[;&|(`[:space:]])git[[:space:]]+push([[:space:]]+[^;&|]*)?[[:space:]](--force|-f)([[:space:]]|$)
+(^|[;&|(`[:space:]])git[[:space:]]+push([[:space:]]+[^;&|]*)?[[:space:]](--delete|-d)([[:space:]]|$)
+(^|[;&|(`[:space:]])git[[:space:]]+push[[:space:]]+[^[:space:];&|]+[[:space:]]+(:|\+)[^[:space:]]
+# history purges
+(^|[;&|(`[:space:]])git[[:space:]]+reflog[[:space:]]+expire[^;&|]*--expire(-unreachable)?=(now|all)
+(^|[;&|(`[:space:]])git[[:space:]]+gc[^;&|]*--prune=(now|all)
+# permission wipes on the root
+(^|[;&|(`[:space:]])chmod[[:space:]]+(-R[[:space:]]+)?[0-7]*777[[:space:]]+/([[:space:]]|$)
+(^|[;&|(`[:space:]])chown[[:space:]]+-R[[:space:]]+[^[:space:]]+[[:space:]]+/([[:space:]]|$)
+# GitHub deletions and exposure
+(^|[;&|(`[:space:]])gh[[:space:]]+(repo|release|secret|ssh-key|gpg-key)[[:space:]]+delete([[:space:]]|$)
+(^|[;&|(`[:space:]])gh[[:space:]]+api[[:space:]].*(-X[[:space:]]*|--method[[:space:]=]+)(DELETE|delete)
+(^|[;&|(`[:space:]])gh[[:space:]]+repo[[:space:]]+edit[^;&|]*--visibility[[:space:]=]+public
+# secret stores: reads, exports, unlocks
+(^|[;&|(`[:space:]])(bw|bws)[[:space:]]+(get|list|export|unlock|secret)([[:space:]]|$)
+(^|[;&|(`[:space:]])lpass[[:space:]]+(show|export)([[:space:]]|$)
+(^|[;&|(`[:space:]])keepassxc-cli[[:space:]]+(show|export)([[:space:]]|$)
+(^|[;&|(`[:space:]])rbw[[:space:]]+get([[:space:]]|$)
+(^|[;&|(`[:space:]])nordpass[[:space:]]+(get|export)([[:space:]]|$)
+(^|[;&|(`[:space:]])pass([[:space:]]+(show|insert|grep|-c|edit|generate|rm|cp|mv)|[[:space:]]+[a-zA-Z0-9_.-]+/)
+(^|[;&|(`[:space:]])op[[:space:]]+(read|item|run|inject|document|signin)([[:space:]]|$)
+(^|[;&|(`[:space:]])security[[:space:]]+(-[a-z]+[[:space:]]+)*dump-keychain
+(^|[;&|(`[:space:]])gpg[[:space:]].*--export-secret-(keys?|subkeys)
+\.password-store
+# the password managers themselves
+(^|[;&|(`[:space:]])rm[[:space:]].*(1Password|Bitwarden|NordPass|KeePassXC)\.app
+(^|[;&|(`[:space:]])open[[:space:]]+-a[[:space:]]+"?(1Password|NordPass|Bitwarden|KeePassXC)
+(^|[;&|(`[:space:]])brew[[:space:]]+uninstall[^;&|]*(nordpass|bitwarden|1password|keepassxc)

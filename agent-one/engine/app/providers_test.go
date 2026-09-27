@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -255,5 +256,11 @@ providers:
 	m2.Ref.Model, m2.Provider, m2.ID = "openrouter/x", "openrouter", "x"
 	if n := ps.Window(context.Background(), m2); n != 128000 {
 		t.Errorf("configured window: %d", n)
+	}
+}
+
+func TestFinishReasonErrorFallsBack(t *testing.T) {
+	if !retryable(fmt.Errorf("openai: the upstream ended the answer with finish_reason error (model m) — a failed call, not an answer")) {
+		t.Fatal("an upstream error ending must move the call to the fallback")
 	}
 }

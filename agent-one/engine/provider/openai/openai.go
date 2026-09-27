@@ -295,6 +295,9 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 			call.Extra = tc.ExtraContent
 			resp.Message.ToolCalls = append(resp.Message.ToolCalls, call)
 		}
+		if ch.FinishReason == "error" {
+			return provider.Response{}, errUpstream(out.Model)
+		}
 		resp.Stop = finishOf(ch.FinishReason)
 		if req.OnDelta != nil && resp.Message.Text != "" && len(tagRe.FindAllString(resp.Message.Text, -1)) == 0 {
 			req.OnDelta(resp.Message.Text)
@@ -323,6 +326,13 @@ func callOf(id, name, args string) provider.ToolCall {
 		in = b
 	}
 	return provider.ToolCall{ID: id, Name: name, Input: in}
+}
+
+// errUpstream is an answer the upstream ended with finish_reason "error": OpenRouter can do so
+// under HTTP 200, after the headers and even after some text. It is a failed call, never a
+// finished answer — and a transient one, so the fallback model is tried.
+func errUpstream(model string) error {
+	return fmt.Errorf("openai: the upstream ended the answer with finish_reason error (model %s) — a failed call, not an answer", model)
 }
 
 func finishOf(s string) provider.StopReason {
@@ -488,6 +498,9 @@ func (c *Client) readStream(r io.Reader, onDelta func(string)) (provider.Respons
 		call := callOf(tc.ID, tc.Function.Name, tc.Function.Arguments)
 		call.Extra = tc.ExtraContent
 		resp.Message.ToolCalls = append(resp.Message.ToolCalls, call)
+	}
+	if finish == "error" {
+		return provider.Response{}, errUpstream(resp.Model)
 	}
 	resp.Stop = finishOf(finish)
 	if c.text() && onDelta != nil {

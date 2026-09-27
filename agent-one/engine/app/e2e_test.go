@@ -417,3 +417,94 @@ func TestE2EBothDistributionsAndHarbor(t *testing.T) {
 		t.Errorf("usage from the fake: %v", res["usage"])
 	}
 }
+
+// The guard refuses a catastrophic command even when its class was pre-approved: no approval
+// can run it. The home the command names is untouched.
+func TestE2EGuardRefusesEvenApproved(t *testing.T) {
+	agentOne, _ := binaries(t)
+	w := newTestWorkspace(t, "agent-one", agentOneMembers())
+	os.WriteFile(filepath.Join(w.home, "keep.txt"), []byte("mine"), 0o644)
+	w.script(".agent-one/tmp/s.json", when("wipe", call("bash", map[string]string{"command": "rm -rf ~"})), text("@S DONE\n@E 5"))
+	w.write(".agent-one/config.yaml", mockCfg(".agent-one/tmp/s.json", ""))
+	code, out, errb := w.exec(agentOne, "", nil, "run", "--json", "--quiet", "--approve", "destructive,outward", "wipe")
+	if _, err := os.Stat(filepath.Join(w.home, "keep.txt")); err != nil {
+		t.Fatalf("the home was touched: %v\n%s\n%s", err, out, errb)
+	}
+	j := w.read(".agent-one/instruments/loop/" + firstJournal(w))
+	if !strings.Contains(j, `"by":"guard"`) || !strings.Contains(j, `"decision":"refused"`) {
+		t.Fatalf("the journal does not show the guard's refusal (exit %d):\n%s", code, j)
+	}
+}
+
+// /handoff hands the model the gathered facts and the template; /handoff read gives a fresh
+// session the file with the rule to verify it before trusting it.
+func TestE2EHandoff(t *testing.T) {
+	agentOne, _ := binaries(t)
+	w := newTestWorkspace(t, "agent-one", agentOneMembers())
+	w.script(".agent-one/tmp/s.json",
+		when("A previous session left this handoff", text("@S DONE read and waiting\n@E 20")),
+		when("Write a handoff for a fresh session", call("write", map[string]string{"path": ".agent-one/handoffs/2026-09-27-120000.md", "content": "# HANDOFF: auth\n\n## 3. Current state\nDONE: login\n"})),
+		when("2026-09-27-120000.md", text("@S DONE .agent-one/handoffs/2026-09-27-120000.md\n@E 40")))
+	w.write(".agent-one/config.yaml", mockCfg(".agent-one/tmp/s.json", ""))
+	code, out, errb := w.exec(agentOne, "/handoff logout next\n/quit\n", nil, "--quiet")
+	if code != 0 || !strings.Contains(errb, "handoff → a turn") || !strings.Contains(w.read(".agent-one/handoffs/2026-09-27-120000.md"), "DONE: login") {
+		t.Fatalf("write: %d\n%s\n%s", code, out, errb)
+	}
+	code, out, errb = w.exec(agentOne, "/handoff read\n/quit\n", nil, "--quiet")
+	if code != 0 || !strings.Contains(errb, "handoff .agent-one/handoffs/2026-09-27-120000.md → a turn") || !strings.Contains(out, "read and waiting") {
+		t.Fatalf("read: %d\n%s\n%s", code, out, errb)
+	}
+}
+
+// A goal keeps working until its validation passes: the binary runs the command after each turn
+// and hands the failure back; `@? human:` pauses it.
+func TestE2EGoal(t *testing.T) {
+	agentOne, _ := binaries(t)
+	w := newTestWorkspace(t, "agent-one", agentOneMembers())
+	w.script(".agent-one/tmp/s.json",
+		when("Validation after turn 1", call("write", map[string]string{"path": "done.txt", "content": "ok"})),
+		when("You are working to a goal", call("write", map[string]string{"path": "notyet.txt", "content": "x"})),
+		when("done.txt", text("@S DONE wrote done.txt\n@E 5")),
+		when("notyet.txt", text("@S DONE wrote notyet.txt\n@E 5")))
+	w.write(".agent-one/config.yaml", mockCfg(".agent-one/tmp/s.json", ""))
+	code, out, errb := w.exec(agentOne, "", nil, "goal", "--quiet", "--validate", "test -f done.txt", "make done.txt exist")
+	if code != 0 || !strings.Contains(out, "goal met after 2 turns") || !strings.Contains(errb, "goal · validation exit 1") {
+		t.Fatalf("goal: %d\n%s\n%s", code, out, errb)
+	}
+	w2 := newTestWorkspace(t, "agent-one", agentOneMembers())
+	w2.script(".agent-one/tmp/s.json", when("You are working to a goal", text("I need the product owner.\n@? human: which provider to bill?")))
+	w2.write(".agent-one/config.yaml", mockCfg(".agent-one/tmp/s.json", ""))
+	code, out, errb = w2.exec(agentOne, "", nil, "goal", "--quiet", "--validate", "false", "bill the right provider")
+	if code != 3 || !strings.Contains(errb, "paused at turn 1 for the operator: which provider to bill?") {
+		t.Fatalf("pause: %d\n%s\n%s", code, out, errb)
+	}
+}
+
+// /review: two read-only reviewers in parallel (a write is refused, not asked), one merged
+// shortlist; nothing fixed.
+func TestE2EReview(t *testing.T) {
+	agentOne, _ := binaries(t)
+	w := newTestWorkspace(t, "agent-one", agentOneMembers())
+	git := func(args ...string) {
+		c := exec.Command("git", append([]string{"-C", w.root, "-c", "user.email=t@t", "-c", "user.name=t"}, args...)...)
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	git("init", "-q")
+	git("add", "-A")
+	git("commit", "-qm", "base")
+	w.write("src/auth/login.go", "package auth\n\nfunc Login() *int { return nil }\n")
+	w.script(".agent-one/tmp/s.json",
+		when("Two independent reviewers", text("1. Login returns nil — src/auth/login.go:3 [both]\nDropped 0 as overthinking.\nApprove fixing these, or adjust the list?")),
+		when("as a thorough senior developer", call("write", map[string]string{"path": "src/auth/login.go", "content": "fixed"})),
+		when("a reviewer reads only", text("Serious: src/auth/login.go:3 Login returns nil. Not ready to merge.")))
+	w.write(".agent-one/config.yaml", mockCfg(".agent-one/tmp/s.json", ""))
+	code, out, errb := w.exec(agentOne, "", nil, "review", "--quiet")
+	if code != 0 || !strings.Contains(out, "[both]") || !strings.Contains(errb, "review: [judge] reported") || !strings.Contains(errb, "review: [drafter] reported") {
+		t.Fatalf("review: %d\n%s\n%s", code, out, errb)
+	}
+	if strings.Contains(w.read("src/auth/login.go"), "fixed") {
+		t.Fatal("a reviewer wrote a file")
+	}
+}

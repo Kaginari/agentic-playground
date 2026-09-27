@@ -29,6 +29,7 @@ type Welcome struct {
 	Board     string   // URL or ""
 	Off       int      // features switched off
 	Session   string
+	Handoff   string // a handoff waiting for this session: its path and age
 	Holes     []string
 	// WorkspaceWord labels the root row ("workspace"); "" reads "workspace".
 	WorkspaceWord string
@@ -56,7 +57,7 @@ func (t Theme) Welcome(w Welcome, width int) string {
 	} else {
 		rows = append(rows, title, "")
 	}
-	labels := []string{w.WorkspaceWord, "model", "roles", "board", "session", "off"}
+	labels := []string{w.WorkspaceWord, "model", "roles", "board", "session", "handoff", "off"}
 	lw := 0
 	for _, l := range labels {
 		if len(l)+1 > lw {
@@ -82,6 +83,7 @@ func (t Theme) Welcome(w Welcome, width int) string {
 	}
 	row("board", w.Board)
 	row("session", w.Session)
+	row("handoff", w.Handoff)
 	if w.Off > 0 {
 		row("off", fmt.Sprintf("%d feature%s switched off by config (/status)", w.Off, plural(w.Off)))
 	}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -138,7 +139,13 @@ func (a *App) REPL(ctx context.Context) int {
 					}
 					return 0
 				}
+				// a command that became a turn starts now: left on the wake queue, a line already
+				// read (a piped `/quit`) could win the race and end the session before it ran
 				if turnDone == nil {
+					if queued := a.Subagent.TakeWake(); len(queued) > 0 {
+						start(strings.Join(queued, "\n\n"))
+						continue
+					}
 					prompt()
 				}
 				continue
@@ -249,7 +256,7 @@ func (a *App) slash(ctx context.Context, line string, s *loop.Session, busy bool
 	case "quit", "exit", "q":
 		return true
 	case "help", "?":
-		fmt.Fprintln(out, "/agents · /send <body> <text> · /usage · /status · /config [explain] · /compact · /sessions · /resume <id> · /quit")
+		fmt.Fprintln(out, "/agents · /send <agent> <text> · /usage · /status · /config [explain] · /compact · /review [range] · /handoff [read] · /sessions · /resume <id> · /quit")
 		var names []string
 		for _, c := range a.Found.Commands {
 			names = append(names, "/"+c.Name)
@@ -313,6 +320,59 @@ func (a *App) slash(ctx context.Context, line string, s *loop.Session, busy bool
 			fmt.Fprintf(out, "drained: %d → %d tokens, %d pointers, %d notes, %d facts\n", a.Drainer.Last.Before, a.Drainer.Last.After, len(a.Drainer.Last.Pointers), a.Drainer.Last.Notes, a.Drainer.Last.Facts)
 			a.Sessions.Sync(a.SessionID, s, a.mountModel.Ref.Model)
 		}
+	case "review":
+		if _, own := a.Found.Command("review"); own {
+			// the workspace's own /review command wins over the built-in one, as its config wins over defaults
+			a.queueTurn(a.foundExpand("review", rest))
+			fmt.Fprintln(errw, "command /review → a turn")
+			return false
+		}
+		if busy {
+			fmt.Fprintln(errw, "a turn is running — /review waits for it")
+			return false
+		}
+		go func() {
+			merge, err := a.runReview(ctx, rest, func(l string) {
+				if a.Notify != nil {
+					a.Notify(l)
+				} else {
+					fmt.Fprintln(errw, l)
+				}
+			})
+			if err != nil {
+				msg := "review: " + err.Error()
+				if a.Notify != nil {
+					a.Notify(msg)
+				} else {
+					fmt.Fprintln(errw, msg)
+				}
+				return
+			}
+			a.queueTurn(merge)
+		}()
+	case "handoff":
+		if busy {
+			fmt.Fprintln(errw, "a turn is running — /handoff waits for it")
+			return false
+		}
+		if sub, arg, _ := strings.Cut(rest, " "); sub == "read" {
+			p := strings.TrimSpace(arg)
+			if p == "" {
+				p, _ = a.latestHandoff()
+			} else if !filepath.IsAbs(p) {
+				p = filepath.Join(a.Root, p)
+			}
+			b, err := os.ReadFile(p)
+			if p == "" || err != nil {
+				fmt.Fprintln(errw, "no handoff to read (/handoff writes one)")
+				return false
+			}
+			fmt.Fprintf(errw, "handoff %s → a turn\n", relOrAbs(a.Root, p))
+			a.queueTurn(handoffRead(relOrAbs(a.Root, p), string(b)))
+			return false
+		}
+		fmt.Fprintln(errw, "handoff → a turn")
+		a.queueTurn(a.handoffAsk(ctx, rest, s.Ask))
 	case "sessions":
 		if a.Sessions == nil {
 			fmt.Fprintln(errw, "sessions are off (sessions.enabled)")
@@ -440,4 +500,10 @@ func (a *App) resultJSON(r *loop.Result) string {
 	}
 	b, _ := jsonMarshal(v)
 	return string(b)
+}
+
+// foundExpand expands a discovered command's template with its arguments.
+func (a *App) foundExpand(name, rest string) string {
+	c, _ := a.Found.Command(name)
+	return c.Expand(rest)
 }

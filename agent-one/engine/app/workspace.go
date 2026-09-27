@@ -133,7 +133,7 @@ func hookOptions(cfg *config.Config, rules []workspace.Rule) workspace.HookOptio
 	h.Recall = workspace.RecallOptions{Enabled: cfg.Memory.Long.Enabled || cfg.Toolbox.Enabled, Memory: cfg.Memory.Long.Enabled, Toolbox: cfg.Toolbox.Enabled, K: cfg.Memory.Recall.K, Budget: cfg.Toolbox.BudgetTokens}
 	h.Record = workspace.RecordOptions{Enabled: cfg.Memory.Shared.Workspace.Enabled, Unsaid: cfg.Memory.Shared.Workspace.Enabled, Landed: false}
 	h.Gate = workspace.GateOptions{Enabled: cfg.Policy.Gate.Enabled, RightAuthor: cfg.Policy.Gate.RightAuthor, InvariantsHold: cfg.Policy.Gate.InvariantsHold, DutiesDone: cfg.Policy.Gate.DutiesDone,
-		DocTruthful: cfg.Policy.Gate.DocTruthful || cfg.Policy.DocsAsCode.Enabled, Log: cfg.Policy.Log.Enabled, Retries: cfg.Policy.Gate.Retries}
+		DocTruthful: cfg.Policy.Gate.DocTruthful || cfg.Policy.DocsAsCode.Enabled, Log: cfg.Policy.Log.Enabled, Retries: cfg.Policy.Gate.Retries, TestsIntact: cfg.Policy.Gate.TestsIntact}
 	for _, ck := range cfg.Checks("", "") {
 		h.Gate.Checks = append(h.Gate.Checks, workspace.Check{Name: ck.ID, Command: ck.Command, Timeout: ck.Timeout, Scope: ck.Scope})
 	}

@@ -19,6 +19,7 @@ type Config struct {
 	Providers map[string]*Provider `json:"providers"`
 	Tools     Tools                `json:"tools"`
 	Policy    Policy               `json:"policy"`
+	Guard     Guard                `json:"guard"`
 	Memory    Memory               `json:"memory"`
 	Toolbox   Toolbox              `json:"toolbox"`
 	Ontology  Ontology             `json:"ontology"`
@@ -277,7 +278,8 @@ type Gate struct {
 	InvariantsHold bool `json:"invariantsHold"`
 	DutiesDone     bool `json:"dutiesDone"`
 	DocTruthful    bool `json:"docTruthful"`
-	Retries        int  `json:"retries"` // a failed gate goes back to the model this many times per turn
+	Retries        int  `json:"retries"`     // a failed gate goes back to the model this many times per turn
+	TestsIntact    bool `json:"testsIntact"` // a turn may not pass by deleting, skipping or narrowing tests
 }
 
 type Wire struct {
@@ -607,3 +609,10 @@ var Profiles = map[string][]string{
 // OutwardCapable names the tools whose acts may leave the workspace; an `allow` on them is a
 // loosening, and a bare wildcard `allow` on them is refused.
 var OutwardCapable = map[string]bool{"bash": true, "git": true, "webfetch": true, "websearch": true, "*": true}
+
+// Guard is the global dangerous-command guard: the built-in denylist, the machine-wide file
+// (~/.agents/hooks/dangerous-patterns.txt) and these files, refused before any gate.
+type Guard struct {
+	Enabled bool     `json:"enabled"`
+	Files   []string `json:"files"`
+}

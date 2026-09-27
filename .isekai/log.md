@@ -1169,3 +1169,11 @@ Append-only. Newest entries at the bottom. One entry per change.
     regardless. From here the commit is chained on the suite's success (`test && commit`), never
     after it.
   - Veldora asked the review run on ciel's and raphael's models: it does (reviewOffices).
+
+### [2026-09-27T13:09:44+02:00] rimuru — agent-one takes the guard, the gate checks, handoff, goal and review
+- **Files:** agent-one/engine/{guard/*,provider/openai,tool,loop,workspace/{gate,hooks,tests,*_test}.go,
+  config,app/{guard,handoff,goal,review,repl,cli,tui,workspace,e2e_test}.go}.
+- **Gate:** n/a (no orcs). Instruments: vet + full suite green, the leak test included.
+- **Learned:** the port is the same three-way merge; the word map needs agent-one's config words too
+  (Law → Policy, TraitsHold → InvariantsHold), and a Go identifier named after the dist (`isekai`)
+  cannot take the map — the e2e tests were renamed by hand.
