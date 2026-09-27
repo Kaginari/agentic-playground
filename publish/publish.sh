@@ -59,6 +59,7 @@ else
   rsync -a "$SRC/agent-one/portraits/" "$OUT/portraits/"
 fi
 cp "$SRC/.isekai/LICENSE" "$OUT/LICENSE"
+mkdir -p "$OUT/docs/screens" && cp "$SRC/docs/screens/$DIST-"*.png "$OUT/docs/screens/"
 
 say "bench"
 mkdir -p "$OUT/bench"

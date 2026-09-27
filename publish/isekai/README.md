@@ -40,7 +40,7 @@ tar -xzf isekai_*.tar.gz isekai && install -m 755 isekai ~/.local/bin/
 isekai version
 ```
 
-Or build it: `CGO_ENABLED=0 go build -o isekai ./cmd/isekai` (Go ≥ 1.23, standard library only).
+Or build it: `CGO_ENABLED=0 go build -o isekai ./cmd/isekai` (Go ≥ 1.26; the standard library plus the Charm libraries for the terminal).
 
 ## Quick start
 
@@ -51,6 +51,45 @@ export ANTHROPIC_API_KEY=…        # or any OpenAI-compatible endpoint (vLLM, O
 isekai                           # the live session — the board opens at http://127.0.0.1:7411
 isekai run "add a health check endpoint and its test"
 ```
+
+## The terminal
+
+A terminal UI in the class of Claude Code, built on the Charm libraries: the conversation flows into
+your scrollback, and every event of the loop is drawn — thinking, tool calls, diffs, Courts, the gate.
+
+![welcome](docs/screens/isekai-welcome.png)
+
+The model's thinking streams while it arrives and folds when the answer starts; each rank has its own
+face and verbs beside the spinner:
+
+![thinking](docs/screens/isekai-thinking.png)
+
+When a turn wrote files, the orc weighs the verdict before the turn is done:
+
+![the gate](docs/screens/isekai-gating.png)
+
+Tool calls are cards edged in their class's colour; diffs keep the code's own colours:
+
+![tool cards and a diff](docs/screens/isekai-tools.png)
+
+`ctrl+t` watches every body — the session and each Court, its thinking and its steps, live:
+
+![every body](docs/screens/isekai-bodies.png)
+
+`/board` shows the world full screen — the agents, the reasoned ontology as a graph, the offices, the
+usage — and `ctrl+k` opens a fuzzy command palette:
+
+![the ontology graph](docs/screens/isekai-board-graph.png)
+
+![the palette and a toast](docs/screens/isekai-overlay.png)
+
+| Key | |
+|---|---|
+| `enter` · `shift+enter` | send · newline |
+| `/` · `ctrl+k` | commands · the palette |
+| `ctrl+t` | every body, live |
+| `ctrl+o` | expand the last folded block |
+| `esc` | interrupt the turn |
 
 ## The CLI
 
@@ -64,7 +103,12 @@ isekai run "add a health check endpoint and its test"
 | `memory` · `toolbox` · `onto` | the three memories, the two-level toolbox, the creature graph |
 | `usage` | tokens and cost by body, office, rank, model and day |
 | `bench` | a fixed task set on every configured model |
-| `board` | the board without a session |
+| `goal --validate "<cmd>" "<objective>"` | work turn after turn until the command passes; the binary runs it, the model cannot skip it |
+| `review [range]` | two reviewers on two models in parallel, one merged shortlist; nothing fixed before you approve |
+| `handoff [focus]` | a handoff note for a fresh session (`/handoff read` picks it up) |
+| `guard check\|test\|show\|install` | the global dangerous-command guard; `install` wires it into Claude Code and OpenCode |
+| `board [--ssh [addr]]` | the board without a session — on the web, and over SSH (keys in `~/.ssh/authorized_keys` only) |
+| `--containered` | the whole binary in a Docker container: the world read-write, the rest read-only |
 | `selftest` · `version` · `init` | |
 
 ## Configuration
@@ -86,6 +130,17 @@ tools:
     kube-pods: { run: [kubectl, get, pods, -n, "{{ns}}"], params: { ns: { type: string } }, class: outward }
 rules:
   - { text: "Tests must pass before a change lands.", check: "go test ./..." }
+```
+
+
+Any section can live in its own file beside `config.yaml` — `models.yaml`, `providers.yaml`,
+`rules.yaml`, `guards.yaml` — and `config explain` names the file every value came from. `guards.yaml`
+may be just a list of patterns, added to the built-in denylist of catastrophic commands:
+
+```yaml
+# .isekai/guards.yaml
+- '(^|[[:space:]])terraform[[:space:]]+destroy'
+- 'kubectl[[:space:]]+delete[[:space:]]+(ns|namespace)'
 ```
 
 The full schema: [`docs/canon/config.md`](docs/canon/config.md). The design: [`docs/canon/binary.md`](docs/canon/binary.md).

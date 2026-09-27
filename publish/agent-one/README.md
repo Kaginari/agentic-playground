@@ -54,6 +54,36 @@ agent-one                         # the live session — the dashboard opens at 
 agent-one run "add a health check endpoint and its test"
 ```
 
+## The terminal
+
+A terminal UI in the class of Claude Code: the conversation flows into your scrollback, and every
+event of the loop is drawn — thinking, tool calls, diffs, subagents, the review gate.
+
+![welcome](docs/screens/agent-one-welcome.png)
+
+Each role has a robot in its colour beside the spinner; when a turn changed files, the domain owner
+reviews the change before the turn is done:
+
+![the review gate](docs/screens/agent-one-gating.png)
+
+`ctrl+t` watches every agent — the orchestrator and each subagent, its thinking and its steps, live:
+
+![every agent](docs/screens/agent-one-agents.png)
+
+`/board` shows the workspace full screen — the agents, the ownership graph, the roles, the usage:
+
+![the graph](docs/screens/agent-one-board-graph.png)
+
+![tool cards](docs/screens/agent-one-tools.png)
+
+| Key | |
+|---|---|
+| `enter` · `shift+enter` | send · newline |
+| `/` · `ctrl+k` | commands · the palette |
+| `ctrl+t` | every agent, live |
+| `ctrl+o` | expand the last folded block |
+| `esc` | interrupt the turn |
+
 ## The CLI
 
 | Command | What it does |
@@ -66,7 +96,12 @@ agent-one run "add a health check endpoint and its test"
 | `memory` · `toolbox` · `onto` | memory tiers, the two-level tool registry, the ownership graph |
 | `usage` | tokens and cost by agent, role, model and day |
 | `bench` | a fixed task set on every configured model |
-| `board` | the dashboard without a session |
+| `goal --validate "<cmd>" "<objective>"` | work turn after turn until the command passes; the binary runs it, the model cannot skip it |
+| `review [range]` | two reviewers on two models in parallel, one merged shortlist; nothing fixed before you approve |
+| `handoff [focus]` | a handoff note for a fresh session (`/handoff read` picks it up) |
+| `guard check\|test\|show\|install` | the global dangerous-command guard; `install` wires it into Claude Code and OpenCode |
+| `board [--ssh [addr]]` | the dashboard without a session — on the web, and over SSH (keys in `~/.ssh/authorized_keys` only) |
+| `--containered` | the whole binary in a Docker container: the workspace read-write, the rest read-only |
 | `selftest` · `version` · `init` | |
 
 ## Configuration
@@ -89,6 +124,17 @@ rules:
   - { text: "Tests must pass before a change lands.", check: "go test ./..." }
 budgets:
   session: { usd: 5 }
+```
+
+
+Any section can live in its own file beside `config.yaml` — `models.yaml`, `providers.yaml`,
+`rules.yaml`, `guards.yaml` — and `config explain` names the file every value came from. `guards.yaml`
+may be just a list of patterns, added to the built-in denylist of catastrophic commands:
+
+```yaml
+# .agent-one/guards.yaml
+- '(^|[[:space:]])terraform[[:space:]]+destroy'
+- 'kubectl[[:space:]]+delete[[:space:]]+(ns|namespace)'
 ```
 
 ## Benchmarks

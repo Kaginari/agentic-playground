@@ -6,6 +6,26 @@ All notable changes to __TITLE__ are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - __DATE__
+
+### Highlights
+
+**A terminal in the class of Claude Code**, on Charm v2: the mascot drops in; the model's thinking
+streams and folds; each rank has a face and its own verbs, and the orc weighs the verdict at the gate;
+tool calls are class-coloured cards and diffs keep the code's colours; `ctrl+t` watches every body,
+live; `/board` full screen with the reasoned ontology as a graph; a `ctrl+k` palette and toasts; the
+window title and tab progress follow the session; the transcript reprints on resize.
+
+**Safety in code**: a global dangerous-command guard refused before any gate (151-case corpus;
+`guard install` wires it into Claude Code and OpenCode); the gate runs the pre-turn verify lines, keeps
+the tests intact, and sends a failed gate back to the model once.
+
+**New commands**: `goal`, `review`, `handoff`, `board --ssh`, `--containered`, a setup form at `init`;
+config one file per section (`guards.yaml`, `rules.yaml`…).
+
+**Fixes**: an upstream `finish_reason: "error"` is a failed (retryable) call, not an answer; a TUI that
+cannot start says why; a piped slash command's turn can no longer be skipped by the next line.
+
 ## [0.1.5] - __DATE__
 
 ### Highlights

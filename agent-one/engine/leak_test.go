@@ -35,6 +35,10 @@ func TestNoForkedVocabularyLeaks(t *testing.T) {
 		if rel == "FORKED.md" {
 			return nil
 		}
+		switch strings.ToLower(filepath.Ext(rel)) {
+		case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico":
+			return nil // an image is bytes, not words: compressed data can spell anything
+		}
 		b, err := os.ReadFile(p)
 		if err != nil {
 			return err
