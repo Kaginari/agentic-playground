@@ -1133,3 +1133,12 @@ Append-only. Newest entries at the bottom. One entry per change.
   test passes), TestTestsIntactLanguages (Go, JS/TS, Python); suites green.
 - **Learned:** git's HEAD is the wrong baseline — it would count the human's own uncommitted edits;
   the loop's own snapshot at turn open is the only honest "before".
+
+### [2026-09-27T13:03:15+02:00] rimuru — handoff, and a REPL race fixed (isekai)
+- **Files:** isekai/app/{handoff.go,repl.go,tui.go,cli.go,e2e_test.go} · tui/blocks.go · loop/loop.go ·
+  canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: TestE2EHandoff (/handoff → the model writes the file; a new
+  session's /handoff read → the turn with the verify-first rule) 5/5 after the fix; suites green.
+- **Learned:** a slash command that becomes a turn rode the wake queue, and the REPL's select raced it
+  against the next line already read: a piped `/cmd\n/quit` could quit first. It now starts at once —
+  a latent bug for every template command, found by the first test that piped one.

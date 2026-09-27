@@ -360,6 +360,17 @@ for what dispatch could not avoid.
 Every pass is switchable in config (`compaction.passes.*`); a `summary` strategy exists as the
 generic fallback, and `status` shows which strategy and passes are live.
 
+## Handoff — what a fresh session needs
+
+`/handoff [focus]` (or `<dist> handoff [focus]`) is a turn: the binary gathers what it knows — the
+session's first ask, the uncommitted changes, the recent commits, the last log.md entries, the previous
+handoff to carry forward — and the model writes `<world>/handoffs/<time>.md` from a fixed template:
+goal, why, state (done · partial · not started — state, not orders), decisions and why, traps and dead
+ends, pointers (by path, never copied), open work. Secrets by location only. The next session's welcome
+names a handoff under two weeks old; `/handoff read [path]` hands it to the model with one rule: read
+every listed file, trust no claim unverified, then wait for the human. The context stress zone points
+at it. (After davidondrej/skills' handoff, MIT.)
+
 ## The first run — a setup form
 
 `init` founds the world; on a terminal it then asks, in a Huh form, which model the world runs on —

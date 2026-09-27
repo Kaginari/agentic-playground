@@ -92,6 +92,7 @@ var commands = []struct{ name, summary string }{
 	{"repl", "a live session (the default)"},
 	{"run", "run one ask to its end: run [--json] [--format text|json|wire] \"<ask>\""},
 	{"resume", "resume a session: resume <id> [ask]"},
+	{"handoff", "write a handoff for a fresh session: handoff [focus]"},
 	{"sessions", "list the sessions of this world"},
 	{"status", "the honesty rule and the instrument board"},
 	{"config", "config show [--yaml] | explain | check | path | patch"},
@@ -199,6 +200,8 @@ func Main(dist string, args []string, io IO, v Version) int {
 			return a.TUI(ctx)
 		}
 		return a.REPL(ctx)
+	case "handoff":
+		return a.cmdRun(ctx, a.handoffAsk(ctx, strings.TrimSpace(strings.Join(leftover, " ")), ""), io)
 	case "run":
 		return a.cmdRun(ctx, strings.TrimSpace(strings.Join(leftover, " ")), io)
 	case "resume":

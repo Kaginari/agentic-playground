@@ -435,3 +435,23 @@ func TestE2EGuardRefusesEvenApproved(t *testing.T) {
 		t.Fatalf("the journal does not show the guard's refusal (exit %d):\n%s", code, j)
 	}
 }
+
+// /handoff hands the model the gathered facts and the template; /handoff read gives a fresh
+// session the file with the rule to verify it before trusting it.
+func TestE2EHandoff(t *testing.T) {
+	isekai, _, _ := binaries(t)
+	w := newTestWorld(t, "isekai", isekaiCreatures())
+	w.script(".isekai/tmp/s.json",
+		when("A previous session left this handoff", text("@S DONE read and waiting\n@E 20")),
+		when("Write a handoff for a fresh session", call("write", map[string]string{"path": ".isekai/handoffs/2026-09-27-120000.md", "content": "# HANDOFF: auth\n\n## 3. Current state\nDONE: login\n"})),
+		when("2026-09-27-120000.md", text("@S DONE .isekai/handoffs/2026-09-27-120000.md\n@E 40")))
+	w.write(".isekai/config.yaml", mockCfg(".isekai/tmp/s.json", ""))
+	code, out, errb := w.exec(isekai, "/handoff logout next\n/quit\n", nil, "--quiet")
+	if code != 0 || !strings.Contains(errb, "handoff → a turn") || !strings.Contains(w.read(".isekai/handoffs/2026-09-27-120000.md"), "DONE: login") {
+		t.Fatalf("write: %d\n%s\n%s", code, out, errb)
+	}
+	code, out, errb = w.exec(isekai, "/handoff read\n/quit\n", nil, "--quiet")
+	if code != 0 || !strings.Contains(errb, "handoff .isekai/handoffs/2026-09-27-120000.md → a turn") || !strings.Contains(out, "read and waiting") {
+		t.Fatalf("read: %d\n%s\n%s", code, out, errb)
+	}
+}

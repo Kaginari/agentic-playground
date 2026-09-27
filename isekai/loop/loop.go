@@ -505,7 +505,7 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 				s.Journal.Log(Event{"t": "drain", "ok": ok, "before": c.Tokens, "after": s.perceive().Tokens})
 			}
 			if !drained {
-				return end(Checkpoint, fmt.Sprintf("context in the stress zone (%d ≥ %d tok) — write what is not yet durable, then resume in a fresh session: %s", c.Tokens, c.Stress, resumeHint()))
+				return end(Checkpoint, fmt.Sprintf("context in the stress zone (%d ≥ %d tok) — write what is not yet durable (/handoff writes one), then resume in a fresh session: %s", c.Tokens, c.Stress, resumeHint()))
 			}
 		}
 		// RECALL (the turn): anchors for the current ask, never payloads

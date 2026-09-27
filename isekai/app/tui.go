@@ -197,6 +197,9 @@ func (h *tuiHost) send(ev tea.Msg) {
 func (h *tuiHost) Welcome() tui.Welcome {
 	a := h.a
 	w := tui.Welcome{Dist: a.Cfg.Dist.Name, Version: orStr(a.Opt.Version.Version, "dev"), World: tilde(a.Root, a.Opt.Home), WorldWord: h.words.World, Model: a.mountModel.Ref.Model, Session: a.SessionID}
+	if p, age := a.latestHandoff(); p != "" && age < 14*24*time.Hour {
+		w.Handoff = relOrAbs(a.Root, p) + " (" + age.Round(time.Minute).String() + " ago) — /handoff read"
+	}
 	var offices []string
 	for _, o := range sortedKeys(a.Cfg.Models.Offices) {
 		offices = append(offices, o+" → "+a.Cfg.Models.Offices[o].Model)
@@ -285,6 +288,7 @@ var builtinCommands = []tui.MenuItem{
 	{Name: "status", Description: "the honesty rule and the instrument board"},
 	{Name: "config", Description: "config [explain] — the switchboard and where each value came from"},
 	{Name: "compact", Description: "drain the context now"},
+	{Name: "handoff", Description: "/handoff [focus] writes one for a fresh session · /handoff read picks the last up"},
 	{Name: "sessions", Description: "the sessions of this world"},
 	{Name: "resume", Description: "/resume <id> — reopen a session"},
 	{Name: "clear", Description: "clear the screen"},
