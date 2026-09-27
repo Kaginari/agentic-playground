@@ -184,3 +184,49 @@ func TestTerminalIntegration(t *testing.T) {
 		t.Fatalf("busy: %q %v", v.WindowTitle, v.ProgressBar)
 	}
 }
+
+func TestFuzzyAndPalette(t *testing.T) {
+	if _, _, ok := fuzzy("sessions", "ssn"); !ok {
+		t.Fatal("ssn is a subsequence of sessions")
+	}
+	if _, _, ok := fuzzy("board", "bx"); ok {
+		t.Fatal("bx matched board")
+	}
+	b1, _, _ := fuzzy("board", "bo")
+	b2, _, _ := fuzzy("rebooted", "bo")
+	if b1 <= b2 {
+		t.Fatalf("a word-start run must outrank a mid-word one: %d vs %d", b1, b2)
+	}
+	m := New(&fakeHost{}, NewTheme(true), DefaultWords())
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Update(tea.KeyPressMsg{Code: 'k', Mod: tea.ModCtrl})
+	if m.palette == nil {
+		t.Fatal("ctrl+k opens the palette")
+	}
+	for _, r := range "boa" {
+		m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+	}
+	if s := ansi.Strip(m.Render()); !strings.Contains(s, "❯ boa") || !strings.Contains(s, "/board") {
+		t.Fatalf("the palette draws its query and its best hit:\n%s", s)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.palette != nil || m.board == nil {
+		t.Fatalf("enter on /board runs it: palette %v board %v", m.palette != nil, m.board != nil)
+	}
+}
+
+func TestToastLives(t *testing.T) {
+	m := New(&fakeHost{}, NewTheme(true), DefaultWords())
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Toast("✓ slime-auth done", m.theme.pill("ok"))
+	for i := 0; i < 120 && m.stepToasts(); i++ {
+	}
+	if s := ansi.Strip(m.Render()); !strings.Contains(s, "✓ slime-auth done") {
+		t.Fatalf("the toast is drawn once it slid in:\n%s", s)
+	}
+	m.toasts[0].born = time.Now().Add(-toastLife - time.Second)
+	m.stepToasts()
+	if len(m.toasts) != 0 || strings.Contains(ansi.Strip(m.Render()), "slime-auth done") {
+		t.Fatal("an expired toast stays")
+	}
+}

@@ -667,9 +667,10 @@ func (t Theme) Shortcuts(list []Shortcut, width int) string {
 func DefaultShortcuts() []Shortcut {
 	return []Shortcut{
 		{"enter", "send"},
-		{"\\ enter", "newline (also alt+enter)"},
+		{"shift+enter", "newline (also \\ enter, alt+enter)"},
 		{"↑ ↓", "history (on the first / last line)"},
 		{"/", "commands"},
+		{"ctrl+k", "command palette (fuzzy)"},
 		{"@path", "complete a file in the world (tab)"},
 		{"esc", "interrupt the turn · clear the input"},
 		{"ctrl+c ×2", "exit"},

@@ -73,6 +73,18 @@ one place the binary takes third-party code; versions pinned in go.sum.
   plain line output stays: the TUI is only for a terminal. `--plain` (or `<PREFIX>PLAIN=1`)
   forces the line REPL anywhere.
 
+## Overlays
+
+Drawn as Lip Gloss v2 layers over the live area (the scrollback above is the terminal's, never
+overdrawn):
+- **The palette — `ctrl+k`.** Every command, the UI's own (board, theme, help, clear, quit) and
+  the host's, fuzzy-matched as you type: a subsequence, word starts and runs scoring higher, the
+  matched letters lit. Enter runs a command that takes nothing at once; one that takes arguments
+  lands in the input to be finished. `theme` switches dark and light and reprints the transcript.
+- **Toasts.** A Court landing (✓ done / ✗ failed) and the gate's verdict raise a one-line pill at
+  the live area's top right; it slides in on a spring and leaves after four seconds, three at most.
+  The block it echoes is in the scrollback already — a toast is a glance, never the record.
+
 ## Blocks as cards
 
 - **Tool cards** — every line of a tool block carries an edge (`▎`) in its class's colour: read

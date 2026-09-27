@@ -22,6 +22,13 @@ func (m *Model) key(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.choice != nil {
 		return m, m.choiceKey(k)
 	}
+	if m.palette != nil {
+		return m, m.paletteKey(k)
+	}
+	if k.String() == "ctrl+k" {
+		m.openPalette()
+		return m, nil
+	}
 	ks := k.String()
 	if m.shortcuts && ks != "ctrl+c" {
 		m.shortcuts = false

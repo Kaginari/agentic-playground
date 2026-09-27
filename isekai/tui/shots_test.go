@@ -59,6 +59,13 @@ func TestShots(t *testing.T) {
 	}
 	shot("busy", strings.Join(busy, "\n\n"))
 	m.busy = false
+	m.openPalette()
+	m.palette.query = "se"
+	m.Toast("✓ slime-auth done", m.theme.pill("ok"))
+	for i := 0; i < 120 && m.stepToasts(); i++ {
+	}
+	shot("overlay", m.Render())
+	m.palette, m.toasts = nil, nil
 	m.Update(evBoard{h.Board("24h")})
 	for i, p := range []string{"agents", "graph", "offices", "usage"} {
 		m.openBoard()

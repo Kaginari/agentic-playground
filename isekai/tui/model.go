@@ -90,6 +90,8 @@ type Model struct {
 	welcomed  bool
 	intro     *introState // the startup animation; nil when off or over
 	shimmer   int         // the spinner verb's highlight, advanced with the spinner
+	palette   *paletteState
+	toasts    []toast
 
 	// the board: full screen while open; blocks that finish meanwhile wait in held
 	board    *boardState
@@ -288,7 +290,15 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.intro = nil
 		return m, m.welcome()
+	case evToastFrame:
+		if m.stepToasts() {
+			return m, toastTick()
+		}
+		return m, nil
 	case evTick:
+		if len(m.toasts) > 0 {
+			m.stepToasts()
+		}
 		if m.busy || m.choice != nil {
 			m.footer = m.host.Footer()
 		}
@@ -481,6 +491,11 @@ func (m *Model) finish(ev EvTurnDone) tea.Cmd {
 	}
 	if ev.Verdict != "" {
 		cmds = append(cmds, m.print(func(w int) string { return m.theme.Gate(ev.Verdict, ev.LogRel, w, m.words.Gate) }))
+		if strings.HasPrefix(ev.Verdict, "pass") {
+			cmds = append(cmds, m.Toast("◆ "+m.words.Gate+" pass", m.theme.pill("ok")))
+		} else if strings.HasPrefix(ev.Verdict, "fail") {
+			cmds = append(cmds, m.Toast("◆ "+m.words.Gate+" fail", m.theme.pill("bad")))
+		}
 	}
 	if ev.Hint != "" {
 		cmds = append(cmds, m.print(func(w int) string { return m.theme.Notice(ev.Hint, w) }))
@@ -549,7 +564,11 @@ func (m *Model) landCourt(c *CourtView) tea.Cmd {
 		m.lastBlock = &collapsed{court: &cp}
 	}
 	cv := *c
-	return m.print(func(w int) string { return m.theme.Court(cv, w) })
+	pill, word := m.theme.pill("ok"), "✓ "+cv.Name+" done"
+	if cv.Failed {
+		pill, word = m.theme.pill("bad"), "✗ "+cv.Name+" failed"
+	}
+	return tea.Batch(m.print(func(w int) string { return m.theme.Court(cv, w) }), m.Toast(word, pill))
 }
 
 // flushStream moves complete paragraphs of the streamed answer into the scrollback (all of it
@@ -684,7 +703,7 @@ func (m *Model) Render() string {
 		f.Courts = m.words.Courts
 	}
 	parts = append(parts, m.theme.Footer(f, m.width))
-	return strings.Join(parts, "\n")
+	return m.overlay(strings.Join(parts, "\n"))
 }
 
 func (m *Model) courtStart(c *CourtView) time.Time {

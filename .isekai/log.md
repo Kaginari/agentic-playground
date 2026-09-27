@@ -1062,3 +1062,11 @@ Append-only. Newest entries at the bottom. One entry per change.
   rendered with freeze and looked at; goldens rewritten on purpose (the edge); suites green.
 - **Learned:** a test's stdout is no terminal, so the theme detects no colour and highlighting is
   (rightly) skipped — the shots force colour to show what a terminal draws.
+
+### [2026-09-27T12:27:46+02:00] rimuru — the CLI, phase 4: overlays (isekai)
+- **Files:** isekai/tui/{overlay.go,model.go,input.go,blocks.go,board_test.go,shots_test.go,
+  testdata/golden/*} · canon/tui.md.
+- **Gate:** n/a (no orcs). Instruments: TestFuzzyAndPalette (ranking; ctrl+k → "boa" → enter opens
+  the board), TestToastLives (slides in, expires); the overlay rendered and looked at twice — the
+  palette first overlapped the input's border, then the toast rows were not counted; fixed and
+  seen; suites green.
