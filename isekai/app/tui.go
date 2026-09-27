@@ -128,6 +128,13 @@ func (a *App) tuiHost(ctx context.Context) (*tuiHost, error) {
 		h.send(tui.EvDelta{Text: t})
 	}
 	a.OnStep = h.observe
+	a.OnStream = func(body, kind, text string) {
+		// the session's text arrives as EvDelta; its thinking, and every Court's stream, as EvStream
+		if body == world.Rimuru && kind == "text" {
+			return
+		}
+		h.send(tui.EvStream{Body: body, Kind: kind, Text: text})
+	}
 	prevState := a.OnState
 	a.OnState = func(body, state string) {
 		if prevState != nil {
@@ -474,6 +481,8 @@ func (h *tuiHost) observe(s *loop.Session, st *loop.StepRecord, phase string) {
 		if phase == "start" {
 			h.send(tui.EvState{Body: body, State: "tool", Tool: st.Tool})
 		}
+		// the Court's own log, for the body view
+		h.send(tui.EvBodyStep{Body: body, Tool: h.toolView(st), End: phase == "end"})
 		return
 	}
 	switch phase {

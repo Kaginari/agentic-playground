@@ -91,8 +91,16 @@ type Model struct {
 	intro     *introState // the startup animation; nil when off or over
 	shimmer   int         // the spinner verb's highlight, advanced with the spinner
 	palette   *paletteState
-	boardOnly bool // the board alone (served over SSH): no session, no scrollback; esc quits
-	toasts    []toast
+	// the cast (cast.go): the session's thinking as it arrives, every body's log, the body view
+	think      strings.Builder
+	thinkStart time.Time
+	state      string // the session's state, for its verb and icon
+	verbSeed   int
+	logs       map[string]*bodyLog
+	logOrder   []string
+	bview      *bodyView
+	boardOnly  bool // the board alone (served over SSH): no session, no scrollback; esc quits
+	toasts     []toast
 
 	// the board: full screen while open; blocks that finish meanwhile wait in held
 	board    *boardState
@@ -102,8 +110,9 @@ type Model struct {
 }
 
 type collapsed struct {
-	tool  *ToolView
-	court *CourtView
+	tool    *ToolView
+	court   *CourtView
+	thought *thought
 }
 
 type menuState struct {
@@ -254,6 +263,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if k, ok := msg.(tea.KeyPressMsg); ok && m.bview != nil {
+		return m, m.bodiesKey(k)
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		if msg.Width <= 0 || msg.Height <= 0 {
@@ -276,7 +288,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		seq := m.reflowSeq
 		return m, tea.Tick(reflowDelay, func(time.Time) tea.Msg { return evReflow{seq} })
 	case evReflow:
-		if m.board != nil || msg.seq != m.reflowSeq || m.width == m.lastWidth {
+		if m.board != nil || m.bview != nil || msg.seq != m.reflowSeq || m.width == m.lastWidth {
 			return m, nil
 		}
 		return m, m.reflow()
@@ -332,30 +344,52 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.paste(msg.Content)
+	case EvStream:
+		if m.isSession(msg.Body) {
+			if msg.Kind == "thinking" {
+				if m.think.Len() == 0 {
+					m.thinkStart = time.Now()
+				}
+				m.think.WriteString(msg.Text)
+			}
+			return m, nil
+		}
+		m.logOf(msg.Body).appendStream(msg.Kind, msg.Text)
+		return m, nil
+	case EvBodyStep:
+		m.logOf(msg.Body).step(msg.Tool, msg.End)
+		return m, nil
 	case EvDelta:
+		think := m.flushThinking()
 		m.stream.WriteString(msg.Text)
 		m.streamed = true
-		return m, m.flushStream(false)
+		return m, tea.Batch(think, m.flushStream(false))
 	case EvState:
 		if msg.Body == "" || m.isSession(msg.Body) {
 			if msg.State == "tool" && msg.Tool == "" && strings.HasPrefix(m.verb, "Running ") {
 				return m, nil
 			}
 			if msg.State != "done" {
-				m.verb = verbFor(msg.State, msg.Tool)
+				if msg.State != m.state {
+					m.verbSeed++
+				}
+				m.state = msg.State
+				m.verb = Verb(m.words.Dist, m.words.Session(), msg.State, msg.Tool, m.verbSeed)
 			}
 			return m, nil
 		}
 		if c := m.courts[msg.Body]; c != nil && c.State != "done" {
 			c.State = msg.State
 		}
+		m.logOf(msg.Body).state = msg.State
 		return m, nil
 	case EvToolStart:
-		cmd := m.flushStream(true)
+		cmd := tea.Batch(m.flushThinking(), m.flushStream(true))
 		t := msg.Tool
 		t.Status = "running"
 		m.tools = append(m.tools, &t)
-		m.verb = verbFor("tool", t.Name)
+		m.state = "tool"
+		m.verb = Verb(m.words.Dist, m.words.Session(), "tool", t.Name, m.verbSeed)
 		return m, cmd
 	case EvToolEnd:
 		t := msg.Tool
@@ -380,6 +414,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.courtSeq = append(m.courtSeq, c.Name)
 			cur = &CourtView{}
 			m.courts[c.Name] = cur
+			m.logOf(c.Name).rank = c.Rank
 			// the model's text before the dispatch stays above the block
 			cmd := m.flushStream(true)
 			*cur = c
@@ -390,6 +425,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if c.Rank != "" {
 			cur.Rank, cur.Office, cur.Model = c.Rank, c.Office, c.Model
+			m.logOf(c.Name).rank = c.Rank
 		}
 		if c.Ask != "" {
 			cur.Ask = c.Ask
@@ -452,27 +488,13 @@ func (w Words) Session() string {
 	return "rimuru"
 }
 
-func verbFor(state, tool string) string {
-	switch state {
-	case "thinking":
-		return "Thinking…"
-	case "tool":
-		if tool != "" {
-			return "Running " + tool + "…"
-		}
-		return "Running a tool…"
-	case "waiting on gate":
-		return "Waiting for approval…"
-	case "done":
-		return "Finishing…"
-	}
-	return "Working…"
-}
-
 func (m *Model) begin() {
 	m.busy = true
 	m.turnStart = time.Now()
-	m.verb = "Thinking…"
+	m.verbSeed++
+	m.state = "thinking"
+	m.think.Reset()
+	m.verb = Verb(m.words.Dist, m.words.Session(), "thinking", "", m.verbSeed)
 	m.stream.Reset()
 	m.streamed = false
 	m.tools = nil
@@ -480,7 +502,8 @@ func (m *Model) begin() {
 }
 
 func (m *Model) finish(ev EvTurnDone) tea.Cmd {
-	var cmds []tea.Cmd
+	cmds := []tea.Cmd{m.flushThinking()}
+	m.state = ""
 	if ev.Streamed || m.streamed {
 		cmds = append(cmds, m.flushStream(true))
 	} else if t := strings.TrimSpace(ev.Text); t != "" {
@@ -522,7 +545,7 @@ func (m *Model) print(render func(w int) string) tea.Cmd {
 		return nil
 	}
 	m.blocks = append(m.blocks, render)
-	if m.board != nil {
+	if m.board != nil || m.bview != nil {
 		m.held = append(m.held, block)
 		return nil
 	}
@@ -645,7 +668,7 @@ func isListLine(l string) bool {
 // View is the frame: the board takes the alternate screen while it is open.
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.Render())
-	v.AltScreen = m.board != nil
+	v.AltScreen = m.board != nil || m.bview != nil
 	// the window title and the terminal tab's progress follow the session
 	state := "idle"
 	switch {
@@ -671,6 +694,9 @@ func (m *Model) Render() string {
 	if m.board != nil {
 		return m.boardView()
 	}
+	if m.bview != nil {
+		return m.bodiesView()
+	}
 	if m.intro != nil && m.ready {
 		return m.introView()
 	}
@@ -691,7 +717,10 @@ func (m *Model) Render() string {
 		parts = append(parts, m.theme.Choice(m.view, m.width), "")
 	} else if m.busy {
 		tokens := m.footer.Tokens
-		parts = append(parts, m.theme.Spinner(m.spin.View(), m.theme.Shimmer(m.verb, shimmerPhase(m.shimmer, len([]rune(m.verb)))), time.Since(m.turnStart), tokens, m.width))
+		if m.think.Len() > 0 && strings.TrimSpace(m.stream.String()) == "" {
+			parts = append(parts, m.theme.liveThinking(m.think.String(), m.width, 3), "")
+		}
+		parts = append(parts, m.statusLines(m.theme.Spinner(m.spin.View(), m.theme.Shimmer(m.verb, shimmerPhase(m.shimmer, len([]rune(m.verb)))), time.Since(m.turnStart), tokens, m.width)))
 	}
 	if m.shortcuts {
 		parts = append(parts, m.theme.Shortcuts(DefaultShortcuts(), m.width))
@@ -778,4 +807,16 @@ func (m *Model) Abort() {
 
 func (m *Model) statusText() string {
 	return fmt.Sprintf("busy=%v tools=%d courts=%d", m.busy, len(m.tools), len(m.courts))
+}
+
+// flushThinking folds the thinking so far into a block in the scrollback.
+func (m *Model) flushThinking() tea.Cmd {
+	text := strings.TrimSpace(m.think.String())
+	m.think.Reset()
+	if text == "" {
+		return nil
+	}
+	th := thought{text: text, took: time.Since(m.thinkStart)}
+	m.lastBlock = &collapsed{thought: &th}
+	return m.print(func(w int) string { return m.theme.Thought(th, w) })
 }

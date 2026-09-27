@@ -86,6 +86,8 @@ type App struct {
 	Inbox func(s *loop.Session) []string
 	// OnStep sees every tool step start and end (loop.Hooks.Observe); nil is quiet.
 	OnStep func(s *loop.Session, st *loop.StepRecord, phase string)
+	// OnStream sees every body's streamed text and thinking (loop.Hooks.Stream); nil is quiet.
+	OnStream func(body, kind, text string)
 	// Notify carries one-line notices for the human (a config reload); nil prints on Err.
 	Notify func(text string)
 
@@ -303,9 +305,14 @@ func (a *App) Build() world.Build {
 	}
 	env := func() tool.Env { return tool.Env{Root: a.Root, WorldDir: cfg.Dist.WorldDir} }
 	mine := loop.Hooks{
-		Decide:   decideHook(a.liveConfig, env),
-		Missing:  a.Missing.Hook(),
-		Guard:    a.guardHook(),
+		Decide:  decideHook(a.liveConfig, env),
+		Missing: a.Missing.Hook(),
+		Guard:   a.guardHook(),
+		Stream: func(s *loop.Session, kind, text string) {
+			if a.OnStream != nil {
+				a.OnStream(bodyName(s), kind, text)
+			}
+		},
 		PreTool:  a.Hooks.PreTool,
 		PostTool: a.Hooks.PostTool,
 		Budget:   budgetHook,

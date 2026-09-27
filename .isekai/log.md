@@ -1177,3 +1177,14 @@ Append-only. Newest entries at the bottom. One entry per change.
 - **Learned:** the port is the same three-way merge; the word map needs agent-one's config words too
   (Law → Policy, TraitsHold → InvariantsHold), and a Go identifier named after the dist (`isekai`)
   cannot take the map — the e2e tests were renamed by hand.
+
+### [2026-09-27T13:16:37+02:00] rimuru — the cast: thinking shown, rank faces and verbs, the body view (isekai)
+- **Task:** Human: "see thinking … if sub agent running i want to see rimuru and go to sub agents …
+  an orc giving verdict … with orc icon".
+- **Files:** isekai/provider/{provider.go,anthropic,openai} (OnThinking) · loop/loop.go (Stream hook,
+  gating state) · world/hooks.go · app/{app,tui}.go · tui/{cast.go,model.go,input.go,board_test.go,
+  shots_test.go} · canon/tui.md.
+- **Gate:** n/a (no orcs). Instruments: TestThinkingShowsThenFolds, TestBodyView, TestGateWearsTheOrc;
+  the faces, live thinking, the gate and the body view rendered with freeze and looked at; suites green.
+- **Learned:** a Court's steps reached the UI only as a state change and its text not at all; a
+  Stream hook on the loop — every engine carries it — is what lets the human watch any body.

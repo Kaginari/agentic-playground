@@ -73,6 +73,24 @@ one place the binary takes third-party code; versions pinned in go.sum.
   plain line output stays: the TUI is only for a terminal. `--plain` (or `<PREFIX>PLAIN=1`)
   forces the line REPL anywhere.
 
+## The cast — faces, voices, thinking, every body
+
+- **Thinking, shown.** The model's reasoning (Anthropic's thinking, OpenRouter's `reasoning`,
+  `reasoning_content` elsewhere) streams dim under `∴ thinking` while it arrives and folds into
+  `∴ Thought for Ns` when the answer, a tool or the turn's end comes; `ctrl+o` expands the last one.
+  Shown, never replayed from here.
+- **Faces.** Each rank has a two-frame half-block icon beside the spinner — the slime (the session
+  and the slimes), the orc with its tusks, the elf, the horned kijin, the dark elf; agent-one's robot
+  in each rank's colour. It bobs and blinks with the spinner.
+- **Voices.** The verb is the rank's own, like Claude Code's whimsy but on the law: the session
+  ponders and consults the Great Sage, the slime gathers ground truth, and while the end-of-turn gate
+  runs the line wears the orc — "Weighing the verdict…", "Guarding the gate…" — with "orc · the gate
+  weighs the turn's writes" under it. A tool or an approval keeps the plain word.
+- **Every body — `ctrl+t`.** A full-screen view with a tab per body: the session and every Court
+  seen. A Court's tab is its own log as it happens — its thinking, its text, its tool steps as cards —
+  under its face, rank, state and ask; the session's tab is its transcript. The live area names the
+  running Courts with the key to watch them. `tab` switches, `↑↓` scrolls, `esc` returns.
+
 ## Overlays
 
 Drawn as Lip Gloss v2 layers over the live area (the scrollback above is the terminal's, never

@@ -143,6 +143,8 @@ type Hooks struct {
 	// Guard refuses a catastrophic command before the policy and the gate: a non-empty answer is
 	// the refusal, and no approval can run it.
 	Guard func(tool string, input json.RawMessage) string
+	// Stream sees every body's streamed text ("text") and reasoning ("thinking") as it arrives.
+	Stream func(s *Session, kind, text string)
 	// Decide is the permission rule before the gate (config.Decide): allow silences the gate
 	// for this act (logged as pre-approved by rule), deny refuses it, ask forces the gate even
 	// for a read or a write. An empty Action leaves the class default.
@@ -216,6 +218,8 @@ type Engine struct {
 	IsRecord func(rel string) bool
 	Wire     bool              // the answer is expected on the wire (a Court): providers with guided decoding constrain it
 	OnDelta  func(text string) // streamed text, as it arrives
+	// OnThinking is the model's reasoning, as it arrives (shown, never replayed from here).
+	OnThinking func(text string)
 }
 
 // Session is a running conversation on an Engine: the messages, the readings, the journal.
@@ -517,7 +521,23 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 				r.hole("recall: " + h)
 			}
 		}
-		req := provider.Request{System: s.system(), Messages: s.Messages, Tools: s.defs(), MaxTokens: e.Budget.MaxTokens, Wire: e.Wire, OnDelta: e.OnDelta}
+		onDelta, onThink := e.OnDelta, e.OnThinking
+		if h := e.Hooks.Stream; h != nil {
+			od, ot := onDelta, onThink
+			onDelta = func(t string) {
+				if od != nil {
+					od(t)
+				}
+				h(s, "text", t)
+			}
+			onThink = func(t string) {
+				if ot != nil {
+					ot(t)
+				}
+				h(s, "thinking", t)
+			}
+		}
+		req := provider.Request{System: s.system(), Messages: s.Messages, Tools: s.defs(), MaxTokens: e.Budget.MaxTokens, Wire: e.Wire, OnDelta: onDelta, OnThinking: onThink}
 		if len(rc.Anchors)+len(rc.Tools) > 0 {
 			req.SystemTail = recallBlock(rc)
 		}
@@ -800,6 +820,7 @@ func (s *Session) finish(ctx context.Context, r *Result, resp provider.Response,
 		}
 	}
 	if e.Hooks.EndGate != nil && len(s.Wrote) > 0 {
+		s.state("gating")
 		before := len(r.Holes)
 		verdict, holes, err := e.Hooks.EndGate(ctx, s, r)
 		r.Verdict = verdict

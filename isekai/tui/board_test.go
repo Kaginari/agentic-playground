@@ -230,3 +230,84 @@ func TestToastLives(t *testing.T) {
 		t.Fatal("an expired toast stays")
 	}
 }
+
+func drainPrints(m *Model) string {
+	var out []string
+	for len(m.prints) > 0 {
+		out = append(out, ansi.Strip((<-m.prints).text))
+	}
+	return strings.Join(out, "\n")
+}
+
+func TestThinkingShowsThenFolds(t *testing.T) {
+	m := New(&fakeHost{}, NewTheme(true), DefaultWords())
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.bgKnown = true
+	m.Update(EvTurnStart{Text: "why"})
+	drainPrints(m)
+	m.Update(EvStream{Body: "rimuru", Kind: "thinking", Text: "The gate runs after the turn, so the verify lines"})
+	if s := ansi.Strip(m.Render()); !strings.Contains(s, "∴ thinking") || !strings.Contains(s, "verify lines") {
+		t.Fatalf("the thinking is shown as it arrives:\n%s", s)
+	}
+	m.Update(EvDelta{Text: "Because the gate reloads the docs.\n\n"})
+	if p := drainPrints(m); !strings.Contains(p, "∴ Thought for") || !strings.Contains(p, "ctrl+o to expand") {
+		t.Fatalf("the answer folds the thinking into a block: %q", p)
+	}
+	if s := ansi.Strip(m.Render()); strings.Contains(s, "∴ thinking") {
+		t.Fatal("the folded thinking stays live")
+	}
+	m.Update(tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl})
+	if p := drainPrints(m); !strings.Contains(p, "verify lines") {
+		t.Fatalf("ctrl+o expands the thought: %q", p)
+	}
+}
+
+func TestBodyView(t *testing.T) {
+	m := New(&fakeHost{}, NewTheme(true), DefaultWords())
+	m.Update(tea.WindowSizeMsg{Width: 110, Height: 32})
+	m.Update(EvTurnStart{Text: "fix auth"})
+	m.Update(EvCourt{Court: CourtView{Name: "slime-auth", Rank: "slime", Ask: "@ASK draft\nshorten the TTL", State: "thinking"}})
+	m.Update(EvStream{Body: "slime-auth", Kind: "thinking", Text: "The TTL lives in token.go."})
+	m.Update(EvBodyStep{Body: "slime-auth", Tool: ToolView{ID: "s1", Name: "read", Summary: "src/auth/token.go", Class: "read", Status: "done", Output: "const ttl = time.Hour"}, End: true})
+	if s := ansi.Strip(m.Render()); !strings.Contains(s, "ctrl+t to watch") {
+		t.Fatalf("a running court is announced with the key to watch it:\n%s", s)
+	}
+	m.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
+	s := ansi.Strip(m.Render())
+	for _, want := range []string{"rimuru", "slime-auth", "The TTL lives in token.go", "read  src/auth/token.go", "shorten the TTL"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("the body view opens on the live court; missing %q:\n%s", want, s)
+		}
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if m.bview.sel != 0 {
+		t.Fatalf("tab cycles to the session, sel %d", m.bview.sel)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.bview != nil {
+		t.Fatal("esc closes the body view")
+	}
+}
+
+func TestGateWearsTheOrc(t *testing.T) {
+	v := Verb("isekai", "rimuru", "gating", "", 3)
+	found := false
+	for _, w := range isekaiVerbs["orc"] {
+		if v == w+"…" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("the gate speaks the orc's words, got %q", v)
+	}
+	if a := Verb("agent-one", "orchestrator", "gating", "", 1); !strings.HasSuffix(a, "…") || strings.Contains(strings.ToLower(a), "orc") {
+		t.Fatalf("agent-one's gate: %q", a)
+	}
+	m := New(&fakeHost{}, NewTheme(true), DefaultWords())
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Update(EvTurnStart{Text: "x"})
+	m.Update(EvState{Body: "rimuru", State: "gating"})
+	if s := ansi.Strip(m.Render()); !strings.Contains(s, "orc · the gate weighs the turn's writes") {
+		t.Fatalf("the gate shows the orc:\n%s", s)
+	}
+}

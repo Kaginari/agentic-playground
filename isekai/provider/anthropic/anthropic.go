@@ -241,7 +241,7 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 	}
 	defer res.Body.Close()
 	if stream && res.StatusCode == 200 && strings.HasPrefix(res.Header.Get("content-type"), "text/event-stream") {
-		return c.readStream(res.Body, req.OnDelta)
+		return c.readStream(res.Body, req.OnDelta, req.OnThinking)
 	}
 	rawBody, err := io.ReadAll(io.LimitReader(res.Body, 32<<20))
 	if err != nil {
@@ -259,6 +259,14 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 		return provider.Response{}, fmt.Errorf("anthropic: HTTP %d: %s", res.StatusCode, msg)
 	}
 	resp := decode(out)
+	if req.OnThinking != nil {
+		for _, rb := range resp.Message.Opaque {
+			var t struct{ Type, Thinking string }
+			if json.Unmarshal(rb, &t) == nil && t.Type == "thinking" && t.Thinking != "" {
+				req.OnThinking(t.Thinking)
+			}
+		}
+	}
 	if req.OnDelta != nil && resp.Message.Text != "" {
 		req.OnDelta(resp.Message.Text)
 	}
@@ -321,7 +329,7 @@ type sblock struct {
 }
 
 // readStream assembles a streamed message from server-sent events.
-func (c *Client) readStream(r io.Reader, onDelta func(string)) (provider.Response, error) {
+func (c *Client) readStream(r io.Reader, onDelta, onThinking func(string)) (provider.Response, error) {
 	resp := provider.Response{Message: provider.Message{Role: provider.Assistant}}
 	blocks := map[int]*sblock{}
 	var order []int
@@ -409,6 +417,9 @@ func (c *Client) readStream(r io.Reader, onDelta func(string)) (provider.Respons
 				b.input.WriteString(ev.Delta.PartialJSON)
 			case "thinking_delta":
 				b.text.WriteString(ev.Delta.Thinking)
+				if onThinking != nil && ev.Delta.Thinking != "" {
+					onThinking(ev.Delta.Thinking)
+				}
 			case "signature_delta":
 				b.sig += ev.Delta.Signature
 			}
