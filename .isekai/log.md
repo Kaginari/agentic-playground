@@ -1081,3 +1081,16 @@ Append-only. Newest entries at the bottom. One entry per change.
   - A client without a real terminal reports a 0×0 pty: every line truncated to nothing. The model
     now keeps its last size when a terminal reports none.
   - Wish's WithAuthorizedKeys fails closed on a missing file — kept, with a sentence a human reads.
+
+### [2026-09-27T12:36:28+02:00] rimuru — agent-one takes the CLI's five phases
+- **Task:** Human: "…and agent one for agent one" — the same CLI in the other distribution.
+- **Files:** agent-one/engine/{tui/*,app/{tui,tuiboard,board,boardssh,setup,cli,container_test}.go,
+  go.mod,go.sum,tui/testdata/golden/*}.
+- **Gate:** n/a (no orcs). Instruments: vet + full suite green, the leak test included; goldens
+  rewritten on purpose (the same set as isekai's); agent-one's welcome rendered and looked at.
+- **Learned:**
+  - The port is a vocabulary map plus a three-way merge: base = isekai at the last sync, theirs =
+    isekai now, both through the same word map; ours = agent-one. git merge-file applies only what
+    changed and keeps agent-one's own words (operator, team, domain owners). Two conflicts, both from
+    the earlier hand port that had kept isekai's field names.
+  - A map applied blind renames fields too (sprite.body → agent): the build caught it.

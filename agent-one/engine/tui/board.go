@@ -7,27 +7,28 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/charmbracelet/x/ansi"
 )
 
-// BoardView is what /board draws: the live agents, the ontology graph, the offices and the
+// BoardView is what /board draws: the live agents, the ontology graph, the roles and the
 // consumption. The host builds it from the same feeds the web board reads.
 type BoardView struct {
 	Agents     []AgentRow
 	AgentsNote string // why the list is empty or partial ("" when lit)
 	Graph      GraphView
-	Offices    []OfficeRow
+	Roles      []OfficeRow
 	Usage      UsageView
 	At         time.Time
 }
 
-// AgentRow is one live body.
+// AgentRow is one live agent.
 type AgentRow struct {
-	Name, Rank, Office, Model, Provider, State string
-	Started                                    time.Time
-	CtxTokens, CtxLimit                        int
-	Input, Output, Cache                       int
-	USD                                        *float64 // nil = unpriced
+	Name, Rank, Role, Model, Provider, State string
+	Started                                  time.Time
+	CtxTokens, CtxLimit                      int
+	Input, Output, Cache                     int
+	USD                                      *float64 // nil = unpriced
 }
 
 // GraphView is the reasoned ontology's members and the one-hop bonds between them.
@@ -52,11 +53,11 @@ type GraphBond struct{ To, Bond string }
 // KV is one line of a knowledge card; an empty Key continues the key above.
 type KV struct{ Key, Value string }
 
-// OfficeRow is one office of the triad: its role, its model and who serves in it.
+// OfficeRow is one role of the triad: its role, its model and who serves in it.
 type OfficeRow struct {
 	Name, Role, Model, Fallback, Origin string
 	Ranks                               []string
-	Live                                int // bodies running in it now
+	Live                                int // agents running in it now
 }
 
 // UsageView is the usage journal rolled up for a range.
@@ -98,6 +99,10 @@ type boardState struct {
 	offset  [4]int
 	sel     string // the selected graph node
 	panX    int
+	// what a click can hit, as the last frame drew it
+	tabX    [][2]int // each tab's columns on the header row
+	hits    []hit    // page lines: a row or a node, by line and columns
+	lastOff int      // the page's first line on screen
 	detail  bool
 	ticks   int
 }
@@ -112,6 +117,9 @@ func (m *Model) openBoard() tea.Cmd {
 
 // closeBoard gives the screen back and prints what finished while the board was open.
 func (m *Model) closeBoard() tea.Cmd {
+	if m.boardOnly {
+		return tea.Quit
+	}
 	m.board = nil
 	held := m.held
 	m.held = nil
@@ -189,6 +197,18 @@ func (m *Model) boardUpdate(msg tea.Msg) (tea.Cmd, bool) {
 			}
 		}
 		return nil, true
+	case tea.MouseClickMsg:
+		m.boardClick(msg.Mouse())
+		return nil, true
+	case tea.MouseWheelMsg:
+		k := "down"
+		if msg.Mouse().Button == tea.MouseWheelUp {
+			k = "up"
+		}
+		if b.page == pageGraph {
+			return nil, true
+		}
+		return m.boardUpdate(tea.KeyPressMsg{Code: map[string]rune{"up": tea.KeyUp, "down": tea.KeyDown}[k]})
 	case tea.MouseMsg, tea.PasteMsg:
 		return nil, true
 	}
@@ -210,17 +230,25 @@ func (m *Model) boardView() string {
 			tabs = append(tabs, t.dim.Render(label))
 		}
 	}
-	title := t.accent.Render("✦ ") + t.tag.Render(m.words.Dist+" board")
+	title := Title(m.words.Dist) + t.tag.Render(" board")
 	status := t.dim.Render("loading…")
 	if b.loaded {
 		status = t.ok.Render("●") + t.dim.Render(" live · "+b.view.At.Format("15:04:05"))
 	}
 	head := title + "  " + strings.Join(tabs, t.border.Render("│"))
+	b.tabX = b.tabX[:0]
+	x := lipgloss.Width(title) + 2
+	for i, p := range boardPages {
+		w := lipgloss.Width(fmt.Sprintf(" %d %s ", i+1, p))
+		b.tabX = append(b.tabX, [2]int{x, x + w})
+		x += w + 1
+	}
 	head = padBetween(head, status, w)
 	rule := t.border.Render(strings.Repeat("─", w))
 
 	var lines []string
 	cur := -1
+	b.hits = b.hits[:0]
 	switch b.page {
 	case 0:
 		lines, cur = m.boardAgents()
@@ -231,14 +259,14 @@ func (m *Model) boardView() string {
 	case pageUsage:
 		lines, cur = m.boardUsage()
 	}
-	body := h - 4
+	agent := h - 4
 	// the cursor: clamped to the page, and kept in view
 	if len(lines) == 0 {
 		lines = []string{""}
 	}
 	sel := b.cursor[b.page]
 	if b.page == pageUsage { // Usage scrolls; the cursor is the top line
-		maxTop := len(lines) - body
+		maxTop := len(lines) - agent
 		if maxTop < 0 {
 			maxTop = 0
 		}
@@ -251,8 +279,8 @@ func (m *Model) boardView() string {
 			if b.offset[b.page] > cur {
 				b.offset[b.page] = cur
 			}
-			if cur >= b.offset[b.page]+body {
-				b.offset[b.page] = cur - body + 1
+			if cur >= b.offset[b.page]+agent {
+				b.offset[b.page] = cur - agent + 1
 			}
 		}
 		if b.offset[b.page] > len(lines)-1 {
@@ -260,12 +288,13 @@ func (m *Model) boardView() string {
 		}
 	}
 	off := b.offset[b.page]
-	end := off + body
+	b.lastOff = off
+	end := off + agent
 	if end > len(lines) {
 		end = len(lines)
 	}
 	view := append([]string(nil), lines[off:end]...)
-	for len(view) < body {
+	for len(view) < agent {
 		view = append(view, "")
 	}
 	for i, l := range view {
@@ -279,7 +308,7 @@ func (m *Model) boardView() string {
 		keys = "tab page · ↑↓ scroll · r range (" + b.rng + ") · esc back"
 	}
 	more := ""
-	if len(lines) > body {
+	if len(lines) > agent {
 		more = fmt.Sprintf("%d–%d of %d", off+1, end, len(lines))
 	}
 	foot := padBetween(t.dim.Render(" "+keys), t.dim.Render(more+" "), w)
@@ -299,7 +328,7 @@ func (m *Model) boardAgents() ([]string, int) {
 	b, t, w := m.board, m.theme, m.width
 	rows := b.view.Agents
 	if !b.loaded {
-		return []string{"", t.dim.Render("  reading the court…")}, -1
+		return []string{"", t.dim.Render("  reading the subagent…")}, -1
 	}
 	if len(rows) == 0 {
 		note := b.view.AgentsNote
@@ -327,55 +356,61 @@ func (m *Model) boardAgents() ([]string, int) {
 	if w < 80 {
 		stateW = 12
 	}
-	col := func(s string, n int) string { return fmt.Sprintf("%-*s", n, ansi.Truncate(s, n, "…")) }
-	hdr := "    " + col("NAME", nameW) + "  "
-	if showRank {
-		hdr += col("RANK", 9)
-	}
-	if showOffice {
-		hdr += col("ROLE", 11)
-	}
-	hdr += col("STATE", stateW)
-	if showAge {
-		hdr += fmt.Sprintf("%6s  ", "AGE")
-	}
-	hdr += col("CONTEXT", 14) + fmt.Sprintf("%7s %8s", "TOKENS", "COST")
-	if showModel {
-		hdr += "  MODEL"
-	}
-	lines := []string{"", t.dim.Render(hdr)}
 	now := b.view.At
 	if now.IsZero() {
 		now = time.Now()
 	}
-	cur := -1
+	hdr := []string{"", "NAME"}
+	if showRank {
+		hdr = append(hdr, "RANK")
+	}
+	if showOffice {
+		hdr = append(hdr, "OFFICE")
+	}
+	hdr = append(hdr, "STATE")
+	if showAge {
+		hdr = append(hdr, "AGE")
+	}
+	hdr = append(hdr, "CONTEXT", "TOKENS", "COST")
+	if showModel {
+		hdr = append(hdr, "MODEL")
+	}
+	var cells [][]string
 	for i, r := range rows {
 		glyph, st := stateGlyph(t, r.State, stateW, m.spin.View())
+		name := ansi.Truncate(r.Name, nameW, "…")
 		mark := "  "
 		if i == sel {
-			mark = t.accent.Render("›") + " "
-			cur = len(lines)
+			mark, name = t.accent.Render("›")+" ", t.tag.Render(name)
 		}
-		line := mark + glyph + " " + col(r.Name, nameW) + "  "
+		row := []string{mark + glyph, name}
 		if showRank {
-			line += t.rankStyle(r.Rank).Render(col(r.Rank, 9))
+			row = append(row, t.rankStyle(r.Rank).Render(r.Rank))
 		}
 		if showOffice {
-			line += col(r.Office, 11)
+			row = append(row, r.Role)
 		}
-		line += st
+		row = append(row, strings.TrimRight(st, " "))
 		if showAge {
 			age := "—"
 			if !r.Started.IsZero() {
 				age = shortDur(now.Sub(r.Started))
 			}
-			line += fmt.Sprintf("%6s  ", age)
+			row = append(row, age)
 		}
-		line += ctxBar(t, r.CtxTokens, r.CtxLimit, 8) + fmt.Sprintf("%7s %8s", humanTokens(r.Input+r.Output+r.Cache), usd(r.USD))
+		row = append(row, strings.TrimRight(ctxBar(t, r.CtxTokens, r.CtxLimit, 8), " "), humanTokens(r.Input+r.Output+r.Cache), usd(r.USD))
 		if showModel {
-			line += "  " + t.dim.Render(r.Model)
+			row = append(row, t.dim.Render(r.Model))
 		}
-		lines = append(lines, line)
+		cells = append(cells, row)
+	}
+	lines := []string{""}
+	tbl := m.boardTable(hdr, cells, map[int]bool{len(hdr) - 3: true, len(hdr) - 2: true})
+	first := len(lines) + 3 // the top border, the header, its rule
+	lines = append(lines, tbl...)
+	cur := first + sel
+	for i := range rows {
+		b.hits = append(b.hits, hit{line: first + i, x0: 0, x1: w, row: i})
 	}
 	if b.detail && sel >= 0 && sel < len(rows) {
 		r := rows[sel]
@@ -387,7 +422,7 @@ func (m *Model) boardAgents() ([]string, int) {
 		}
 		kv("agent", t.tag.Render(r.Name))
 		kv("rank", r.Rank)
-		kv("role", r.Office)
+		kv("role", r.Role)
 		kv("model", r.Model)
 		kv("provider", r.Provider)
 		kv("state", r.State)
@@ -408,7 +443,7 @@ func (m *Model) boardOffices() ([]string, int) {
 	if !b.loaded {
 		return []string{"", t.dim.Render("  reading the roles…")}, -1
 	}
-	rows := b.view.Offices
+	rows := b.view.Roles
 	if len(rows) == 0 {
 		return []string{"", t.dim.Render("  no role configured")}, -1
 	}
@@ -426,23 +461,30 @@ func (m *Model) boardOffices() ([]string, int) {
 			nameW = n
 		}
 	}
-	lines := []string{"", t.dim.Render(fmt.Sprintf("    %-*s  %-9s %-5s %8s  %s", nameW, "ROLE", "DOES", "LIVE", "TOKENS", "MODEL"))}
-	cur := -1
+	var cells [][]string
 	for i, r := range rows {
-		live := t.dim.Render(fmt.Sprintf("%-5s", "·"))
+		live := t.dim.Render("·")
 		if r.Live > 0 {
-			live = t.accent.Render(fmt.Sprintf("%-5s", fmt.Sprintf("● %d", r.Live)))
+			live = t.accent.Render(fmt.Sprintf("● %d", r.Live))
 		}
-		u := spent[r.Name]
-		line := fmt.Sprintf("  %s %-*s  %-9s %s %8s  %s", t.accent.Render("◆"), nameW, r.Name, r.Role, live, humanTokens(u.Tokens), r.Model)
-		if r.Fallback != "" {
-			line += t.dim.Render("  ↳ " + r.Fallback)
-		}
+		name := r.Name
+		mark := "  "
 		if i == sel {
-			line = t.accent.Render("›") + line[1:]
-			cur = len(lines)
+			mark, name = t.accent.Render("›")+" ", t.tag.Render(name)
 		}
-		lines = append(lines, line)
+		model := r.Model
+		if r.Fallback != "" && w >= 120 {
+			model += t.dim.Render("  ↳ " + r.Fallback)
+		}
+		cells = append(cells, []string{mark + t.accent.Render("◆"), name, r.Role, live, humanTokens(spent[r.Name].Tokens), model})
+	}
+	lines := []string{""}
+	tbl := m.boardTable([]string{"", "OFFICE", "DOES", "LIVE", "TOKENS", "MODEL"}, cells, map[int]bool{4: true})
+	first := len(lines) + 3
+	lines = append(lines, tbl...)
+	cur := first + sel
+	for i := range rows {
+		b.hits = append(b.hits, hit{line: first + i, x0: 0, x1: w, row: i})
 	}
 	r := rows[sel]
 	lines = append(lines, "", t.border.Render("  "+strings.Repeat("─", max(0, w-4))))
@@ -578,23 +620,13 @@ func stateGlyph(t Theme, state string, w int, spin string) (string, string) {
 	return t.accent.Render(string(g[0])), t.text.Render(s)
 }
 
-// ctxBar is the context window's fill as a bar and a percent, 14 cells wide.
+// ctxBar is the context window's fill as the footer's gradient meter and a percent.
 func ctxBar(t Theme, used, limit, w int) string {
 	if limit <= 0 {
-		return t.dim.Render(strings.Repeat("·", w)) + strings.Repeat(" ", 6)
+		return t.Meter(-1, w) + strings.Repeat(" ", 6)
 	}
 	pct := 100 * used / limit
-	st := t.ok
-	if pct >= 90 {
-		st = t.bad
-	} else if pct >= 70 {
-		st = t.warn
-	}
-	fill := pct * w / 100
-	if fill > w {
-		fill = w
-	}
-	return st.Render(strings.Repeat("█", fill)) + t.border.Render(strings.Repeat("░", w-fill)) + fmt.Sprintf(" %3d%% ", pct)
+	return t.Meter(pct, w) + fmt.Sprintf(" %3d%% ", pct)
 }
 
 func bar(t Theme, v, top, w int) string {
@@ -645,4 +677,70 @@ func shortDur(d time.Duration) string {
 		return fmt.Sprintf("%dm%02ds", int(d.Minutes()), int(d.Seconds())%60)
 	}
 	return fmt.Sprintf("%dh%02dm", int(d.Hours()), int(d.Minutes())%60)
+}
+
+// hit is one clickable thing on a page: a list row (row) or a graph node (id).
+type hit struct {
+	line, x0, x1 int
+	row          int
+	id           string
+}
+
+// boardClick maps a click to what the last frame drew there: a tab, a row, a node. Clicking the
+// selected row again opens its detail.
+func (m *Model) boardClick(ms tea.Mouse) {
+	b := m.board
+	if ms.Button != tea.MouseLeft {
+		return
+	}
+	if ms.Y == 0 {
+		for i, r := range b.tabX {
+			if ms.X >= r[0] && ms.X < r[1] {
+				b.page, b.detail = i, false
+			}
+		}
+		return
+	}
+	line := ms.Y - 2 + b.lastOff
+	for _, h := range b.hits {
+		if h.line != line || ms.X < h.x0 || ms.X >= h.x1 {
+			continue
+		}
+		if h.id != "" {
+			b.sel = h.id
+			return
+		}
+		if b.cursor[b.page] == h.row {
+			b.detail = !b.detail
+		}
+		b.cursor[b.page] = h.row
+		return
+	}
+}
+
+// boardTable draws rows as a Lip Gloss table: rounded, header dim and bold, no column rules;
+// right names the columns aligned right (numbers). Its rows start 3 lines down.
+func (m *Model) boardTable(headers []string, rows [][]string, right map[int]bool) []string {
+	t := m.theme
+	tb := table.New().Border(lipgloss.RoundedBorder()).BorderStyle(t.border).BorderColumn(false).
+		Headers(headers...).Rows(rows...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			st := lipgloss.NewStyle().Padding(0, 1)
+			if right[col] {
+				st = st.Align(lipgloss.Right)
+			}
+			if row == table.HeaderRow {
+				return st.Inherit(t.dim).Bold(true)
+			}
+			return st
+		})
+	return strings.Split(tb.Render(), "\n")
+}
+
+// NewBoardOnly is the board as its own program (the SSH board): it opens on the board, draws
+// nothing into a scrollback, and quits when the board closes.
+func NewBoardOnly(host Host, theme Theme, words Words) *Model {
+	m := New(host, theme, words)
+	m.boardOnly = true
+	return m
 }

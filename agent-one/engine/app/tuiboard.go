@@ -15,10 +15,12 @@ import (
 // officeRoles says what each office of the triad does (the analyst reads, the judge rules, the drafter writes).
 var officeRoles = map[string]string{"analyst": "reads", "judge": "verdicts", "drafter": "drafts"}
 
-// Board is what /board draws, read from the same feeds as the web board: the live court, the
-// reasoned ontology, the offices as config resolves them, the usage journal.
-func (h *tuiHost) Board(rng string) tui.BoardView {
-	a := h.a
+// Board is what /board draws, read from the same feeds as the web board: the live subagents, the
+// reasoned ontology, the roles as config resolves them, the usage journal.
+func (h *tuiHost) Board(rng string) tui.BoardView { return h.a.BoardView(rng) }
+
+// BoardView is the board as /board and the SSH board draw it.
+func (a *App) BoardView(rng string) tui.BoardView {
 	now := time.Now()
 	opt := a.boardOptions()
 	src := board.FileSources(opt.WorkspaceRoot, opt.WorkspaceDir, opt.Layout, time.Now)
@@ -26,7 +28,7 @@ func (h *tuiHost) Board(rng string) tui.BoardView {
 
 	live := a.liveAgents()
 	for _, b := range live {
-		v.Agents = append(v.Agents, tui.AgentRow{Name: b.Name, Rank: b.Rank, Office: b.Role, Model: b.Model, Provider: b.Provider,
+		v.Agents = append(v.Agents, tui.AgentRow{Name: b.Name, Rank: b.Rank, Role: b.Role, Model: b.Model, Provider: b.Provider,
 			State: b.State, Started: b.Started, CtxTokens: b.ContextTokens, CtxLimit: b.ContextLimit,
 			Input: b.Input, Output: b.Output, Cache: b.CacheRead + b.CacheWrite, USD: b.USD})
 	}
@@ -47,7 +49,7 @@ func (h *tuiHost) Board(rng string) tui.BoardView {
 				row.Ranks = append(row.Ranks, r.Name)
 			}
 		}
-		v.Offices = append(v.Offices, row)
+		v.Roles = append(v.Roles, row)
 	}
 
 	recs, rd := src.Usage()

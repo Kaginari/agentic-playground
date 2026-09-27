@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -34,6 +35,10 @@ func (a *App) TUI(ctx context.Context) int {
 		return 2
 	}
 	ui := tui.Start(ctx, h, tui.DetectTheme(a.Opt.Env, a.Cfg.Dist.EnvPrefix), h.words, nil, nil)
+	// the mascot drops in unless <PREFIX>NO_INTRO says otherwise
+	if v := a.Opt.Env(a.Cfg.Dist.EnvPrefix + "NO_INTRO"); v == "" || v == "0" || v == "false" {
+		ui.Model.SetIntro(true)
+	}
 	h.attach(ui)
 	return h.run(ui.Run)
 }
@@ -217,14 +222,15 @@ func (h *tuiHost) Footer() tui.FooterView {
 	case tot.Unpriced == 0:
 		cost = fmt.Sprintf("$%.4f", tot.USD)
 	}
-	ctx := "ctx —"
+	ctx, pct, known := "ctx —", 0, false
 	if r := readingOf(h.s); r.Available {
+		pct, known = r.Percent(), true
 		ctx = fmt.Sprintf("ctx %d%%", r.Percent())
 		if r.Stressed() {
 			ctx += " (stress)"
 		}
 	}
-	return tui.FooterView{Model: a.mountModel.Ref.Model, Ctx: ctx, Cost: cost, Live: a.Subagent.Live(), Workspace: tilde(a.Root, a.Opt.Home), Subagents: h.words.Subagents, Tokens: tot.Tokens()}
+	return tui.FooterView{Model: a.mountModel.Ref.Model, Ctx: ctx, Cost: cost, Live: a.Subagent.Live(), Workspace: tilde(a.Root, a.Opt.Home), Subagents: h.words.Subagents, Tokens: tot.Tokens(), CtxPct: pct, CtxKnown: known}
 }
 
 func (h *tuiHost) Submit(text string) string {
@@ -506,6 +512,7 @@ func (h *tuiHost) observe(s *loop.Session, st *loop.StepRecord, phase string) {
 			h.mu.Unlock()
 			if p := stepPath(st.Input); p != "" && had {
 				d := tui.DiffText(before, readCapped(filepath.Join(h.a.Root, p)), 2)
+				d.Path = p
 				v.Diff = &d
 			}
 		}
@@ -514,7 +521,7 @@ func (h *tuiHost) observe(s *loop.Session, st *loop.StepRecord, phase string) {
 }
 
 func (h *tuiHost) toolView(st *loop.StepRecord) tui.ToolView {
-	v := tui.ToolView{ID: st.ID, Name: st.Tool, Summary: stepSummary(st.Input), Class: st.Effective, Status: st.Status, Ms: st.Ms, Output: st.Result.Output, Wrote: st.Wrote}
+	v := tui.ToolView{ID: st.ID, Name: st.Tool, Summary: stepSummary(st.Input), Class: st.Effective, Status: st.Status, Ms: st.Ms, Output: st.Result.Output, Wrote: st.Wrote, Link: fileLink(h.a.Root, st.Input)}
 	if st.Tool == "str_replace_based_edit_tool" {
 		v.Name = "edit"
 	}
@@ -824,4 +831,24 @@ func tilde(p, home string) string {
 		return "~" + p[len(home):]
 	}
 	return p
+}
+
+// fileLink is a file:// URL for a step whose input names a path inside the workspace; "" otherwise.
+func fileLink(root string, raw json.RawMessage) string {
+	var input struct {
+		Path string `json:"path"`
+	}
+	_ = json.Unmarshal(raw, &input)
+	p := input.Path
+	if p == "" {
+		return ""
+	}
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(root, p)
+	}
+	p = filepath.Clean(p)
+	if rel, err := filepath.Rel(root, p); err != nil || strings.HasPrefix(rel, "..") {
+		return ""
+	}
+	return (&url.URL{Scheme: "file", Path: p}).String()
 }

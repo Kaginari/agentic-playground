@@ -48,3 +48,35 @@ func TestContaineredIsANoOpInside(t *testing.T) {
 		t.Fatal("inside the container the flag must not start another one")
 	}
 }
+
+func TestSetupYAMLLoads(t *testing.T) {
+	for name, c := range setupPresets {
+		if c.model == "openai/" || c.model == "ollama/" || c.model == "vllm/" {
+			c.model += "some-model"
+		}
+		y := setupYAML(c)
+		if !strings.Contains(y, "default:") || !strings.Contains(y, c.provider+":") {
+			t.Fatalf("%s: %s", name, y)
+		}
+		if c.keyEnv != "" && !strings.Contains(y, "apiKeyEnv: "+c.keyEnv) {
+			t.Fatalf("%s: the key's name is missing: %s", name, y)
+		}
+	}
+}
+
+func TestSetupConfigOpensTheWorld(t *testing.T) {
+	for name, c := range setupPresets {
+		if strings.HasSuffix(c.model, "/") {
+			c.model += "some-model"
+		}
+		w := newTestWorkspace(t, "agent-one", agentOneMembers())
+		w.write(".agent-one/config.yaml", setupYAML(c))
+		a := w.open()
+		if got := a.Cfg.Models.Default.Model; got != c.model {
+			t.Fatalf("%s: the workspace runs on %q, want %q", name, got, c.model)
+		}
+		if p := a.Cfg.Providers[c.provider]; p == nil || !p.Enabled {
+			t.Fatalf("%s: provider %s not enabled", name, c.provider)
+		}
+	}
+}

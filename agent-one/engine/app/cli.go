@@ -33,6 +33,7 @@ type cliFlags struct {
 	json, quiet, noBoard, bench bool
 	plain                       bool
 	since                       string
+	ssh                         string // `board --ssh [addr]`: serve the board over SSH
 }
 
 func splitFlags(args []string) (cliFlags, []string) {
@@ -74,6 +75,12 @@ func splitFlags(args []string) (cliFlags, []string) {
 			f.bench = true
 		case "--plain":
 			f.plain = true
+		case "--ssh":
+			f.ssh = defaultSSHAddr
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && strings.Contains(args[i+1], ":") {
+				i++
+				f.ssh = args[i]
+			}
 		default:
 			rest = append(rest, a)
 		}
@@ -206,7 +213,7 @@ func Main(dist string, args []string, io IO, v Version) int {
 	case "bench":
 		return a.Bench(ctx, io)
 	case "board":
-		return a.cmdBoard(ctx, io)
+		return a.cmdBoard(ctx, io, f.ssh)
 	}
 	fmt.Fprintf(io.Err, "@S FAIL\n@? unknown command %q — `%s help` lists them\n", name, dist)
 	return 2
@@ -254,6 +261,14 @@ func cmdInit(dist string, f cliFlags, io IO) int {
 	fmt.Fprintf(io.Out, "@S OK %s founded at %s\n", dist, root)
 	for _, m := range made {
 		fmt.Fprintln(io.Out, "@F "+m)
+	}
+	if wantsSetup(dist, root, f, io) {
+		switch p, err := runSetup(dist, root, io); {
+		case err != nil:
+			fmt.Fprintf(io.Err, "@? setup: %v — the %s is founded; its config can be written later\n", err, worldWord(dist))
+		case p != "":
+			fmt.Fprintln(io.Out, "@F "+p)
+		}
 	}
 	if f.bench {
 		fmt.Fprintln(io.Out, "@F bench: config comes from "+strings.ToUpper(strings.ReplaceAll(dist, "-", "_"))+"_CONFIG_CONTENT; the gate needs a TTY or a file-layer pre-approval")

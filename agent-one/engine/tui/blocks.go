@@ -44,7 +44,7 @@ func (t Theme) Welcome(w Welcome, width int) string {
 		inner = width - 4
 	}
 	var rows []string
-	title := t.accent.Bold(true).Render("✦ "+w.Dist) + " " + t.dim.Render(w.Version)
+	title := Title(w.Dist) + " " + t.dim.Render(w.Version)
 	if inner >= mascotWidth+30 {
 		// the mascot, with the title and the tagline beside it
 		art, tag := Mascot(w.Dist)
@@ -132,10 +132,21 @@ type ToolView struct {
 	Diff    *Diff
 	Expand  bool
 	Agent   string // the agent running it, when not the session
+	Link    string // a file:// URL for the summary: a click opens the file (OSC 8)
 }
 
-// Tool renders a tool block: the header line, the status line, the output or the diff.
+// Tool renders a tool block as a card: an edge in the class's colour down its left side, the
+// header line, the status line, the output or the diff.
 func (t Theme) Tool(v ToolView, width int) string {
+	edge := t.class(v.Class).Render("▎")
+	lines := strings.Split(t.toolBody(v, width-2), "\n")
+	for i, l := range lines {
+		lines[i] = edge + " " + l
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (t Theme) toolBody(v ToolView, width int) string {
 	var b strings.Builder
 	dot := t.dim.Render("●")
 	switch v.Status {
@@ -153,7 +164,11 @@ func (t Theme) Tool(v ToolView, width int) string {
 	}
 	room := width - ansi.StringWidth(head) - ansi.StringWidth(tag) - 4
 	if s := oneLine(v.Summary); s != "" && room > 8 {
-		head += "  " + ansi.Truncate(s, room, "…")
+		s = ansi.Truncate(s, room, "…")
+		if v.Link != "" {
+			s = lipgloss.NewStyle().Hyperlink(v.Link).Underline(true).Render(s)
+		}
+		head += "  " + s
 	}
 	head += "  " + tag
 	b.WriteString(head)
@@ -238,12 +253,28 @@ func (t Theme) diffLines(d Diff, width int, expand bool) string {
 		switch l.Kind {
 		case '~':
 			s = t.dim.Render(strings.Repeat(" ", numw) + " ⋯")
-		case '+':
-			s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + " " + t.add.Render("+ "+ansi.Truncate(expandTabs(l.Text), width-numw-4, "…"))
-		case '-':
-			s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.Old)) + " " + t.del.Render("- "+ansi.Truncate(expandTabs(l.Text), width-numw-4, "…"))
+		case '+', '-':
+			n, sign, fg := l.New, "+ ", t.add
+			if l.Kind == '-' {
+				n, sign, fg = l.Old, "- ", t.del
+			}
+			text := ansi.Truncate(expandTabs(l.Text), width-numw-4, "…")
+			bg := t.diffBg(l.Kind)
+			if d.Path != "" && t.Color {
+				// the code in its own colours over the line's tint, the tint to the edge
+				pad := width - numw - 3 - ansi.StringWidth(text)
+				agent := t.Highlight(d.Path, text, t.text, bg) + lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", max(0, pad)))
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, n)) + " " + fg.Background(bg).Render(sign) + agent
+			} else {
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, n)) + " " + fg.Render(sign+text)
+			}
 		default:
-			s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + " " + t.ctxLine.Render("  "+ansi.Truncate(expandTabs(l.Text), width-numw-4, "…"))
+			text := ansi.Truncate(expandTabs(l.Text), width-numw-4, "…")
+			if d.Path != "" && t.Color {
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + "   " + t.Highlight(d.Path, text, t.ctxLine, nil)
+			} else {
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + " " + t.ctxLine.Render("  "+text)
+			}
 		}
 		out = append(out, indent+indent+s)
 	}
@@ -498,7 +529,7 @@ func (t Theme) Spinner(frame, verb string, elapsed time.Duration, tokens int, wi
 		parts = append(parts, humanTokens(tokens)+" tokens")
 	}
 	parts = append(parts, "esc to interrupt")
-	s := t.accent.Render(frame) + " " + t.text.Render(verb) + " " + t.dim.Render("("+strings.Join(parts, " · ")+")")
+	s := t.accent.Render(frame) + " " + verb + " " + t.dim.Render("("+strings.Join(parts, " · ")+")")
 	return ansi.Truncate(s, width, "…")
 }
 
@@ -514,13 +545,22 @@ type FooterView struct {
 	Queued    int
 	Message   string // a transient message shown in place of the hint
 	Tokens    int    // the session's tokens so far (the spinner shows them)
+	CtxPct    int    // the context window's fill in percent, drawn as a meter when CtxKnown
+	CtxKnown  bool
 }
 
 // Footer renders the line under the input.
 func (t Theme) Footer(f FooterView, width int) string {
 	parts := []string{f.Model, f.Ctx, f.Cost}
 	parts = parts[:0:0]
-	parts = append(parts, f.Model, f.Ctx, f.Cost)
+	ctx := f.Ctx
+	if f.CtxKnown && width >= 72 {
+		ctx = "ctx " + t.Meter(f.CtxPct, 8) + fmt.Sprintf(" %d%%", f.CtxPct)
+		if strings.Contains(f.Ctx, "stress") {
+			ctx += " " + t.bad.Render("stress")
+		}
+	}
+	parts = append(parts, f.Model, ctx, f.Cost)
 	if f.Live > 0 {
 		word := f.Subagents
 		if word == "" {
@@ -627,9 +667,10 @@ func (t Theme) Shortcuts(list []Shortcut, width int) string {
 func DefaultShortcuts() []Shortcut {
 	return []Shortcut{
 		{"enter", "send"},
-		{"\\ enter", "newline (also alt+enter)"},
+		{"shift+enter", "newline (also \\ enter, alt+enter)"},
 		{"↑ ↓", "history (on the first / last line)"},
 		{"/", "commands"},
+		{"ctrl+k", "command palette (fuzzy)"},
 		{"@path", "complete a file in the workspace (tab)"},
 		{"esc", "interrupt the turn · clear the input"},
 		{"ctrl+c ×2", "exit"},

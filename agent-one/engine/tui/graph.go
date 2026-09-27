@@ -247,7 +247,8 @@ func (g *graphLayout) render(t Theme, sel string) []string {
 				}
 				label := mark + " " + p.n.Name
 				if p.n.ID == sel {
-					label = st.Reverse(true).Bold(true).Render(label)
+					// an explicit background, not reverse video: every terminal draws it the same
+					label = lipgloss.NewStyle().Background(st.GetForeground()).Foreground(lipgloss.Color("#0d1117")).Bold(true).Render(label)
 				} else {
 					label = st.Render(label)
 				}
@@ -380,6 +381,12 @@ func (m *Model) boardGraph() ([]string, int) {
 	}
 	card := knowledgeCard(t, g, sel, max(20, cardW))
 	top := len(lines)
+	for _, row := range g.levels {
+		for _, p := range row {
+			x0 := 2 + len(lead) + p.x - b.panX
+			b.hits = append(b.hits, hit{line: top + p.y, x0: x0, x1: x0 + p.w, id: p.n.ID})
+		}
+	}
 	if cardW > 0 {
 		for i := 0; i < len(canvas) || i < len(card); i++ {
 			left, right := "", ""

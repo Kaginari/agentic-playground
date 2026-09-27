@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -87,6 +88,11 @@ type Model struct {
 	lastWidth int // the width the transcript was last printed at
 	bgKnown   bool
 	welcomed  bool
+	intro     *introState // the startup animation; nil when off or over
+	shimmer   int         // the spinner verb's highlight, advanced with the spinner
+	palette   *paletteState
+	boardOnly bool // the board alone (served over SSH): no session, no scrollback; esc quits
+	toasts    []toast
 
 	// the board: full screen while open; blocks that finish meanwhile wait in held
 	board    *boardState
@@ -153,7 +159,14 @@ func (m *Model) Attach(send func(tea.Msg)) {
 // Init starts the ticks and the printer and asks the terminal for its background; the welcome
 // waits for the terminal's width, and briefly for that answer, so it is drawn in the right theme.
 func (m *Model) Init() tea.Cmd {
+	if m.boardOnly {
+		m.bgKnown, m.welcomed = true, true
+		return tea.Batch(tick(), m.openBoard())
+	}
 	cmds := []tea.Cmd{textarea.Blink, tick(), m.printer}
+	if m.intro != nil {
+		cmds = append(cmds, introTick())
+	}
 	if !m.theme.Forced {
 		cmds = append(cmds, tea.RequestBackgroundColor, tea.Tick(bgWait, func(time.Time) tea.Msg { return evBgWait{} }))
 	} else {
@@ -170,7 +183,7 @@ type evBgWait struct{}
 
 // welcome prints the welcome once the width is known and the theme settled.
 func (m *Model) welcome() tea.Cmd {
-	if m.welcomed || !m.ready || !m.bgKnown {
+	if m.welcomed || !m.ready || !m.bgKnown || m.intro != nil {
 		return nil
 	}
 	m.welcomed = true
@@ -243,6 +256,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		if msg.Width <= 0 || msg.Height <= 0 {
+			return m, nil // a terminal that reports no size keeps the last one (80×24 at first)
+		}
 		m.width, m.height = msg.Width, msg.Height
 		if m.width < 20 {
 			m.width = 20
@@ -273,7 +289,24 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case evBgWait:
 		m.bgKnown = true
 		return m, m.welcome()
+	case evIntro:
+		if m.intro == nil {
+			return m, nil
+		}
+		if !m.ready || m.stepIntro() {
+			return m, introTick()
+		}
+		m.intro = nil
+		return m, m.welcome()
+	case evToastFrame:
+		if m.stepToasts() {
+			return m, toastTick()
+		}
+		return m, nil
 	case evTick:
+		if len(m.toasts) > 0 {
+			m.stepToasts()
+		}
 		if m.busy || m.choice != nil {
 			m.footer = m.host.Footer()
 		}
@@ -287,6 +320,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		var cmd tea.Cmd
 		m.spin, cmd = m.spin.Update(msg)
+		m.shimmer++
 		return m, cmd
 	case tea.KeyPressMsg:
 		return m.key(msg)
@@ -465,6 +499,11 @@ func (m *Model) finish(ev EvTurnDone) tea.Cmd {
 	}
 	if ev.Verdict != "" {
 		cmds = append(cmds, m.print(func(w int) string { return m.theme.Gate(ev.Verdict, ev.LogRel, w, m.words.Gate) }))
+		if strings.HasPrefix(ev.Verdict, "pass") {
+			cmds = append(cmds, m.Toast("◆ "+m.words.Gate+" pass", m.theme.pill("ok")))
+		} else if strings.HasPrefix(ev.Verdict, "fail") {
+			cmds = append(cmds, m.Toast("◆ "+m.words.Gate+" fail", m.theme.pill("bad")))
+		}
 	}
 	if ev.Hint != "" {
 		cmds = append(cmds, m.print(func(w int) string { return m.theme.Notice(ev.Hint, w) }))
@@ -533,7 +572,11 @@ func (m *Model) landSubagent(c *SubagentView) tea.Cmd {
 		m.lastBlock = &collapsed{subagent: &cp}
 	}
 	cv := *c
-	return m.print(func(w int) string { return m.theme.Subagent(cv, w) })
+	pill, word := m.theme.pill("ok"), "✓ "+cv.Name+" done"
+	if cv.Failed {
+		pill, word = m.theme.pill("bad"), "✗ "+cv.Name+" failed"
+	}
+	return tea.Batch(m.print(func(w int) string { return m.theme.Subagent(cv, w) }), m.Toast(word, pill))
 }
 
 // flushStream moves complete paragraphs of the streamed answer into the scrollback (all of it
@@ -603,6 +646,20 @@ func isListLine(l string) bool {
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.Render())
 	v.AltScreen = m.board != nil
+	// the window title and the terminal tab's progress follow the session
+	state := "idle"
+	switch {
+	case m.choice != nil:
+		state = "waiting for you"
+		v.ProgressBar = &tea.ProgressBar{State: tea.ProgressBarWarning, Value: 100}
+	case m.busy:
+		state = strings.ToLower(strings.TrimSuffix(m.verb, "…"))
+		v.ProgressBar = &tea.ProgressBar{State: tea.ProgressBarIndeterminate}
+	}
+	v.WindowTitle = m.words.Dist + " · " + filepath.Base(m.footer.Workspace) + " · " + state
+	if m.board != nil {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
 	return v
 }
 
@@ -613,6 +670,9 @@ func (m *Model) Render() string {
 	}
 	if m.board != nil {
 		return m.boardView()
+	}
+	if m.intro != nil && m.ready {
+		return m.introView()
 	}
 	var parts []string
 	if s := m.stream.String(); m.busy && strings.TrimSpace(s) != "" {
@@ -631,7 +691,7 @@ func (m *Model) Render() string {
 		parts = append(parts, m.theme.Choice(m.view, m.width), "")
 	} else if m.busy {
 		tokens := m.footer.Tokens
-		parts = append(parts, m.theme.Spinner(m.spin.View(), m.verb, time.Since(m.turnStart), tokens, m.width))
+		parts = append(parts, m.theme.Spinner(m.spin.View(), m.theme.Shimmer(m.verb, shimmerPhase(m.shimmer, len([]rune(m.verb)))), time.Since(m.turnStart), tokens, m.width))
 	}
 	if m.shortcuts {
 		parts = append(parts, m.theme.Shortcuts(DefaultShortcuts(), m.width))
@@ -651,7 +711,7 @@ func (m *Model) Render() string {
 		f.Subagents = m.words.Subagents
 	}
 	parts = append(parts, m.theme.Footer(f, m.width))
-	return strings.Join(parts, "\n")
+	return m.overlay(strings.Join(parts, "\n"))
 }
 
 func (m *Model) subagentStart(c *SubagentView) time.Time {

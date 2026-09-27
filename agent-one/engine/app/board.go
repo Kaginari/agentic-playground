@@ -163,9 +163,10 @@ func (a *App) startBoard(ctx context.Context) {
 }
 
 // cmdBoard serves the board alone, without a session, until interrupted.
-func (a *App) cmdBoard(ctx context.Context, io IO) int {
+func (a *App) cmdBoard(ctx context.Context, io IO, sshAddr string) int {
+	lg := newLogger(io.Err, a.Cfg.Dist.Name+" board")
 	if a.Workspace == nil {
-		fmt.Fprintln(io.Err, "@S FAIL\n@? no workspace to draw")
+		lg.Error("no " + worldWord(a.Cfg.Dist.Name) + " to draw")
 		return 2
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", a.Cfg.UI.Board.Port)
@@ -178,10 +179,23 @@ func (a *App) cmdBoard(ctx context.Context, io IO) int {
 		<-sig
 		cancel()
 	}()
-	fmt.Fprintf(io.Err, "board: http://%s/ (Ctrl-C to stop)\n", addr)
-	if err := board.Serve(ctx, addr, a.boardOptions()); err != nil && ctx.Err() == nil {
-		fmt.Fprintf(io.Err, "@S FAIL\n@? board: %v\n", err)
-		return 2
+	opt := a.boardOptions()
+	opt.Logger = lg.StandardLog(stdLogWarn)
+	errc := make(chan error, 2)
+	go func() { errc <- board.Serve(ctx, addr, opt) }()
+	lg.Info("serving", "url", "http://"+addr+"/", "stop", "ctrl+c")
+	if sshAddr != "" {
+		go func() { errc <- a.serveSSH(ctx, sshAddr, lg) }()
+	}
+	select {
+	case <-ctx.Done():
+		lg.Info("stopped")
+		return 0
+	case err := <-errc:
+		if err != nil && ctx.Err() == nil {
+			lg.Error("the board stopped", "err", err)
+			return 2
+		}
 	}
 	return 0
 }

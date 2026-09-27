@@ -1,11 +1,11 @@
-● edit  src/auth/login.go  write
-  ⎿ ok · 12ms · +4 −0
-    1   package auth
-    2   
-    3 + import "time"
-    4 + 
-    5   func Login() {
-    6 +     ttl := 15 * time.Minute
-    7 +     _ = ttl
-    8       return
-    9   }
+▎ ● edit  src/auth/login.go  write
+▎   ⎿ ok · 12ms · +4 −0
+▎     1   package auth
+▎     2   
+▎     3 + import "time"
+▎     4 + 
+▎     5   func Login() {
+▎     6 +     ttl := 15 * time.Minute
+▎     7 +     _ = ttl
+▎     8       return
+▎     9   }

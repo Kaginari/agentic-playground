@@ -1,4 +1,4 @@
-● bash  go test ./...  read
-  ⎿ ok · 1.2s · 2 lines
-    ok      github.com/x/y    0.512s
-    ok      github.com/x/z    0.201s
+▎ ● bash  go test ./...  read
+▎   ⎿ ok · 1.2s · 2 lines
+▎     ok      github.com/x/y    0.512s
+▎     ok      github.com/x/z    0.201s
