@@ -135,8 +135,18 @@ type ToolView struct {
 	Link    string // a file:// URL for the summary: a click opens the file (OSC 8)
 }
 
-// Tool renders a tool block: the header line, the status line, the output or the diff.
+// Tool renders a tool block as a card: an edge in the class's colour down its left side, the
+// header line, the status line, the output or the diff.
 func (t Theme) Tool(v ToolView, width int) string {
+	edge := t.class(v.Class).Render("▎")
+	lines := strings.Split(t.toolBody(v, width-2), "\n")
+	for i, l := range lines {
+		lines[i] = edge + " " + l
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (t Theme) toolBody(v ToolView, width int) string {
 	var b strings.Builder
 	dot := t.dim.Render("●")
 	switch v.Status {
@@ -243,12 +253,28 @@ func (t Theme) diffLines(d Diff, width int, expand bool) string {
 		switch l.Kind {
 		case '~':
 			s = t.dim.Render(strings.Repeat(" ", numw) + " ⋯")
-		case '+':
-			s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + " " + t.add.Render("+ "+ansi.Truncate(expandTabs(l.Text), width-numw-4, "…"))
-		case '-':
-			s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.Old)) + " " + t.del.Render("- "+ansi.Truncate(expandTabs(l.Text), width-numw-4, "…"))
+		case '+', '-':
+			n, sign, fg := l.New, "+ ", t.add
+			if l.Kind == '-' {
+				n, sign, fg = l.Old, "- ", t.del
+			}
+			text := ansi.Truncate(expandTabs(l.Text), width-numw-4, "…")
+			bg := t.diffBg(l.Kind)
+			if d.Path != "" && t.Color {
+				// the code in its own colours over the line's tint, the tint to the edge
+				pad := width - numw - 3 - ansi.StringWidth(text)
+				body := t.Highlight(d.Path, text, t.text, bg) + lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", max(0, pad)))
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, n)) + " " + fg.Background(bg).Render(sign) + body
+			} else {
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, n)) + " " + fg.Render(sign+text)
+			}
 		default:
-			s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + " " + t.ctxLine.Render("  "+ansi.Truncate(expandTabs(l.Text), width-numw-4, "…"))
+			text := ansi.Truncate(expandTabs(l.Text), width-numw-4, "…")
+			if d.Path != "" && t.Color {
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + "   " + t.Highlight(d.Path, text, t.ctxLine, nil)
+			} else {
+				s = t.lineNo.Render(fmt.Sprintf("%*d", numw, l.New)) + " " + t.ctxLine.Render("  "+text)
+			}
 		}
 		out = append(out, indent+indent+s)
 	}

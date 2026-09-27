@@ -1054,3 +1054,11 @@ Append-only. Newest entries at the bottom. One entry per change.
   TestTerminalIntegration (OSC 8 on the path; title and progress idle vs busy); suites green.
 - **Learned:** hit-testing reads what the last frame drew (tab columns, row and node boxes by
   page line) — never recomputed from the model, so a click lands on what the eye saw.
+
+### [2026-09-27T12:24:12+02:00] rimuru — the CLI, phase 3: blocks as cards (isekai)
+- **Files:** isekai/tui/{blocks.go,syntax.go,diff.go,board.go,shots_test.go,testdata/golden/*} ·
+  app/tui.go · canon/tui.md.
+- **Gate:** n/a (no orcs). Instruments: tool cards, a syntax-coloured diff and both board tables
+  rendered with freeze and looked at; goldens rewritten on purpose (the edge); suites green.
+- **Learned:** a test's stdout is no terminal, so the theme detects no colour and highlighting is
+  (rightly) skipped — the shots force colour to show what a terminal draws.

@@ -13,6 +13,8 @@ type Diff struct {
 	// Truncated is set when the inputs were too large to diff line by line (only the counts
 	// are honest then).
 	Truncated bool
+	// Path names the file, for syntax colour; "" draws the lines plain.
+	Path string
 }
 
 // DiffLine is one line of the diff: ' ' context, '+' added, '-' removed, '~' a hunk gap.

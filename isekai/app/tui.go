@@ -512,6 +512,7 @@ func (h *tuiHost) observe(s *loop.Session, st *loop.StepRecord, phase string) {
 			h.mu.Unlock()
 			if p := stepPath(st.Input); p != "" && had {
 				d := tui.DiffText(before, readCapped(filepath.Join(h.a.Root, p)), 2)
+				d.Path = p
 				v.Diff = &d
 			}
 		}

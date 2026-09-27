@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -352,56 +353,61 @@ func (m *Model) boardAgents() ([]string, int) {
 	if w < 80 {
 		stateW = 12
 	}
-	col := func(s string, n int) string { return fmt.Sprintf("%-*s", n, ansi.Truncate(s, n, "…")) }
-	hdr := "    " + col("NAME", nameW) + "  "
-	if showRank {
-		hdr += col("RANK", 9)
-	}
-	if showOffice {
-		hdr += col("OFFICE", 11)
-	}
-	hdr += col("STATE", stateW)
-	if showAge {
-		hdr += fmt.Sprintf("%6s  ", "AGE")
-	}
-	hdr += col("CONTEXT", 14) + fmt.Sprintf("%7s %8s", "TOKENS", "COST")
-	if showModel {
-		hdr += "  MODEL"
-	}
-	lines := []string{"", t.dim.Render(hdr)}
 	now := b.view.At
 	if now.IsZero() {
 		now = time.Now()
 	}
-	cur := -1
+	hdr := []string{"", "NAME"}
+	if showRank {
+		hdr = append(hdr, "RANK")
+	}
+	if showOffice {
+		hdr = append(hdr, "OFFICE")
+	}
+	hdr = append(hdr, "STATE")
+	if showAge {
+		hdr = append(hdr, "AGE")
+	}
+	hdr = append(hdr, "CONTEXT", "TOKENS", "COST")
+	if showModel {
+		hdr = append(hdr, "MODEL")
+	}
+	var cells [][]string
 	for i, r := range rows {
 		glyph, st := stateGlyph(t, r.State, stateW, m.spin.View())
+		name := ansi.Truncate(r.Name, nameW, "…")
 		mark := "  "
 		if i == sel {
-			mark = t.accent.Render("›") + " "
-			cur = len(lines)
+			mark, name = t.accent.Render("›")+" ", t.tag.Render(name)
 		}
-		line := mark + glyph + " " + col(r.Name, nameW) + "  "
+		row := []string{mark + glyph, name}
 		if showRank {
-			line += t.rankStyle(r.Rank).Render(col(r.Rank, 9))
+			row = append(row, t.rankStyle(r.Rank).Render(r.Rank))
 		}
 		if showOffice {
-			line += col(r.Office, 11)
+			row = append(row, r.Office)
 		}
-		line += st
+		row = append(row, strings.TrimRight(st, " "))
 		if showAge {
 			age := "—"
 			if !r.Started.IsZero() {
 				age = shortDur(now.Sub(r.Started))
 			}
-			line += fmt.Sprintf("%6s  ", age)
+			row = append(row, age)
 		}
-		line += ctxBar(t, r.CtxTokens, r.CtxLimit, 8) + fmt.Sprintf("%7s %8s", humanTokens(r.Input+r.Output+r.Cache), usd(r.USD))
+		row = append(row, strings.TrimRight(ctxBar(t, r.CtxTokens, r.CtxLimit, 8), " "), humanTokens(r.Input+r.Output+r.Cache), usd(r.USD))
 		if showModel {
-			line += "  " + t.dim.Render(r.Model)
+			row = append(row, t.dim.Render(r.Model))
 		}
-		b.hits = append(b.hits, hit{line: len(lines), x0: 0, x1: w, row: i})
-		lines = append(lines, line)
+		cells = append(cells, row)
+	}
+	lines := []string{""}
+	tbl := m.boardTable(hdr, cells, map[int]bool{len(hdr) - 3: true, len(hdr) - 2: true})
+	first := len(lines) + 3 // the top border, the header, its rule
+	lines = append(lines, tbl...)
+	cur := first + sel
+	for i := range rows {
+		b.hits = append(b.hits, hit{line: first + i, x0: 0, x1: w, row: i})
 	}
 	if b.detail && sel >= 0 && sel < len(rows) {
 		r := rows[sel]
@@ -452,24 +458,30 @@ func (m *Model) boardOffices() ([]string, int) {
 			nameW = n
 		}
 	}
-	lines := []string{"", t.dim.Render(fmt.Sprintf("    %-*s  %-9s %-5s %8s  %s", nameW, "OFFICE", "DOES", "LIVE", "TOKENS", "MODEL"))}
-	cur := -1
+	var cells [][]string
 	for i, r := range rows {
-		live := t.dim.Render(fmt.Sprintf("%-5s", "·"))
+		live := t.dim.Render("·")
 		if r.Live > 0 {
-			live = t.accent.Render(fmt.Sprintf("%-5s", fmt.Sprintf("● %d", r.Live)))
+			live = t.accent.Render(fmt.Sprintf("● %d", r.Live))
 		}
-		u := spent[r.Name]
-		line := fmt.Sprintf("  %s %-*s  %-9s %s %8s  %s", t.accent.Render("◆"), nameW, r.Name, r.Role, live, humanTokens(u.Tokens), r.Model)
-		if r.Fallback != "" {
-			line += t.dim.Render("  ↳ " + r.Fallback)
-		}
+		name := r.Name
+		mark := "  "
 		if i == sel {
-			line = t.accent.Render("›") + line[1:]
-			cur = len(lines)
+			mark, name = t.accent.Render("›")+" ", t.tag.Render(name)
 		}
-		b.hits = append(b.hits, hit{line: len(lines), x0: 0, x1: w, row: i})
-		lines = append(lines, line)
+		model := r.Model
+		if r.Fallback != "" && w >= 120 {
+			model += t.dim.Render("  ↳ " + r.Fallback)
+		}
+		cells = append(cells, []string{mark + t.accent.Render("◆"), name, r.Role, live, humanTokens(spent[r.Name].Tokens), model})
+	}
+	lines := []string{""}
+	tbl := m.boardTable([]string{"", "OFFICE", "DOES", "LIVE", "TOKENS", "MODEL"}, cells, map[int]bool{4: true})
+	first := len(lines) + 3
+	lines = append(lines, tbl...)
+	cur := first + sel
+	for i := range rows {
+		b.hits = append(b.hits, hit{line: first + i, x0: 0, x1: w, row: i})
 	}
 	r := rows[sel]
 	lines = append(lines, "", t.border.Render("  "+strings.Repeat("─", max(0, w-4))))
@@ -605,23 +617,13 @@ func stateGlyph(t Theme, state string, w int, spin string) (string, string) {
 	return t.accent.Render(string(g[0])), t.text.Render(s)
 }
 
-// ctxBar is the context window's fill as a bar and a percent, 14 cells wide.
+// ctxBar is the context window's fill as the footer's gradient meter and a percent.
 func ctxBar(t Theme, used, limit, w int) string {
 	if limit <= 0 {
-		return t.dim.Render(strings.Repeat("·", w)) + strings.Repeat(" ", 6)
+		return t.Meter(-1, w) + strings.Repeat(" ", 6)
 	}
 	pct := 100 * used / limit
-	st := t.ok
-	if pct >= 90 {
-		st = t.bad
-	} else if pct >= 70 {
-		st = t.warn
-	}
-	fill := pct * w / 100
-	if fill > w {
-		fill = w
-	}
-	return st.Render(strings.Repeat("█", fill)) + t.border.Render(strings.Repeat("░", w-fill)) + fmt.Sprintf(" %3d%% ", pct)
+	return t.Meter(pct, w) + fmt.Sprintf(" %3d%% ", pct)
 }
 
 func bar(t Theme, v, top, w int) string {
@@ -711,4 +713,23 @@ func (m *Model) boardClick(ms tea.Mouse) {
 		b.cursor[b.page] = h.row
 		return
 	}
+}
+
+// boardTable draws rows as a Lip Gloss table: rounded, header dim and bold, no column rules;
+// right names the columns aligned right (numbers). Its rows start 3 lines down.
+func (m *Model) boardTable(headers []string, rows [][]string, right map[int]bool) []string {
+	t := m.theme
+	tb := table.New().Border(lipgloss.RoundedBorder()).BorderStyle(t.border).BorderColumn(false).
+		Headers(headers...).Rows(rows...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			st := lipgloss.NewStyle().Padding(0, 1)
+			if right[col] {
+				st = st.Align(lipgloss.Right)
+			}
+			if row == table.HeaderRow {
+				return st.Inherit(t.dim).Bold(true)
+			}
+			return st
+		})
+	return strings.Split(tb.Render(), "\n")
 }

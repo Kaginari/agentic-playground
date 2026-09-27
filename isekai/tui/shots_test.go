@@ -23,7 +23,9 @@ func TestShots(t *testing.T) {
 		}
 	}
 	h := &fakeHost{}
-	m := New(h, NewTheme(true), DefaultWords())
+	th := NewTheme(true)
+	th.Color = true // a test's stdout is no terminal; the shots show what one draws
+	m := New(h, th, DefaultWords())
 	m.SetIntro(true)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	var frames []string
@@ -38,6 +40,15 @@ func TestShots(t *testing.T) {
 	}
 	shot("intro", strings.Join(frames, "\n"+strings.Repeat("─", 30)+"\n"))
 	shot("welcome", m.theme.Welcome(h.Welcome(), 100))
+	before := "package loop\n\nfunc (s *Session) drive() {\n\t// the gate at the turn's end\n\treturn s.finish(ctx, r, resp, end)\n}\n"
+	after := "package loop\n\nfunc (s *Session) drive() {\n\t// the gate at the turn's end\n\tres, err := s.finish(ctx, r, resp, end)\n\tif err == errGateRetry {\n\t\tcontinue // sent back once\n\t}\n\treturn res, err\n}\n"
+	d := DiffText(before, after, 2)
+	d.Path = "loop/loop.go"
+	shot("tools", strings.Join([]string{
+		m.theme.Tool(ToolView{Name: "bash", Summary: "go test ./...", Class: "read", Status: "done", Ms: 2840, Output: "ok  isekai/loop   0.05s\nok  isekai/world  0.21s\nok  isekai/tui    2.87s"}, 100),
+		m.theme.Tool(ToolView{Name: "edit", Summary: "loop/loop.go", Class: "write", Status: "done", Ms: 3, Diff: &d, Link: "file:///w/loop/loop.go"}, 100),
+		m.theme.Tool(ToolView{Name: "bash", Summary: "git push origin main", Class: "outward", Status: "denied", Why: "not now"}, 100),
+	}, "\n\n"))
 	m.intro = nil
 	m.Update(EvTurnStart{Text: "explain the gate"})
 	m.busy, m.verb, m.turnStart = true, "Thinking…", time.Now().Add(-12*time.Second)

@@ -73,6 +73,18 @@ one place the binary takes third-party code; versions pinned in go.sum.
   plain line output stays: the TUI is only for a terminal. `--plain` (or `<PREFIX>PLAIN=1`)
   forces the line REPL anywhere.
 
+## Blocks as cards
+
+- **Tool cards** — every line of a tool block carries an edge (`▎`) in its class's colour: read
+  cyan, write violet, outward amber, destructive red — the class is seen before it is read.
+- **Diffs in colour** — added and removed lines keep their `+`/`-` and line numbers, their code in
+  its language's colours (chroma, per line; catppuccin-mocha dark, github light) over a green or
+  red tint to the card's edge; context lines coloured, untinted. Unknown language or no colour: the
+  plain `+`/`-` lines.
+- **Board tables** — Agents and Offices are Lip Gloss tables (rounded, dim bold headers, numbers
+  right-aligned); the selected row carries a gold `›` and a bold name, not a background (cells keep
+  their own colours).
+
 ## The terminal around it
 
 - **Window title** — `<dist> · <world> · <state>` (idle, thinking, running bash, waiting for you).
