@@ -1188,3 +1188,14 @@ Append-only. Newest entries at the bottom. One entry per change.
   the faces, live thinking, the gate and the body view rendered with freeze and looked at; suites green.
 - **Learned:** a Court's steps reached the UI only as a state change and its text not at all; a
   Stream hook on the loop — every engine carries it — is what lets the human watch any body.
+
+### [2026-09-27T13:19:24+02:00] rimuru — config in one file per section; guard patterns from config (isekai)
+- **Task:** Human: "for guard … make it possible to inject through config … separated in <file>.yaml
+  for each part guards.yaml rules.yaml etc".
+- **Files:** isekai/config/{load.go,schema.go,defaults.go,config_test.go} · guard/guard.go ·
+  app/{guard.go,container_test.go} · canon/config.md.
+- **Gate:** n/a (no orcs). Instruments: TestSectionFiles (models.yaml wins in its layer and is named
+  by explain; guards.yaml as a list; a global providers.yaml; guard.yaml + guards.yaml refused),
+  TestGuardPatternsFromConfig; suites green.
+- **Learned:** merging a list appended onto the base node, so a list filled by a file kept the empty
+  default's origin — `config explain` would have named "default" for a user's own patterns.

@@ -613,6 +613,7 @@ var OutwardCapable = map[string]bool{"bash": true, "git": true, "webfetch": true
 // Guard is the global dangerous-command guard: the built-in denylist, the machine-wide file
 // (~/.agents/hooks/dangerous-patterns.txt) and these files, refused before any gate.
 type Guard struct {
-	Enabled bool     `json:"enabled"`
-	Files   []string `json:"files"`
+	Enabled  bool     `json:"enabled"`
+	Files    []string `json:"files"`
+	Patterns []string `json:"patterns"` // POSIX-ERE (RE2) lines, added to the built-in list
 }

@@ -80,3 +80,19 @@ func TestSetupConfigOpensTheWorld(t *testing.T) {
 		}
 	}
 }
+
+func TestGuardPatternsFromConfig(t *testing.T) {
+	w := newTestWorld(t, "isekai", isekaiCreatures())
+	w.write(".isekai/guards.yaml", "- '(^|[[:space:]])terraform[[:space:]]+destroy'\n")
+	a := w.open()
+	g := a.theGuard()
+	if r := g.Match("terraform destroy -auto-approve"); r == nil || !strings.Contains(r.Source, "guards.yaml") {
+		t.Fatalf("a pattern in guards.yaml blocks, named by its file: %+v", r)
+	}
+	if g.Match("rm -rf ~") == nil {
+		t.Fatal("the built-in list stays")
+	}
+	if !strings.Contains(a.guardLine(), "3 sources") {
+		t.Fatalf("status counts the config as a source: %s", a.guardLine())
+	}
+}

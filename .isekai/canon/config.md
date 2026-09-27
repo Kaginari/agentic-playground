@@ -53,6 +53,21 @@ Lowest to highest; later layers override earlier ones for scalar keys.
 | 6 · env, single keys | `<PREFIX>MODEL`, `<PREFIX>SMALL_MODEL`, `<PREFIX>MODE`, `<PREFIX>LOG_LEVEL`, `<PREFIX>PROVIDER_<NAME>_API_KEY`, `<PREFIX>DISABLE_PROJECT_CONFIG=1` | — |
 | 7 · CLI flags | `--model`, `--mode`, `--approve <class>`, `--dry-run`, `--strict`, `--format`, `--max-steps`, `--budget`, `--profile`, `--set key=value`, `--no-<feature>` for any `enabled` key (`--no-hooks`, `--no-mcp`, `--no-compaction`, `--no-law.crest`) | — |
 
+**One file per section.** Beside a global or project `config.yaml`, a file named after a top-level
+section holds just that section's value: `models.yaml`, `providers.yaml`, `rules.yaml`, `tools.yaml`,
+`mcp.yaml`, `guard.yaml` (or `guards.yaml`) — any key of the defaults. It loads in the same layer,
+after `config.yaml`, so it wins there; its values keep their own file for `config explain`. Two files
+for one section (`guard.yaml` and `guards.yaml`) is a load error; a file whose name is no section is
+left alone. `guards.yaml` may be just the list of patterns:
+
+```yaml
+# .isekai/guards.yaml — added to the built-in denylist, refused before any gate
+- '(^|[[:space:]])terraform[[:space:]]+destroy'
+- 'kubectl[[:space:]]+delete[[:space:]]+(ns|namespace)'
+```
+
+A list that was empty in a lower layer takes the origin of the file that filled it.
+
 `<PREFIX>PROVIDER_<NAME>_API_KEY` does not carry a key into the config: it sets
 `providers.<name>.apiKeyEnv` to its own variable name, so only the key's *location* is
 recorded. A name that matches no provider is a `@?`.

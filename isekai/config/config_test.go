@@ -415,3 +415,40 @@ func TestTimeoutSpellings(t *testing.T) {
 		t.Fatalf("want both-spellings error, got %v", err)
 	}
 }
+
+// A section may live in its own file beside config.yaml: guards.yaml (a map, or just the list of
+// patterns), models.yaml, rules.yaml… It wins within its layer and keeps its file for explain.
+func TestSectionFiles(t *testing.T) {
+	root, home := t.TempDir(), t.TempDir()
+	world := filepath.Join(root, ".isekai")
+	os.MkdirAll(world, 0o755)
+	os.WriteFile(filepath.Join(world, "config.yaml"), []byte("models: {default: anthropic/a}\nguard: {files: [x.txt]}\n"), 0o644)
+	os.WriteFile(filepath.Join(world, "models.yaml"), []byte("default: openai/b\n"), 0o644)
+	os.WriteFile(filepath.Join(world, "guards.yaml"), []byte("- '(^|[[:space:]])terraform[[:space:]]+destroy'\n- 'kubectl[[:space:]]+delete[[:space:]]+ns'\n"), 0o644)
+	os.WriteFile(filepath.Join(world, "notes.yaml"), []byte("anything: at all\n"), 0o644)
+	gdir := filepath.Join(home, ".config", "isekai")
+	os.MkdirAll(gdir, 0o755)
+	os.WriteFile(filepath.Join(gdir, "providers.yaml"), []byte("openrouter: {enabled: true}\n"), 0o644)
+	c, err := LoadWith(Options{Dist: "isekai", Root: root, Home: home, Env: func(k string) string {
+		if k == "HOME" {
+			return home
+		}
+		return ""
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Models.Default.Model != "openai/b" || !strings.Contains(c.Where("models.default"), "models.yaml") {
+		t.Fatalf("models.yaml wins in its layer: %q from %s", c.Models.Default.Model, c.Where("models.default"))
+	}
+	if len(c.Guard.Patterns) != 2 || len(c.Guard.Files) != 1 || !c.Guard.Enabled {
+		t.Fatalf("guards.yaml (a list) adds patterns, config.yaml's guard stays: %+v", c.Guard)
+	}
+	if p := c.Providers["openrouter"]; p == nil || !p.Enabled {
+		t.Fatal("a global section file (providers.yaml) loads too")
+	}
+	os.WriteFile(filepath.Join(world, "guard.yaml"), []byte("enabled: false\n"), 0o644)
+	if _, err := LoadWith(Options{Dist: "isekai", Root: root, Home: home, Env: func(string) string { return "" }}); err == nil || !strings.Contains(err.Error(), "one file per section") {
+		t.Fatalf("guard.yaml beside guards.yaml is ambiguous: %v", err)
+	}
+}
