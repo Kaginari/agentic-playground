@@ -381,6 +381,12 @@ func (m *Model) boardGraph() ([]string, int) {
 	}
 	card := knowledgeCard(t, g, sel, max(20, cardW))
 	top := len(lines)
+	for _, row := range g.levels {
+		for _, p := range row {
+			x0 := 2 + len(lead) + p.x - b.panX
+			b.hits = append(b.hits, hit{line: top + p.y, x0: x0, x1: x0 + p.w, id: p.n.ID})
+		}
+	}
 	if cardW > 0 {
 		for i := 0; i < len(canvas) || i < len(card); i++ {
 			left, right := "", ""

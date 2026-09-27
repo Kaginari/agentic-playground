@@ -132,6 +132,7 @@ type ToolView struct {
 	Diff    *Diff
 	Expand  bool
 	Body    string // the body running it, when not the session
+	Link    string // a file:// URL for the summary: a click opens the file (OSC 8)
 }
 
 // Tool renders a tool block: the header line, the status line, the output or the diff.
@@ -153,7 +154,11 @@ func (t Theme) Tool(v ToolView, width int) string {
 	}
 	room := width - ansi.StringWidth(head) - ansi.StringWidth(tag) - 4
 	if s := oneLine(v.Summary); s != "" && room > 8 {
-		head += "  " + ansi.Truncate(s, room, "…")
+		s = ansi.Truncate(s, room, "…")
+		if v.Link != "" {
+			s = lipgloss.NewStyle().Hyperlink(v.Link).Underline(true).Render(s)
+		}
+		head += "  " + s
 	}
 	head += "  " + tag
 	b.WriteString(head)

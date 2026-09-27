@@ -73,6 +73,17 @@ one place the binary takes third-party code; versions pinned in go.sum.
   plain line output stays: the TUI is only for a terminal. `--plain` (or `<PREFIX>PLAIN=1`)
   forces the line REPL anywhere.
 
+## The terminal around it
+
+- **Window title** — `<dist> · <world> · <state>` (idle, thinking, running bash, waiting for you).
+- **Tab progress** — while a turn runs the terminal's tab shows an indeterminate progress mark
+  (OSC 9;4, where the terminal draws it); an open approval shows a warning mark.
+- **Links** — a tool block's path is an OSC 8 hyperlink to the file: a click opens it where the
+  terminal supports links, plain text elsewhere.
+- **Mouse on the board** — a click on a tab switches to it, on a row selects it (again: its
+  detail), on a graph node selects it; the wheel scrolls. The session's own screen keeps the
+  terminal's selection and scrollback, so it never captures the mouse.
+
 ## The board — `/board`
 
 The web board's feeds drawn full screen in the terminal (alt screen); `esc` gives the session back

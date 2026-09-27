@@ -129,3 +129,58 @@ func TestBoardHoldsBlocksUntilClosed(t *testing.T) {
 		t.Fatalf("closing the board prints what was held: board %v prints %d", m.board != nil, len(m.prints))
 	}
 }
+
+func TestBoardMouse(t *testing.T) {
+	m := boardAt(t, 140, 40)
+	screen(m)
+	// a click on the third tab
+	x := m.board.tabX[2][0] + 1
+	m.Update(tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
+	if m.board.page != pageOffices {
+		t.Fatalf("tab click: page %d", m.board.page)
+	}
+	// a click on a graph node selects it
+	m.Update(tea.KeyPressMsg{Code: '2', Text: "2"})
+	screen(m)
+	var target hit
+	for _, h := range m.board.hits {
+		if h.id == "orc-db" {
+			target = h
+		}
+	}
+	if target.id == "" {
+		t.Fatal("orc-db drew no hit")
+	}
+	m.Update(tea.MouseClickMsg{X: target.x0 + 1, Y: target.line - m.board.lastOff + 2, Button: tea.MouseLeft})
+	if m.board.sel != "orc-db" {
+		t.Fatalf("node click selected %q", m.board.sel)
+	}
+	// a click on the third agent's row, then again: the detail opens
+	m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	screen(m)
+	row := m.board.hits[2]
+	click := tea.MouseClickMsg{X: 4, Y: row.line - m.board.lastOff + 2, Button: tea.MouseLeft}
+	m.Update(click)
+	m.Update(click)
+	if m.board.cursor[pageAgents] != 2 || !m.board.detail {
+		t.Fatalf("row click: cursor %d detail %v", m.board.cursor[pageAgents], m.board.detail)
+	}
+}
+
+func TestTerminalIntegration(t *testing.T) {
+	th := NewTheme(true)
+	out := th.Tool(ToolView{Name: "edit", Summary: "src/auth/token.go", Class: "write", Status: "done", Link: "file:///w/src/auth/token.go"}, 100)
+	if !strings.Contains(out, "\x1b]8;;file:///w/src/auth/token.go") {
+		t.Fatalf("no OSC 8 link on the path: %q", out)
+	}
+	m := New(&fakeHost{}, th, DefaultWords())
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.footer.World = "/home/u/proj"
+	if v := m.View(); v.WindowTitle != "isekai · proj · idle" || v.ProgressBar != nil {
+		t.Fatalf("idle: %q %v", v.WindowTitle, v.ProgressBar)
+	}
+	m.busy, m.verb = true, "Thinking…"
+	if v := m.View(); v.WindowTitle != "isekai · proj · thinking" || v.ProgressBar == nil || v.ProgressBar.State != tea.ProgressBarIndeterminate {
+		t.Fatalf("busy: %q %v", v.WindowTitle, v.ProgressBar)
+	}
+}

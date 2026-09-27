@@ -98,6 +98,10 @@ type boardState struct {
 	offset  [4]int
 	sel     string // the selected graph node
 	panX    int
+	// what a click can hit, as the last frame drew it
+	tabX    [][2]int // each tab's columns on the header row
+	hits    []hit    // page lines: a row or a node, by line and columns
+	lastOff int      // the page's first line on screen
 	detail  bool
 	ticks   int
 }
@@ -189,6 +193,18 @@ func (m *Model) boardUpdate(msg tea.Msg) (tea.Cmd, bool) {
 			}
 		}
 		return nil, true
+	case tea.MouseClickMsg:
+		m.boardClick(msg.Mouse())
+		return nil, true
+	case tea.MouseWheelMsg:
+		k := "down"
+		if msg.Mouse().Button == tea.MouseWheelUp {
+			k = "up"
+		}
+		if b.page == pageGraph {
+			return nil, true
+		}
+		return m.boardUpdate(tea.KeyPressMsg{Code: map[string]rune{"up": tea.KeyUp, "down": tea.KeyDown}[k]})
 	case tea.MouseMsg, tea.PasteMsg:
 		return nil, true
 	}
@@ -216,11 +232,19 @@ func (m *Model) boardView() string {
 		status = t.ok.Render("●") + t.dim.Render(" live · "+b.view.At.Format("15:04:05"))
 	}
 	head := title + "  " + strings.Join(tabs, t.border.Render("│"))
+	b.tabX = b.tabX[:0]
+	x := lipgloss.Width(title) + 2
+	for i, p := range boardPages {
+		w := lipgloss.Width(fmt.Sprintf(" %d %s ", i+1, p))
+		b.tabX = append(b.tabX, [2]int{x, x + w})
+		x += w + 1
+	}
 	head = padBetween(head, status, w)
 	rule := t.border.Render(strings.Repeat("─", w))
 
 	var lines []string
 	cur := -1
+	b.hits = b.hits[:0]
 	switch b.page {
 	case 0:
 		lines, cur = m.boardAgents()
@@ -260,6 +284,7 @@ func (m *Model) boardView() string {
 		}
 	}
 	off := b.offset[b.page]
+	b.lastOff = off
 	end := off + body
 	if end > len(lines) {
 		end = len(lines)
@@ -375,6 +400,7 @@ func (m *Model) boardAgents() ([]string, int) {
 		if showModel {
 			line += "  " + t.dim.Render(r.Model)
 		}
+		b.hits = append(b.hits, hit{line: len(lines), x0: 0, x1: w, row: i})
 		lines = append(lines, line)
 	}
 	if b.detail && sel >= 0 && sel < len(rows) {
@@ -442,6 +468,7 @@ func (m *Model) boardOffices() ([]string, int) {
 			line = t.accent.Render("›") + line[1:]
 			cur = len(lines)
 		}
+		b.hits = append(b.hits, hit{line: len(lines), x0: 0, x1: w, row: i})
 		lines = append(lines, line)
 	}
 	r := rows[sel]
@@ -645,4 +672,43 @@ func shortDur(d time.Duration) string {
 		return fmt.Sprintf("%dm%02ds", int(d.Minutes()), int(d.Seconds())%60)
 	}
 	return fmt.Sprintf("%dh%02dm", int(d.Hours()), int(d.Minutes())%60)
+}
+
+// hit is one clickable thing on a page: a list row (row) or a graph node (id).
+type hit struct {
+	line, x0, x1 int
+	row          int
+	id           string
+}
+
+// boardClick maps a click to what the last frame drew there: a tab, a row, a node. Clicking the
+// selected row again opens its detail.
+func (m *Model) boardClick(ms tea.Mouse) {
+	b := m.board
+	if ms.Button != tea.MouseLeft {
+		return
+	}
+	if ms.Y == 0 {
+		for i, r := range b.tabX {
+			if ms.X >= r[0] && ms.X < r[1] {
+				b.page, b.detail = i, false
+			}
+		}
+		return
+	}
+	line := ms.Y - 2 + b.lastOff
+	for _, h := range b.hits {
+		if h.line != line || ms.X < h.x0 || ms.X >= h.x1 {
+			continue
+		}
+		if h.id != "" {
+			b.sel = h.id
+			return
+		}
+		if b.cursor[b.page] == h.row {
+			b.detail = !b.detail
+		}
+		b.cursor[b.page] = h.row
+		return
+	}
 }

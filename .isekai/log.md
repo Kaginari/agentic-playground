@@ -1047,3 +1047,10 @@ Append-only. Newest entries at the bottom. One entry per change.
     row shorter, the base wider) keeps it in frame and reads as a landing.
   - Reverse video did not show in the renderer: the graph's selection is an explicit background.
   - freeze waits on stdin when it is not a TTY: </dev/null, or it hangs.
+
+### [2026-09-27T12:20:55+02:00] rimuru — the CLI, phase 2: the terminal around it (isekai)
+- **Files:** isekai/tui/{model.go,blocks.go,board.go,graph.go,board_test.go} · app/tui.go · canon/tui.md.
+- **Gate:** n/a (no orcs). Instruments: TestBoardMouse (tab, node, row, row-again → detail),
+  TestTerminalIntegration (OSC 8 on the path; title and progress idle vs busy); suites green.
+- **Learned:** hit-testing reads what the last frame drew (tab columns, row and node boxes by
+  page line) — never recomputed from the model, so a click lands on what the eye saw.

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -618,6 +619,20 @@ func isListLine(l string) bool {
 func (m *Model) View() tea.View {
 	v := tea.NewView(m.Render())
 	v.AltScreen = m.board != nil
+	// the window title and the terminal tab's progress follow the session
+	state := "idle"
+	switch {
+	case m.choice != nil:
+		state = "waiting for you"
+		v.ProgressBar = &tea.ProgressBar{State: tea.ProgressBarWarning, Value: 100}
+	case m.busy:
+		state = strings.ToLower(strings.TrimSuffix(m.verb, "…"))
+		v.ProgressBar = &tea.ProgressBar{State: tea.ProgressBarIndeterminate}
+	}
+	v.WindowTitle = m.words.Dist + " · " + filepath.Base(m.footer.World) + " · " + state
+	if m.board != nil {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
 	return v
 }
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -519,7 +520,7 @@ func (h *tuiHost) observe(s *loop.Session, st *loop.StepRecord, phase string) {
 }
 
 func (h *tuiHost) toolView(st *loop.StepRecord) tui.ToolView {
-	v := tui.ToolView{ID: st.ID, Name: st.Tool, Summary: stepSummary(st.Input), Class: st.Effective, Status: st.Status, Ms: st.Ms, Output: st.Result.Output, Wrote: st.Wrote}
+	v := tui.ToolView{ID: st.ID, Name: st.Tool, Summary: stepSummary(st.Input), Class: st.Effective, Status: st.Status, Ms: st.Ms, Output: st.Result.Output, Wrote: st.Wrote, Link: fileLink(h.a.Root, st.Input)}
 	if st.Tool == "str_replace_based_edit_tool" {
 		v.Name = "edit"
 	}
@@ -829,4 +830,24 @@ func tilde(p, home string) string {
 		return "~" + p[len(home):]
 	}
 	return p
+}
+
+// fileLink is a file:// URL for a step whose input names a path inside the world; "" otherwise.
+func fileLink(root string, raw json.RawMessage) string {
+	var input struct {
+		Path string `json:"path"`
+	}
+	_ = json.Unmarshal(raw, &input)
+	p := input.Path
+	if p == "" {
+		return ""
+	}
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(root, p)
+	}
+	p = filepath.Clean(p)
+	if rel, err := filepath.Rel(root, p); err != nil || strings.HasPrefix(rel, "..") {
+		return ""
+	}
+	return (&url.URL{Scheme: "file", Path: p}).String()
 }
