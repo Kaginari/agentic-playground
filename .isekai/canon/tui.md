@@ -2,14 +2,20 @@
 
 The live session is an inline terminal UI at the level of Claude Code: the conversation flows into
 the terminal's own scrollback, a bordered input sits at the bottom, and every event of the loop is
-drawn as a readable block, not a raw line. Built on the Charm libraries (Bubble Tea, Bubbles, Lip
-Gloss, Glamour) — the one place the binary takes third-party code; versions pinned in go.sum.
+drawn as a readable block, not a raw line. Built on the Charm libraries, v2 (`charm.land/…`: Bubble Tea, Bubbles, Lip Gloss, Glamour) — the
+one place the binary takes third-party code; versions pinned in go.sum.
 
 ## Layout
 
 - **Inline, not full-screen.** Finished blocks are printed above the live area and stay in the
   normal scrollback (copyable, searchable, survive exit); only the bottom region is live: the
   spinner line, the input box, the footer.
+- **A width change reprints.** A terminal rewraps the live area's full-width lines when it
+  narrows, and the renderer, counting the rows it drew, then leaves copies behind. So every
+  finished block is kept as a render at a width; once a drag settles (~120 ms) the screen and the
+  scrollback are cleared and the transcript is printed again at the new width — Claude Code's
+  answer too. A height-only change reprints nothing; `ctrl+l` reprints on demand; `/clear` empties
+  the transcript. The welcome waits for the first size, so it is never drawn at a guessed width.
 - **Welcome** — one framed box at start: the world, the model (and each office's), the board URL,
   the off-list count, "/help for commands".
 - **Your message** — a `>`-prefixed block, dim, as sent.
@@ -35,8 +41,8 @@ Gloss, Glamour) — the one place the binary takes third-party code; versions pi
 
 ## Interaction
 
-- **Input** — multiline (`\` + enter, `alt+enter` or `ctrl+j` for a newline; a terminal that
-  does not report `shift+enter` apart from `enter` cannot be told apart, so it sends), history
+- **Input** — multiline (`shift+enter` where the terminal reports it apart from `enter` — Bubble
+  Tea v2 asks for key disambiguation — and everywhere `\` + enter, `alt+enter`, `ctrl+j`), history
   with ↑/↓ on the first/last line, a paste of three lines or more collapsed to
   `[pasted N lines]` and restored on send, `@path` completes files in the world (tab).
 - **Slash commands** — typing `/` opens an inline menu of built-in and discovered commands with
@@ -60,14 +66,34 @@ Gloss, Glamour) — the one place the binary takes third-party code; versions pi
   plain line output stays: the TUI is only for a terminal. `--plain` (or `<PREFIX>PLAIN=1`)
   forces the line REPL anywhere.
 
+## The board — `/board`
+
+The web board's feeds drawn full screen in the terminal (alt screen); `esc` gives the session back
+with its scrollback untouched. Blocks that finish while it is open wait and land when it closes; a
+width change meanwhile reprints the transcript on the way out. Four pages, `tab` or `1`–`4`:
+
+- **Agents** — every live body: state glyph, rank, office, state, age, a context bar, tokens,
+  cost, model (columns drop by priority on a narrow screen); `enter` opens the body's detail.
+- **Graph** — the reasoned ontology as a layered graph: the session on top, a hop down per row,
+  each one-hop bond (truth · verdict · reports · above — the web board's own edges) drawn from the
+  child up to its parent and colored by bond; `◇` marks a creature with shape findings. Arrows walk
+  it. The selected creature's knowledge card sits beside it (below when narrow): its classes, the
+  inferred `above` chain, what is under it, doc, territory, minds worn, facts it knows and sees by
+  the flow rules, its findings — the graph answering, not a document.
+- **Offices** — the triad as config resolves it: what each does, its model and fallback, where
+  that was set, the ranks it serves, live bodies in it, tokens spent.
+- **Usage** — the usage journal by range (`r` cycles 24h · 7d · 30d · all): totals, a by-day
+  sparkline, bars by body, model and office.
+
 ## Voice
 
 Both distributions share the TUI; every label comes from the lexicon (agent-one says Subagents,
 Roles, Workspace). Colours: the board's rank and lane tokens, adapted to 256-colour and truecolor
 terminals; no colour when `NO_COLOR` is set (an ASCII colour profile drops every escape, so a
-plain run is the same text). The theme is dark unless `<PREFIX>THEME=light` or `COLORFGBG`
-names a light background — the terminal is never queried, so a start is never held by an
-unanswered escape.
+plain run is the same text; Lip Gloss v2 styles in full colour and the program's writer downsamples
+to the terminal's profile). `<PREFIX>THEME=light|dark` or `COLORFGBG` decide the theme when set;
+otherwise the terminal is asked for its background colour and the welcome waits for the answer at
+most 150 ms — a terminal that never answers keeps the dark theme, so a start is never held.
 
 ## Proving it
 

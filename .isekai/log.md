@@ -899,3 +899,113 @@ Append-only. Newest entries at the bottom. One entry per change.
   - Known limits, named: shift+enter is indistinguishable from enter in Bubble Tea v1 (use
     alt+enter / ctrl+j / \+enter); the terminal background is never queried (THEME=light to
     switch); a Court's own tool steps show as state only; binaries grew ~12 MB.
+
+### [2026-09-27T11:15:25+02:00] rimuru — a TUI that cannot start now says why
+- **Task:** Human ran `isekai` in ~/kaginari/pfcli: "board: …" then back to the prompt, nothing else.
+- **Files:** {isekai,agent-one/engine}/app/tui.go (tuiHost restores Out/Err/Quiet when the engine
+  fails) · app/tui_test.go TestTUIStartFailureReachesTheTerminal in both engines.
+- **Gate:** n/a (no orcs). Instruments: new test red on the old code, green on the fix; vet + full
+  suites green in both engines; pty rerun in pfcli prints the hole and exits 2.
+- **Result:** done; binaries rebuilt; not yet committed or released.
+- **Learned:**
+  - tuiHost redirected the app's writers into its notice buffer *before* building the engine, so an
+    engine error (here: OPENROUTER_API_KEY unset — the global config now points at OpenRouter, not
+    Gemini) was written into a buffer nobody drains: silent exit 2. Redirect-then-fail must restore.
+
+### [2026-09-27T11:18:43+02:00] rimuru — global models moved to the highest-uptime OpenRouter free models
+- **Task:** Human: "change model to the most available one … in openrouter or zen ai".
+- **Files:** ~/.config/isekai/config.yaml (machine-global, outside the world; backup beside it as .bak).
+- **Gate:** n/a (no orcs). Instruments: OpenRouter /models + /models/<id>/endpoints uptime (public
+  read, no key), 2026-09-27: gemma-4-31b 100%/99.78% (30m/1d), inkling-small 99.98/99.95, inkling
+  99.90/99.71 — vs qwen3.8-27b 96.2 and nemotron-3.5-lightning 90.5 (1d). `isekai status` resolves
+  the new slots; one hole left: OPENROUTER_API_KEY unset.
+- **Result:** default gemma-4-31b (fb inkling-small) · great-sage inkling-small (fb gemma-4-26b) ·
+  raphael gemma-4-31b (fb inkling-small) · ciel inkling (fb gemma-4-31b).
+- **Learned:** Zen stays out — its free tier 403s non-OpenCode clients (2026-09-26). The ling-3.0
+  "sante"/"fin" free models top the uptime list but are domain-tuned; skipped for a general session.
+
+### [2026-09-27T11:19:48+02:00] rimuru — agent-one's global models moved to the same high-uptime set
+- **Task:** Human: "yes do agent-one too".
+- **Files:** ~/.config/agent-one/config.yaml (machine-global; backup as .bak).
+- **Gate:** n/a (no orcs). Instruments: `agent-one status` in a scratch workspace resolves default
+  gemma-4-31b · analyst inkling-small · judge gemma-4-31b · drafter inkling (same fallbacks as
+  isekai's offices); one hole left: OPENROUTER_API_KEY unset.
+- **Result:** done.
+
+### [2026-09-27T11:27:52+02:00] rimuru — the terminal UI reprints on a width change
+- **Task:** Human: "when i change terminal size the cli bugs".
+- **Files:** {isekai,agent-one/engine}/tui/{model.go,input.go,model_test.go} · canon/tui.md.
+- **Gate:** n/a (no orcs). Instruments: TestResizeReprintsAtTheNewWidth (one reprint per drag,
+  every reprinted line within the new width, height-only change is not a reprint) green ×3 under
+  -race in both engines; vet + full suites green in both; binaries rebuilt.
+- **Result:** done; not committed.
+- **Learned:**
+  - Bubble Tea v1's inline renderer moves up by the rows it *drew*; a narrowing terminal rewraps
+    the live area's full-width lines into more rows, so every resize step left a ghost of the
+    input box and footer. The terminal cannot be trusted to rewrap: the transcript is kept as
+    renders-at-a-width and printed again (clear screen + \x1b[3J scrollback) once the drag settles.
+  - The welcome was printed at a hard-coded 80 columns before the first WindowSizeMsg.
+  - pyte does not rewrap on resize, so the shoot.py harness could never have shown this bug.
+
+### [2026-09-27T11:40:12+02:00] rimuru — /board: the board full screen in the terminal
+- **Task:** Human: "a different view if /board … relation and sub agent and consumption like claude
+  code"; then "officers should be a list … i want to see relations the graph … we use ontology".
+  Chose full-screen tabs.
+- **Files:** {isekai,agent-one/engine}/tui/{board.go,graph.go,board_test.go,model.go,input.go} ·
+  app/{tuiboard.go,tui.go,tui_test.go} · canon/tui.md §The board.
+- **Gate:** n/a (no orcs). Instruments: every page rendered as text at 80×24 and 140×40 (no line
+  over width, full screen height) and looked at; graph walk and held-blocks tests; the app junction
+  reads a real test world (bonds, levels, the inferred chain, offices); vet + full suites green in
+  both engines, the leak test included; binaries rebuilt. Not committed.
+- **Learned:**
+  - The graph's parent bonds come from the web board's own colony edges: filtering g.Derived
+    dropped every bond, because the doc-derived bonds are marked derived too.
+  - agent-one's leak test caught the port's isekai words at once — the fork's guard earns its keep.
+  - Human asked mid-task: "are we limited in cli interface because we use go?" — no (answered);
+    "--containered" is next; "dont put slack" is unclear and asked back.
+
+### [2026-09-27T11:47:32+02:00] rimuru — --containered: the whole binary in a Docker container
+- **Task:** Human: "when i launch binary i can add --containered to launch it inside container …
+  mount needed things on readonly and the world is mounted as read write". Chose Docker.
+- **Files:** {isekai,agent-one/engine}/app/{container.go,container.Dockerfile,container_test.go,
+  cli.go,app.go} · canon/binary.md.
+- **Gate:** n/a (no orcs). Instruments: argv/env/flag unit tests; real runs — `isekai
+  --containered status` in ~/kaginari/pfcli and `agent-one --containered status` in a scratch
+  workspace both report `container: docker <image>`, read the global config and the session
+  store; a probe with the same mounts: world writable, config read-only, ~/.ssh absent, uid 1000,
+  image fs not writable; vet + full suites green in both engines. Image isekai-runtime 223 MB.
+- **Result:** done; not committed. First run pulled debian:bookworm-slim from Docker Hub.
+- **Learned:**
+  - The session store (~/.local/share/<dist>) must be read-write or no session saves: the one
+    host path besides the world that is writable, named in the canon.
+  - --network host, not a published port: the board binds 127.0.0.1 inside, and a local model
+    (vLLM, ollama) on the host stays reachable.
+
+### [2026-09-27T11:50:28+02:00] rimuru — harness study (Prime Agent, Hermes Agent) by a Fable Court
+- **Task:** Human: "look at prime-agent and hermes-agent … suggest 10 things … use fable".
+- **Files:** none (read-only study; pages fetched on Veldora's ask).
+- **Result:** 10 ranked suggestions relayed to Veldora (gate retry, pre-turn verify set, session
+  search, Mind safety lint, heartbeats, orc⇄orc send, session fork, persistent Courts, gated Mind
+  genesis, trajectory export); deliberately not adopted: IPython-only tool (defeats the class gate).
+- **Learned:**
+  - @U colony, confirmed at world/gate.go:60: the gate calls w.Reload() before running the touched
+    creatures' Verify lines (:102) — the verify commands are the post-turn doc's, and Vitality makes
+    a Slime edit its own doc in that same turn: a body can rewrite the check it is judged by.
+    Named once here; not yet fixed.
+
+### [2026-09-27T11:56:13+02:00] rimuru — isekai's terminal UI on the Charm v2 line (Bubble Tea v2.0.10)
+- **Task:** Human: "can you use bubble Tea v2 … use latest".
+- **Files:** isekai/go.mod (charm.land/bubbletea/v2 v2.0.10, bubbles/v2 v2.2.1, lipgloss/v2 v2.0.6,
+  glamour/v2 v2.0.1, teatest/v2; termenv and the v1 modules gone) · isekai/tui/*, app/tui*.go ·
+  canon/tui.md. agent-one follows in the next change.
+- **Gate:** n/a (no orcs). Instruments: every golden screen unchanged (the widths adjusted to them,
+  not the goldens to the widths); vet + full suite green.
+- **Learned:**
+  - Lip Gloss v2's Width() includes padding *and* border (v1: padding only): each bordered box would
+    have shrunk 2 columns — the goldens caught it.
+  - v2 styles always emit full colour; the program's writer downsamples. "Plain on ASCII" is the
+    writer's contract now, and its test says so.
+  - Keys are matched by keystroke string ("shift+enter", "ctrl+c"); paste is its own message;
+    alt screen is a field of the view, not a command.
+  - The known limits of v1 retire: shift+enter (where the terminal disambiguates) and the
+    background query (answered or 150 ms, never held).

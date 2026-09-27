@@ -10,11 +10,12 @@
 package tui
 
 import (
+	"image/color"
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 )
 
 // Theme is the palette: the board's rank and lane tokens (board.css) carried to the terminal,
@@ -23,6 +24,9 @@ import (
 type Theme struct {
 	Dark  bool
 	Color bool
+	// Forced is true when the environment chose dark or light: the terminal's own answer
+	// about its background is then not asked for.
+	Forced bool
 
 	dim, text, accent, user, ok, bad, warn, border, tag lipgloss.Style
 	classes                                             map[string]lipgloss.Style
@@ -51,8 +55,9 @@ func DefaultWords() Words {
 
 // NewTheme builds the palette for a dark or light background.
 func NewTheme(dark bool) Theme {
-	t := Theme{Dark: dark, Color: lipgloss.ColorProfile() != termenv.Ascii}
-	c := func(dark, light string) lipgloss.Color {
+	p := colorprofile.Detect(os.Stdout, os.Environ())
+	t := Theme{Dark: dark, Color: p != colorprofile.Ascii && p != colorprofile.NoTTY}
+	c := func(dark, light string) color.Color {
 		if t.Dark {
 			return lipgloss.Color(dark)
 		}
@@ -100,19 +105,22 @@ func DetectTheme(env func(string) string, prefix string) Theme {
 	if env == nil {
 		env = os.Getenv
 	}
+	forced := func(dark bool) Theme {
+		t := NewTheme(dark)
+		t.Forced = true
+		return t
+	}
 	if v := strings.ToLower(env(prefix + "THEME")); v == "light" {
-		return NewTheme(false)
+		return forced(false)
 	} else if v == "dark" {
-		return NewTheme(true)
+		return forced(true)
 	}
 	if v := env("COLORFGBG"); v != "" {
 		parts := strings.Split(v, ";")
 		bg := parts[len(parts)-1]
-		if bg == "7" || bg == "15" {
-			return NewTheme(false)
-		}
+		return forced(!(bg == "7" || bg == "15"))
 	}
-	return NewTheme(true)
+	return NewTheme(true) // until the terminal answers the background query
 }
 
 func (t Theme) class(name string) lipgloss.Style {

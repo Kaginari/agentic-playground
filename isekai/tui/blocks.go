@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -85,7 +85,7 @@ func (t Theme) Welcome(w Welcome, width int) string {
 		}
 	}
 	rows = append(rows, "", t.dim.Render("/help for commands · ? for shortcuts · esc interrupts · ctrl+c twice exits"))
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.border.GetForeground()).Padding(0, 1).Width(inner + 2)
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.border.GetForeground()).Padding(0, 1).Width(inner + 4) // lipgloss v2: the width includes padding and border
 	return box.Render(strings.Join(rows, "\n"))
 }
 
@@ -477,7 +477,7 @@ func (t Theme) Choice(v ChoiceView, width int) string {
 	default:
 		rows = append(rows, "", t.dim.Render("↑↓ or a digit picks · enter confirms"))
 	}
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.accent.GetForeground()).Padding(0, 1).Width(inner + 2)
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(t.accent.GetForeground()).Padding(0, 1).Width(inner + 4)
 	return box.Render(strings.Join(rows, "\n"))
 }
 
@@ -640,7 +640,7 @@ func (t Theme) InputBox(view string, width int, busy bool) string {
 	if busy {
 		col = t.dim.GetForeground()
 	}
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(col).Width(width - 2).Render(view)
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(col).Width(width).Render(view)
 }
 
 // helpers

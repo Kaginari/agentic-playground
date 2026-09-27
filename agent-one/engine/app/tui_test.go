@@ -298,3 +298,16 @@ func firstJournal(w *testWorkspace) string {
 	}
 	return ""
 }
+
+func TestTUIStartFailureReachesTheTerminal(t *testing.T) {
+	w := newTestWorkspace(t, "agent-one", agentOneMembers())
+	w.write(".agent-one/config.yaml", "providers:\n  vllm: {type: openai, baseURL: http://127.0.0.1:1/v1, apiKeyEnv: VLLM_API_KEY}\nmodels: {default: vllm/fake/model}\n")
+	a := w.open()
+	errw := a.Opt.Err
+	if code := a.TUI(context.Background()); code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if got := errw.(*strings.Builder).String(); !strings.Contains(got, "VLLM_API_KEY is not set") {
+		t.Fatalf("a TUI that cannot start must say why on stderr; got %q", got)
+	}
+}

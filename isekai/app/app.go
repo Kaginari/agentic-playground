@@ -447,7 +447,11 @@ func (a *App) StatusLines() []string {
 		out = append(out, "model "+l)
 	}
 	if a.Sandbox != nil {
-		out = append(out, sandboxLine(a.Sandbox))
+		if img := a.Opt.Env(a.Cfg.Dist.EnvPrefix + "CONTAINER_IMAGE"); img != "" {
+			out = append(out, "container: docker "+img+" — the world read-write, the rest read-only; the tool sandbox does not nest")
+		} else {
+			out = append(out, sandboxLine(a.Sandbox))
+		}
 	}
 	if a.MCP != nil {
 		out = append(out, a.MCP.Status()...)

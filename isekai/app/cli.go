@@ -114,6 +114,10 @@ func Main(dist string, args []string, io IO, v Version) int {
 	if io.Err == nil {
 		io.Err = os.Stderr
 	}
+	if code, handled := Containered(dist, args, io); handled {
+		return code
+	}
+	args, _, _ = stripContainerFlags(args)
 	name, args := command(args)
 	switch name {
 	case "version":
@@ -124,7 +128,7 @@ func Main(dist string, args []string, io IO, v Version) int {
 		for _, c := range commands {
 			fmt.Fprintf(io.Out, "  %-9s %s\n", c.name, c.summary)
 		}
-		fmt.Fprintln(io.Out, "flags: --root <dir> --model <provider/id> --approve <classes> --dry-run --strict --set key=value --no-<feature> --format text|json|wire --json --quiet --session <id> --plain")
+		fmt.Fprintln(io.Out, "flags: --root <dir> --model <provider/id> --approve <classes> --dry-run --strict --set key=value --no-<feature> --format text|json|wire --json --quiet --session <id> --plain --containered [--image <ref>]")
 		return 0
 	}
 	f, rest := splitFlags(args)

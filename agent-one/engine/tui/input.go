@@ -44,7 +44,7 @@ func (m *Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.say("ctrl+c again to exit")
 		return m, nil
 	case tea.KeyCtrlL:
-		return m, tea.ClearScreen
+		return m, m.reflow()
 	case tea.KeyCtrlO:
 		return m, m.expandLast()
 	case tea.KeyEsc:
@@ -302,13 +302,13 @@ func (m *Model) submit() tea.Cmd {
 	if m.busy {
 		notice := m.host.Queue(text)
 		m.queued++
-		return m.print(m.theme.Queued(text, m.width) + "\n" + m.theme.Notice("  "+notice, m.width))
+		return m.print(func(w int) string { return m.theme.Queued(text, w) + "\n" + m.theme.Notice("  "+notice, w) })
 	}
 	if why := m.host.Submit(text); why != "" {
-		return m.print(m.theme.Error(why, m.width))
+		return m.print(func(w int) string { return m.theme.Error(why, w) })
 	}
 	m.begin()
-	return tea.Sequence(m.print(m.theme.User(text, m.width)), m.spin.Tick)
+	return tea.Sequence(m.print(func(w int) string { return m.theme.User(text, w) }), m.spin.Tick)
 }
 
 // slash runs a command: the UI's own (help, quit) here, the rest through the host as a Cmd.
@@ -318,17 +318,18 @@ func (m *Model) slash(line string) tea.Cmd {
 	case "help", "?":
 		items := m.host.Commands()
 		sort.SliceStable(items, func(i, j int) bool { return items[i].Name < items[j].Name })
-		var out []string
-		out = append(out, m.theme.Menu(items, -1, m.width))
-		return m.print(strings.Join(out, "\n") + "\n" + m.theme.Shortcuts(DefaultShortcuts(), m.width))
+		return m.print(func(w int) string { return m.theme.Menu(items, -1, w) + "\n" + m.theme.Shortcuts(DefaultShortcuts(), w) })
 	case "quit", "exit", "q":
 		m.quit = true
 		return tea.Quit
+	case "board":
+		return m.openBoard()
 	case "clear":
-		return tea.ClearScreen
+		m.blocks = nil
+		return m.reflow()
 	}
 	_ = rest
-	echo := m.print(m.theme.User(line, m.width))
+	echo := m.print(func(w int) string { return m.theme.User(line, w) })
 	host := m.host
 	return tea.Sequence(echo, func() tea.Msg {
 		lines, quit := host.Slash(line)
@@ -387,11 +388,11 @@ func (m *Model) expandLast() tea.Cmd {
 	case b.tool != nil:
 		t := *b.tool
 		t.Expand = true
-		return m.print(m.theme.Tool(t, m.width))
+		return m.print(func(w int) string { return m.theme.Tool(t, w) })
 	case b.subagent != nil:
 		c := *b.subagent
 		c.Expanded = true
-		return m.print(m.theme.Subagent(c, m.width))
+		return m.print(func(w int) string { return m.theme.Subagent(c, w) })
 	}
 	return nil
 }

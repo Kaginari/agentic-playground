@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/Kaginari/agentic-playground/isekai/tui"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/charmbracelet/x/exp/teatest/v2"
 )
 
 // The junction of the terminal UI with the real engine: the app's host under teatest, the mock
@@ -91,7 +91,7 @@ func tuiSession(t *testing.T, w *testWorld) (*App, *teatest.TestModel, *screen) 
 	return a, tm, sc
 }
 
-func enter(tm *teatest.TestModel) { tm.Send(tea.KeyMsg{Type: tea.KeyEnter}) }
+func enter(tm *teatest.TestModel) { tm.Send(tea.KeyPressMsg{Code: tea.KeyEnter}) }
 
 func TestTUIJunctionTurn(t *testing.T) {
 	w := newTestWorld(t, "isekai", isekaiCreatures())
@@ -264,7 +264,7 @@ func TestTUIInterruptAndQueue(t *testing.T) {
 	tm.Type("a note")
 	enter(tm)
 	sc.wait(t, "⏎ queued: a note")
-	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	tm.Send(tea.KeyPressMsg{Code: tea.KeyEsc})
 	sc.wait(t, "■ interrupted")
 	tm.Type("again")
 	enter(tm)
@@ -297,4 +297,58 @@ func firstJournal(w *testWorld) string {
 		}
 	}
 	return ""
+}
+
+func TestTUIStartFailureReachesTheTerminal(t *testing.T) {
+	w := newTestWorld(t, "isekai", isekaiCreatures())
+	w.write(".isekai/config.yaml", "providers:\n  vllm: {type: openai, baseURL: http://127.0.0.1:1/v1, apiKeyEnv: VLLM_API_KEY}\nmodels: {default: vllm/fake/model}\n")
+	a := w.open()
+	errw := a.Opt.Err
+	if code := a.TUI(context.Background()); code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if got := errw.(*strings.Builder).String(); !strings.Contains(got, "VLLM_API_KEY is not set") {
+		t.Fatalf("a TUI that cannot start must say why on stderr; got %q", got)
+	}
+}
+
+// /board's view is the real world's: the reasoned ontology as a graph with its bonds and
+// knowledge, the triad as config resolves it.
+func TestTUIBoardReadsTheWorld(t *testing.T) {
+	w := newTestWorld(t, "isekai", isekaiCreatures())
+	w.script(".isekai/tmp/s.json", text("nothing"))
+	w.write(".isekai/config.yaml", mockCfg(".isekai/tmp/s.json", ""))
+	a := w.open()
+	h, err := a.tuiHost(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := h.Board("24h")
+	byID := map[string]tui.GraphNode{}
+	for _, n := range v.Graph.Nodes {
+		byID[n.ID] = n
+	}
+	slime, ok := byID["slime-auth"]
+	if !ok || len(byID) != 5 {
+		t.Fatalf("graph nodes %v, want rimuru, elf-core, orc-security, slime-auth, slime-api", v.Graph.Nodes)
+	}
+	if len(slime.Up) != 1 || slime.Up[0].To != "orc-security" || slime.Up[0].Bond != "truth" || slime.Rank != "slime" {
+		t.Fatalf("slime-auth answers %v (rank %q), want orc-security by truth", slime.Up, slime.Rank)
+	}
+	if byID["rimuru"].Level != 0 || byID["elf-core"].Level != 1 || byID["orc-security"].Level != 2 || slime.Level != 3 {
+		t.Fatalf("levels: %+v", byID)
+	}
+	know := ""
+	for _, kv := range slime.Knowledge {
+		know += kv.Key + "=" + kv.Value + "\n"
+	}
+	if !strings.Contains(know, "chain=") || !strings.Contains(know, "rimuru") || !strings.Contains(know, "owns=src/auth") {
+		t.Fatalf("slime-auth's knowledge misses the inferred chain or its territory:\n%s", know)
+	}
+	if !strings.Contains(v.Graph.Summary, "5 creatures") || !strings.Contains(v.Graph.Summary, "reasoned") {
+		t.Fatalf("summary %q", v.Graph.Summary)
+	}
+	if len(v.Offices) != 3 || v.Offices[0].Name != "great-sage" || v.Offices[0].Model != "mock/m" || len(v.Offices[0].Ranks) == 0 {
+		t.Fatalf("offices %+v", v.Offices)
+	}
 }

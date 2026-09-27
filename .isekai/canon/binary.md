@@ -58,6 +58,18 @@ terminal UI, `canon/tui.md`). Build with
 - **Sandboxed by default.** Each command runs under `bwrap`: the filesystem is read-only except the
   world root and a private `/tmp`, no network unless the command passed the human gate as
   `outward`. No `bwrap` on the machine → `sandbox: none`, reported as `@?` in `status`.
+- **The whole binary in a container — `--containered`.** The binary re-runs itself under Docker
+  (`docker run --rm --init`): the world mounted read-write at its own path, this binary and what a
+  session reads from the host mounted read-only (`~/.config/<dist>`, `~/.<dist>`, the Claude and
+  OpenCode instruction/skill/command/agent dirs, git's identity — only those that exist), the
+  session store `~/.local/share/<dist>` read-write (sessions must save), `$HOME` otherwise an empty
+  tmpfs (no `~/.ssh`, no other secrets), the caller's uid, the host network (the model API and the
+  board). Keys cross by name (`-e NAME`), never by value: the terminal's variables, the dist's own
+  `<PREFIX>*`, every `*_API_KEY` / `*_BASE_URL`. The image is built on first use from the Dockerfile
+  embedded in the binary (debian slim + bash, git, ripgrep, python3, jq, make, curl…), tagged by the
+  Dockerfile's hash so a changed runtime is rebuilt; `--image <ref>` runs a richer one. Inside,
+  `<PREFIX>CONTAINERED=1` makes the flag a no-op, and `status` says `container: docker <image>` in
+  place of the sandbox line: the container is the boundary, bwrap does not nest in it.
 - **Classified before it runs.** The classifier settles the class; permission rules and the human
   gate decide; the model's own claim only tightens. `git` is read through its global options
   (`git -C . push`, `git -c k=v push`, `git --no-pager push` are the verb's class). A path is

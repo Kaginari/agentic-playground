@@ -3,6 +3,7 @@ package tui
 import (
 	"flag"
 	"fmt"
+	"github.com/charmbracelet/colorprofile"
 	"os"
 	"path/filepath"
 	"strings"
@@ -187,14 +188,21 @@ func TestDiff(t *testing.T) {
 	}
 }
 
+// Lip Gloss v2 styles in full color; the program's writer downsamples to the terminal's profile.
+// On an ASCII profile no color survives the writer.
 func TestNoColorIsPlain(t *testing.T) {
 	th := NewTheme(true)
 	th.Color = false
 	out := th.Tool(ToolView{Name: "bash", Summary: "ls", Class: "read", Status: "done", Ms: 1, Output: "a\nb"}, 80)
-	if ansi.Strip(out) != out && !th.Color {
-		t.Fatal("expected plain text on an ASCII profile")
+	var buf strings.Builder
+	w := &colorprofile.Writer{Forward: &buf, Profile: colorprofile.Ascii}
+	if _, err := w.WriteString(out); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(out, "● bash  ls  read") {
+	if strings.Contains(buf.String(), "38;") || strings.Contains(buf.String(), "48;") {
+		t.Fatalf("a color reached an ASCII terminal: %q", buf.String())
+	}
+	if !strings.Contains(ansi.Strip(out), "● bash  ls  read") {
 		t.Fatalf("header: %q", ansi.Strip(out))
 	}
 }

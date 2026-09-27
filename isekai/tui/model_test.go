@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/charmbracelet/x/exp/teatest/v2"
 )
 
 // fakeHost records what the program asks of the app.
@@ -126,7 +126,9 @@ func start(t *testing.T, h *fakeHost) (*teatest.TestModel, *Model, *tail) {
 	return tm, m, out
 }
 
-func key(t tea.KeyType) tea.KeyMsg { return tea.KeyMsg{Type: t} }
+func key(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code} }
+
+func ctrl(r rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: r, Mod: tea.ModCtrl} }
 
 func TestTurnStreamsAndLands(t *testing.T) {
 	h := &fakeHost{}
@@ -190,9 +192,9 @@ func TestQueuedInterruptAndCtrlC(t *testing.T) {
 	if len(q) != 1 || q[0] != "also this" {
 		t.Fatalf("queued %v", q)
 	}
-	tm.Send(key(tea.KeyCtrlC))
+	tm.Send(ctrl('c'))
 	out.wait(t, "ctrl+c again to exit")
-	tm.Send(key(tea.KeyCtrlC))
+	tm.Send(ctrl('c'))
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 }
 
@@ -248,7 +250,7 @@ func TestHistoryNewlineAndPaste(t *testing.T) {
 	}
 	tm.Send(EvTurnDone{Status: "DONE", Text: "ok"})
 	out.wait(t, "ok")
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a\nb\nc\nd"), Paste: true})
+	tm.Send(tea.PasteMsg{Content: "a\nb\nc\nd"})
 	out.wait(t, "[pasted 4 lines #1]")
 	tm.Send(key(tea.KeyEnter))
 	deadline := time.Now().Add(2 * time.Second)
@@ -288,7 +290,7 @@ func TestCollapsedExpandsOnCtrlO(t *testing.T) {
 	if strings.Contains(out.String(), "row 12") {
 		t.Fatal("collapsed output shows every line")
 	}
-	tm.Send(key(tea.KeyCtrlO))
+	tm.Send(ctrl('o'))
 	out.wait(t, "row 12")
 	tm.Send(EvQuit{})
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
@@ -375,5 +377,54 @@ func TestSafeCut(t *testing.T) {
 	}
 	if safeCut("no blank line yet") != 0 {
 		t.Fatal("cut without a paragraph")
+	}
+}
+
+func (t *tail) raw() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.buf.String()
+}
+
+// A width change clears the screen and the scrollback once the drag settles, then prints the
+// transcript again at the new width: the terminal's own rewrap of the live area left ghosts.
+func TestResizeReprintsAtTheNewWidth(t *testing.T) {
+	h := &fakeHost{}
+	tm, m, out := start(t, h)
+	long := strings.Repeat("word ", 30)
+	tm.Send(EvNotice{Text: long})
+	out.wait(t, "word word")
+	for _, w := range []int{70, 60, 50, 40} { // a drag: one reprint, not four
+		tm.Send(tea.WindowSizeMsg{Width: w, Height: 24})
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for strings.Count(out.raw(), "\x1b[3J") == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("no reprint after the width changed")
+		}
+		time.Sleep(15 * time.Millisecond)
+	}
+	time.Sleep(3 * reflowDelay)
+	raw := out.raw()
+	if n := strings.Count(raw, "\x1b[3J"); n != 1 {
+		t.Fatalf("%d reprints for one drag, want 1", n)
+	}
+	after := ansi.Strip(raw[strings.Index(raw, "\x1b[3J"):])
+	if !strings.Contains(after, "word") {
+		t.Fatalf("the reprint lost the transcript:\n%s", after)
+	}
+	for _, ln := range strings.Split(after, "\n") {
+		if strings.Contains(ln, "word") && ansi.StringWidth(strings.TrimRight(ln, " \r")) > 40 {
+			t.Fatalf("a reprinted line is wider than the new 40 columns: %q", ln)
+		}
+	}
+	if m.lastWidth != 40 {
+		t.Fatalf("lastWidth %d, want 40", m.lastWidth)
+	}
+	// the same width again is not a change
+	tm.Send(tea.WindowSizeMsg{Width: 40, Height: 30})
+	time.Sleep(3 * reflowDelay)
+	if n := strings.Count(out.raw(), "\x1b[3J"); n != 1 {
+		t.Fatalf("a height-only change reprinted (%d)", n)
 	}
 }

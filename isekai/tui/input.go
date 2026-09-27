@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 const (
@@ -18,18 +18,19 @@ const (
 
 // key handles a keypress: the choice first, then the menus, then the session keys, then the
 // textarea.
-func (m *Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) key(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.choice != nil {
 		return m, m.choiceKey(k)
 	}
-	if m.shortcuts && k.Type != tea.KeyCtrlC {
+	ks := k.String()
+	if m.shortcuts && ks != "ctrl+c" {
 		m.shortcuts = false
 		if k.String() == "?" {
 			return m, nil
 		}
 	}
-	switch k.Type {
-	case tea.KeyCtrlC:
+	switch ks {
+	case "ctrl+c":
 		now := time.Now()
 		if now.Sub(m.lastCtrlC) < 2*time.Second {
 			m.quit = true
@@ -43,11 +44,11 @@ func (m *Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.say("ctrl+c again to exit")
 		return m, nil
-	case tea.KeyCtrlL:
-		return m, tea.ClearScreen
-	case tea.KeyCtrlO:
+	case "ctrl+l":
+		return m, m.reflow()
+	case "ctrl+o":
 		return m, m.expandLast()
-	case tea.KeyEsc:
+	case "esc":
 		switch {
 		case m.menu != nil || m.comp != nil:
 			m.menu, m.comp = nil, nil
@@ -59,8 +60,8 @@ func (m *Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.input.SetHeight(1)
 		}
 		return m, nil
-	case tea.KeyUp, tea.KeyDown:
-		up := k.Type == tea.KeyUp
+	case "up", "down":
+		up := ks == "up"
 		switch {
 		case m.menu != nil:
 			m.menu.cursor = step(m.menu.cursor, len(m.menu.items), up)
@@ -73,7 +74,7 @@ func (m *Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case !up && m.input.Line() == m.input.LineCount()-1:
 			return m, m.historyMove(1)
 		}
-	case tea.KeyTab:
+	case "tab":
 		switch {
 		case m.menu != nil && len(m.menu.items) > 0:
 			m.setInput("/" + m.menu.items[m.menu.cursor].Name + " ")
@@ -88,12 +89,12 @@ func (m *Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case tea.KeyEnter:
-		if k.Alt {
-			m.input.InsertString("\n")
-			m.grow()
-			return m, nil
-		}
+	case "shift+enter", "alt+enter", "ctrl+j":
+		// a newline in the ask; shift+enter reaches us on terminals with key disambiguation
+		m.input.InsertString("\n")
+		m.grow()
+		return m, nil
+	case "enter":
 		switch {
 		case m.menu != nil && len(m.menu.items) > 0:
 			line := m.input.Value()
@@ -112,20 +113,10 @@ func (m *Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.submit()
-	case tea.KeyCtrlJ:
-		m.input.InsertString("\n")
-		m.grow()
-		return m, nil
-	case tea.KeyRunes:
-		if k.Paste {
-			return m, m.paste(string(k.Runes))
-		}
-		if string(k.Runes) == "?" && strings.TrimSpace(m.input.Value()) == "" {
+	case "?":
+		if strings.TrimSpace(m.input.Value()) == "" {
 			m.shortcuts = true
 			return m, nil
-		}
-		if len(k.Runes) == 1 && k.Runes[0] >= '1' && k.Runes[0] <= '9' && m.menu != nil {
-			// a digit does nothing special in the menu; fall through to typing
 		}
 	}
 	var cmd tea.Cmd
@@ -302,13 +293,13 @@ func (m *Model) submit() tea.Cmd {
 	if m.busy {
 		notice := m.host.Queue(text)
 		m.queued++
-		return m.print(m.theme.Queued(text, m.width) + "\n" + m.theme.Notice("  "+notice, m.width))
+		return m.print(func(w int) string { return m.theme.Queued(text, w) + "\n" + m.theme.Notice("  "+notice, w) })
 	}
 	if why := m.host.Submit(text); why != "" {
-		return m.print(m.theme.Error(why, m.width))
+		return m.print(func(w int) string { return m.theme.Error(why, w) })
 	}
 	m.begin()
-	return tea.Sequence(m.print(m.theme.User(text, m.width)), m.spin.Tick)
+	return tea.Sequence(m.print(func(w int) string { return m.theme.User(text, w) }), m.spin.Tick)
 }
 
 // slash runs a command: the UI's own (help, quit) here, the rest through the host as a Cmd.
@@ -318,17 +309,18 @@ func (m *Model) slash(line string) tea.Cmd {
 	case "help", "?":
 		items := m.host.Commands()
 		sort.SliceStable(items, func(i, j int) bool { return items[i].Name < items[j].Name })
-		var out []string
-		out = append(out, m.theme.Menu(items, -1, m.width))
-		return m.print(strings.Join(out, "\n") + "\n" + m.theme.Shortcuts(DefaultShortcuts(), m.width))
+		return m.print(func(w int) string { return m.theme.Menu(items, -1, w) + "\n" + m.theme.Shortcuts(DefaultShortcuts(), w) })
 	case "quit", "exit", "q":
 		m.quit = true
 		return tea.Quit
+	case "board":
+		return m.openBoard()
 	case "clear":
-		return tea.ClearScreen
+		m.blocks = nil
+		return m.reflow()
 	}
 	_ = rest
-	echo := m.print(m.theme.User(line, m.width))
+	echo := m.print(func(w int) string { return m.theme.User(line, w) })
 	host := m.host
 	return tea.Sequence(echo, func() tea.Msg {
 		lines, quit := host.Slash(line)
@@ -387,26 +379,27 @@ func (m *Model) expandLast() tea.Cmd {
 	case b.tool != nil:
 		t := *b.tool
 		t.Expand = true
-		return m.print(m.theme.Tool(t, m.width))
+		return m.print(func(w int) string { return m.theme.Tool(t, w) })
 	case b.court != nil:
 		c := *b.court
 		c.Expanded = true
-		return m.print(m.theme.Court(c, m.width))
+		return m.print(func(w int) string { return m.theme.Court(c, w) })
 	}
 	return nil
 }
 
 // the choice block's keys
 
-func (m *Model) choiceKey(k tea.KeyMsg) tea.Cmd {
+func (m *Model) choiceKey(k tea.KeyPressMsg) tea.Cmd {
 	v := &m.view
+	ks := k.String()
 	if v.Typing {
-		switch k.Type {
-		case tea.KeyEsc:
+		switch ks {
+		case "esc":
 			v.Typing = false
 			v.Typed = ""
 			return nil
-		case tea.KeyEnter:
+		case "enter":
 			text := strings.TrimSpace(v.Typed)
 			if text == "" && !v.Free {
 				return nil
@@ -415,21 +408,16 @@ func (m *Model) choiceKey(k tea.KeyMsg) tea.Cmd {
 				return m.answer(ChoiceAnswer{Index: -1, Text: text})
 			}
 			return m.answer(ChoiceAnswer{Index: v.Cursor, Text: text})
-		case tea.KeyBackspace:
+		case "backspace":
 			if len(v.Typed) > 0 {
 				r := []rune(v.Typed)
 				v.Typed = string(r[:len(r)-1])
 			}
 			return nil
-		case tea.KeyRunes:
-			v.Typed += string(k.Runes)
-			return nil
-		case tea.KeySpace:
-			v.Typed += " "
-			return nil
-		case tea.KeyCtrlC:
+		case "ctrl+c":
 			return m.answer(ChoiceAnswer{Index: -1, Aborted: true})
 		}
+		v.Typed += k.Text // printable keys carry their text; space included
 		return nil
 	}
 	n := len(v.Options)
@@ -437,12 +425,12 @@ func (m *Model) choiceKey(k tea.KeyMsg) tea.Cmd {
 	if v.Free {
 		extra = 1 // the last row is "type an answer"
 	}
-	switch k.Type {
-	case tea.KeyUp:
+	switch ks {
+	case "up":
 		v.Cursor = step(v.Cursor, n+extra, true)
-	case tea.KeyDown:
+	case "down":
 		v.Cursor = step(v.Cursor, n+extra, false)
-	case tea.KeyEnter:
+	case "enter":
 		if v.Cursor >= n {
 			v.Typing, v.Prompt = true, "your answer:"
 			return nil
@@ -452,14 +440,14 @@ func (m *Model) choiceKey(k tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 		return m.answer(ChoiceAnswer{Index: v.Cursor})
-	case tea.KeyEsc, tea.KeyCtrlC:
+	case "esc", "ctrl+c":
 		// esc on an approval is a plain no: the act does not run
 		if v.Title != "Question" {
 			return m.answer(ChoiceAnswer{Index: -1, Text: ""})
 		}
-	case tea.KeyRunes:
-		if len(k.Runes) == 1 && k.Runes[0] >= '1' && k.Runes[0] <= '9' {
-			i := int(k.Runes[0] - '1')
+	default:
+		if r := []rune(k.Text); len(r) == 1 && r[0] >= '1' && r[0] <= '9' {
+			i := int(r[0] - '1')
 			if i < n {
 				v.Cursor = i
 				if v.Reasons != nil && v.Reasons[i] != "" {
@@ -469,8 +457,8 @@ func (m *Model) choiceKey(k tea.KeyMsg) tea.Cmd {
 				return m.answer(ChoiceAnswer{Index: i})
 			}
 		}
-		if v.Free {
-			v.Typing, v.Prompt, v.Typed = true, "your answer:", string(k.Runes)
+		if v.Free && k.Text != "" {
+			v.Typing, v.Prompt, v.Typed = true, "your answer:", k.Text
 			v.Cursor = n
 		}
 	}

@@ -28,6 +28,8 @@ type Host interface {
 	Commands() []MenuItem
 	// Complete lists workspace paths for an @prefix.
 	Complete(prefix string) []string
+	// Board is what /board draws; rng is the usage range (BoardRanges).
+	Board(rng string) BoardView
 }
 
 // Model is the Bubble Tea model of the session: the live area at the bottom (stream, running
@@ -77,7 +79,16 @@ type Model struct {
 
 	// prints is the FIFO of finished blocks; one goroutine hands them to the program in order
 	// (a tea.Println per Update would race the next Update's).
-	prints   chan string
+	prints   chan printItem
+	// blocks is every finished block as a render at a width: a width change clears the terminal
+	// and prints them again at the new one, as the terminal's own rewrap cannot be trusted.
+	blocks    []func(w int) string
+	reflowSeq int
+	lastWidth int // the width the transcript was last printed at
+
+	// the board: full screen while open; blocks that finish meanwhile wait in held
+	board *boardState
+	held  []string
 	sender   func(tea.Msg)
 	attached chan struct{}
 }
@@ -122,7 +133,7 @@ func New(host Host, theme Theme, words Words) *Model {
 	ta.Focus()
 	sp := spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(theme.accent))
 	m := &Model{host: host, theme: theme, words: words, input: ta, spin: sp, subagents: map[string]*SubagentView{}, pasted: map[string]string{}, width: 80, height: 24,
-		prints: make(chan string, 4096), attached: make(chan struct{})}
+		prints: make(chan printItem, 4096), attached: make(chan struct{})}
 	m.footer = host.Footer()
 	m.histIdx = -1
 	return m
@@ -135,19 +146,37 @@ func (m *Model) Attach(send func(tea.Msg)) {
 	close(m.attached)
 }
 
-// Init prints the welcome and starts the ticks and the printer.
+// Init starts the ticks and the printer; the welcome waits for the terminal's width.
 func (m *Model) Init() tea.Cmd {
-	w := m.host.Welcome()
-	m.print(m.theme.Welcome(w, m.width))
 	return tea.Batch(textarea.Blink, tick(), m.printer)
 }
+
+// printItem is one FIFO entry: a block, or (clear) the whole transcript that replaces the
+// terminal's contents.
+type printItem struct {
+	text  string
+	clear bool
+}
+
+type evReflow struct{ seq int }
+
+// reflowDelay lets a window drag settle before the transcript is printed again.
+const reflowDelay = 120 * time.Millisecond
+
+// fixed is a block that does not depend on the width.
+func fixed(s string) func(int) string { return func(int) string { return s } }
 
 // printer is a long-lived Cmd: it takes blocks off the FIFO and prints each above the live
 // area, in order. It ends with the program.
 func (m *Model) printer() tea.Msg {
 	<-m.attached
-	for s := range m.prints {
-		m.sender(tea.Printf("%s\n", s)())
+	for it := range m.prints {
+		if it.clear {
+			// the screen, then the scrollback (\x1b[3J), so the old width leaves no copy behind
+			m.sender(tea.ClearScreen())
+			it.text = "\x1b[3J" + it.text
+		}
+		m.sender(tea.Printf("%s\n", it.text)())
 	}
 	return nil
 }
@@ -158,6 +187,22 @@ func tick() tea.Cmd {
 
 // Update is the event loop.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var boardCmd tea.Cmd
+	if m.board != nil {
+		cmd, done := m.boardUpdate(msg)
+		if done {
+			return m, cmd
+		}
+		boardCmd = cmd
+	}
+	if boardCmd != nil {
+		mm, cmd := m.update(msg)
+		return mm, tea.Batch(boardCmd, cmd)
+	}
+	return m.update(msg)
+}
+
+func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -165,8 +210,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.width = 20
 		}
 		m.input.SetWidth(m.width - 4)
-		m.ready = true
-		return m, nil
+		if !m.ready {
+			m.ready = true
+			m.lastWidth = m.width
+			wel := m.host.Welcome()
+			return m, m.print(func(w int) string { return m.theme.Welcome(wel, w) })
+		}
+		if m.width == m.lastWidth {
+			return m, nil
+		}
+		m.reflowSeq++
+		seq := m.reflowSeq
+		return m, tea.Tick(reflowDelay, func(time.Time) tea.Msg { return evReflow{seq} })
+	case evReflow:
+		if m.board != nil || msg.seq != m.reflowSeq || m.width == m.lastWidth {
+			return m, nil
+		}
+		return m, m.reflow()
 	case evTick:
 		if m.busy || m.choice != nil {
 			m.footer = m.host.Footer()
@@ -221,7 +281,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.collapses(t) {
 			m.lastBlock = &collapsed{tool: &t}
 		}
-		return m, m.print(m.theme.Tool(t, m.width))
+		return m, m.print(func(w int) string { return m.theme.Tool(t, w) })
 	case EvSubagent:
 		c := msg.Subagent
 		if c.Word == "" {
@@ -236,7 +296,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := m.flushStream(true)
 			*cur = c
 			if c.Report == nil && c.State != "done" {
-				return m, tea.Sequence(cmd, m.print(m.theme.Notice("→ "+c.Word+" "+c.Name+" started", m.width)))
+				return m, tea.Sequence(cmd, m.print(func(w int) string { return m.theme.Notice("→ "+c.Word+" "+c.Name+" started", w) }))
 			}
 			return m, tea.Sequence(cmd, m.landSubagent(cur))
 		}
@@ -257,17 +317,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case EvTurnStart:
 		m.begin()
 		if msg.Auto {
-			return m, m.print(m.theme.Notice("↻ continuing with what arrived: "+oneLine(msg.Text), m.width))
+			return m, m.print(func(w int) string { return m.theme.Notice("↻ continuing with what arrived: "+oneLine(msg.Text), w) })
 		}
-		return m, m.print(m.theme.User(msg.Text, m.width))
+		return m, m.print(func(w int) string { return m.theme.User(msg.Text, w) })
 	case EvTurnDone:
 		return m, m.finish(msg)
 	case EvNotice:
-		return m, m.print(m.theme.Notice(msg.Text, m.width))
+		return m, m.print(func(w int) string { return m.theme.Notice(msg.Text, w) })
 	case EvError:
-		return m, m.print(m.theme.Error(msg.Text, m.width))
+		return m, m.print(func(w int) string { return m.theme.Error(msg.Text, w) })
 	case EvLines:
-		return m, m.print(strings.Join(msg.Lines, "\n"))
+		return m, m.print(fixed(strings.Join(msg.Lines, "\n")))
 	case EvChoice:
 		m.choice = &msg
 		m.view = msg.View
@@ -276,7 +336,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case evSlashDone:
 		var cmds []tea.Cmd
 		if len(msg.lines) > 0 {
-			cmds = append(cmds, m.print(strings.Join(msg.lines, "\n")))
+			cmds = append(cmds, m.print(fixed(strings.Join(msg.lines, "\n"))))
 		}
 		if msg.quit {
 			m.quit = true
@@ -336,24 +396,24 @@ func (m *Model) finish(ev EvTurnDone) tea.Cmd {
 	if ev.Streamed || m.streamed {
 		cmds = append(cmds, m.flushStream(true))
 	} else if t := strings.TrimSpace(ev.Text); t != "" {
-		cmds = append(cmds, m.print(m.theme.Assistant(t, m.width)))
+		cmds = append(cmds, m.print(func(w int) string { return m.theme.Assistant(t, w) }))
 	}
 	for _, t := range m.tools {
 		t.Status = "failed"
 		t.Why = "interrupted"
-		cmds = append(cmds, m.print(m.theme.Tool(*t, m.width)))
+		cmds = append(cmds, m.print(func(w int) string { return m.theme.Tool(*t, w) }))
 	}
 	m.tools = nil
 	if ev.Interrupted {
-		cmds = append(cmds, m.print(m.theme.Notice("■ interrupted", m.width)))
+		cmds = append(cmds, m.print(func(w int) string { return m.theme.Notice("■ interrupted", w) }))
 	} else if len(ev.Holes) > 0 {
-		cmds = append(cmds, m.print(m.theme.Holes(ev.Holes, m.width)))
+		cmds = append(cmds, m.print(func(w int) string { return m.theme.Holes(ev.Holes, w) }))
 	}
 	if ev.Verdict != "" {
-		cmds = append(cmds, m.print(m.theme.Gate(ev.Verdict, ev.LogRel, m.width, m.words.Gate)))
+		cmds = append(cmds, m.print(func(w int) string { return m.theme.Gate(ev.Verdict, ev.LogRel, w, m.words.Gate) }))
 	}
 	if ev.Hint != "" {
-		cmds = append(cmds, m.print(m.theme.Notice(ev.Hint, m.width)))
+		cmds = append(cmds, m.print(func(w int) string { return m.theme.Notice(ev.Hint, w) }))
 	}
 	m.busy = false
 	m.verb = ""
@@ -363,16 +423,39 @@ func (m *Model) finish(ev EvTurnDone) tea.Cmd {
 
 // print queues a finished block for the scrollback, followed by a blank line. It returns nil
 // so call sites read the same whether or not they chain a Cmd after it.
-func (m *Model) print(block string) tea.Cmd {
+func (m *Model) print(render func(w int) string) tea.Cmd {
+	block := render(m.width)
 	if block == "" {
 		return nil
 	}
+	m.blocks = append(m.blocks, render)
+	if m.board != nil {
+		m.held = append(m.held, block)
+		return nil
+	}
+	m.enqueue(printItem{text: block})
+	return nil
+}
+
+// reflow clears the terminal and prints the whole transcript again at the current width.
+func (m *Model) reflow() tea.Cmd {
+	m.lastWidth = m.width
+	var parts []string
+	for _, r := range m.blocks {
+		if b := r(m.width); b != "" {
+			parts = append(parts, b)
+		}
+	}
+	m.enqueue(printItem{text: strings.Join(parts, "\n\n"), clear: true})
+	return nil
+}
+
+func (m *Model) enqueue(it printItem) {
 	select {
-	case m.prints <- block:
+	case m.prints <- it:
 	default:
 		// a full FIFO (the program is gone or stuck): the block is dropped rather than the loop
 	}
-	return nil
 }
 
 func (m *Model) collapses(t ToolView) bool {
@@ -395,7 +478,8 @@ func (m *Model) landSubagent(c *SubagentView) tea.Cmd {
 		cp := *c
 		m.lastBlock = &collapsed{subagent: &cp}
 	}
-	return m.print(m.theme.Subagent(*c, m.width))
+	cv := *c
+	return m.print(func(w int) string { return m.theme.Subagent(cv, w) })
 }
 
 // flushStream moves complete paragraphs of the streamed answer into the scrollback (all of it
@@ -411,7 +495,7 @@ func (m *Model) flushStream(final bool) tea.Cmd {
 	}
 	if final {
 		m.stream.Reset()
-		return m.print(m.theme.Assistant(s, m.width))
+		return m.print(func(w int) string { return m.theme.Assistant(s, w) })
 	}
 	cut := safeCut(s)
 	if cut <= 0 {
@@ -420,7 +504,7 @@ func (m *Model) flushStream(final bool) tea.Cmd {
 	head, tail := s[:cut], s[cut:]
 	m.stream.Reset()
 	m.stream.WriteString(tail)
-	return m.print(m.theme.Assistant(head, m.width))
+	return m.print(func(w int) string { return m.theme.Assistant(head, w) })
 }
 
 // safeCut finds the last blank line outside a code fence such that the paragraph after it is
@@ -464,6 +548,9 @@ func isListLine(l string) bool {
 func (m *Model) View() string {
 	if m.quit {
 		return ""
+	}
+	if m.board != nil {
+		return m.boardView()
 	}
 	var parts []string
 	if s := m.stream.String(); m.busy && strings.TrimSpace(s) != "" {
@@ -525,13 +612,13 @@ func (m *Model) answer(a ChoiceAnswer) tea.Cmd {
 	}
 	ch := m.choice
 	m.choice = nil
-	block := m.theme.Choice(chosen(m.view, a), m.width)
+	v := chosen(m.view, a)
 	select {
 	case ch.Reply <- a:
 	default:
 	}
 	m.verb = "Thinking…"
-	return m.print(block)
+	return m.print(func(w int) string { return m.theme.Choice(v, w) })
 }
 
 // chosen is the choice as printed once answered: only the picked option, no cursor hints.

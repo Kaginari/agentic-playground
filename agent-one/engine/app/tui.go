@@ -101,6 +101,7 @@ func (a *App) tuiHost(ctx context.Context) (*tuiHost, error) {
 	a.Opt.Quiet = true
 	buf := &bytes.Buffer{}
 	h := &tuiHost{a: a, ctx: ctx, out: buf, before: map[string]string{}, subagentAsk: map[string]string{}, subagentSeen: map[string]bool{}, subagentStart: map[string]time.Time{}, words: a.tuiWords()}
+	out, errw, quiet := a.Opt.Out, a.Opt.Err, a.Opt.Quiet
 	a.Opt.Out, a.Opt.Err = buf, buf
 	a.Notify = func(s string) {
 		h.mu.Lock()
@@ -132,6 +133,8 @@ func (a *App) tuiHost(ctx context.Context) (*tuiHost, error) {
 	a.Subagent.onFinish = h.subagentFinished
 	e, err := a.Engine()
 	if err != nil {
+		// no program will own the terminal: why it did not start is said there
+		a.Opt.Out, a.Opt.Err, a.Opt.Quiet = out, errw, quiet
 		return nil, err
 	}
 	h.e = e
@@ -269,6 +272,7 @@ func (h *tuiHost) drain() []string {
 
 var builtinCommands = []tui.MenuItem{
 	{Name: "help", Description: "commands and shortcuts"},
+	{Name: "board", Description: "the board, full screen: agents, the ontology graph, roles, usage"},
 	{Name: "agents", Description: "the live subagent: every agent, its state, context and spend"},
 	{Name: "send", Description: "/send <agent> <text> — a line for a running agent"},
 	{Name: "usage", Description: "the usage journal of this session"},
