@@ -44,7 +44,7 @@ func (t Theme) Welcome(w Welcome, width int) string {
 		inner = width - 4
 	}
 	var rows []string
-	title := t.accent.Bold(true).Render("✦ "+w.Dist) + " " + t.dim.Render(w.Version)
+	title := Title(w.Dist) + " " + t.dim.Render(w.Version)
 	if inner >= mascotWidth+30 {
 		// the mascot, with the title and the tagline beside it
 		art, tag := Mascot(w.Dist)
@@ -498,29 +498,38 @@ func (t Theme) Spinner(frame, verb string, elapsed time.Duration, tokens int, wi
 		parts = append(parts, humanTokens(tokens)+" tokens")
 	}
 	parts = append(parts, "esc to interrupt")
-	s := t.accent.Render(frame) + " " + t.text.Render(verb) + " " + t.dim.Render("("+strings.Join(parts, " · ")+")")
+	s := t.accent.Render(frame) + " " + verb + " " + t.dim.Render("("+strings.Join(parts, " · ")+")")
 	return ansi.Truncate(s, width, "…")
 }
 
 // FooterView is what the footer says.
 type FooterView struct {
-	Model   string
-	Ctx     string // "ctx 12%" or "ctx —"
-	Cost    string // "$0.0123" | "no calls yet" | "unpriced"
-	Live    int    // live courts
-	World   string
-	Courts  string // the plural word
-	Hint    string // "? for shortcuts"
-	Queued  int
-	Message string // a transient message shown in place of the hint
-	Tokens  int    // the session's tokens so far (the spinner shows them)
+	Model    string
+	Ctx      string // "ctx 12%" or "ctx —"
+	Cost     string // "$0.0123" | "no calls yet" | "unpriced"
+	Live     int    // live courts
+	World    string
+	Courts   string // the plural word
+	Hint     string // "? for shortcuts"
+	Queued   int
+	Message  string // a transient message shown in place of the hint
+	Tokens   int    // the session's tokens so far (the spinner shows them)
+	CtxPct   int    // the context window's fill in percent, drawn as a meter when CtxKnown
+	CtxKnown bool
 }
 
 // Footer renders the line under the input.
 func (t Theme) Footer(f FooterView, width int) string {
 	parts := []string{f.Model, f.Ctx, f.Cost}
 	parts = parts[:0:0]
-	parts = append(parts, f.Model, f.Ctx, f.Cost)
+	ctx := f.Ctx
+	if f.CtxKnown && width >= 72 {
+		ctx = "ctx " + t.Meter(f.CtxPct, 8) + fmt.Sprintf(" %d%%", f.CtxPct)
+		if strings.Contains(f.Ctx, "stress") {
+			ctx += " " + t.bad.Render("stress")
+		}
+	}
+	parts = append(parts, f.Model, ctx, f.Cost)
 	if f.Live > 0 {
 		word := f.Courts
 		if word == "" {

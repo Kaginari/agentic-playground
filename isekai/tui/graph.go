@@ -247,7 +247,8 @@ func (g *graphLayout) render(t Theme, sel string) []string {
 				}
 				label := mark + " " + p.n.Name
 				if p.n.ID == sel {
-					label = st.Reverse(true).Bold(true).Render(label)
+					// an explicit background, not reverse video: every terminal draws it the same
+					label = lipgloss.NewStyle().Background(st.GetForeground()).Foreground(lipgloss.Color("#0d1117")).Bold(true).Render(label)
 				} else {
 					label = st.Render(label)
 				}

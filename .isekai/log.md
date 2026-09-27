@@ -1032,3 +1032,18 @@ Append-only. Newest entries at the bottom. One entry per change.
   the new; the send-back test passes (Vitality fail → the doc fixed in the same turn → pass); vet +
   full suites green in both engines.
 - **Result:** closes the gap named once at the harness study's entry (named twice now: fixed).
+
+### [2026-09-27T12:18:53+02:00] rimuru — the CLI, phase 1: motion and colour (isekai)
+- **Task:** Human: "an impressive cli … with colors and everything … use Bubble Tea, Huh, Lip Gloss,
+  Wish, Glamour, Bubbles, Log and Harmonica"; chose all four areas. Phase 1 of 5.
+- **Files:** isekai/tui/{motion.go,mascot.go,blocks.go,model.go,graph.go,board.go,shots_test.go,
+  testdata/golden/welcome-*} · isekai/app/tui.go · go.mod (harmonica v0.2.0) · canon/tui.md.
+- **Gate:** n/a (no orcs). Instruments: TestShots writes the screens as ANSI; charm's freeze
+  rendered them to PNG and each was looked at (intro frames, welcome, the shimmer across four
+  frames, board graph); vet + suite green; welcome goldens rewritten on purpose (the rounder slime).
+- **Learned:**
+  - The first slime read as a mountain; a dome with a highlight reads as a slime. Seen, not guessed.
+  - The spring overshoots past the resting row and the sprite was clipped: squash-and-stretch (a
+    row shorter, the base wider) keeps it in frame and reads as a landing.
+  - Reverse video did not show in the renderer: the graph's selection is an explicit background.
+  - freeze waits on stdin when it is not a TTY: </dev/null, or it hangs.

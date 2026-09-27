@@ -87,6 +87,8 @@ type Model struct {
 	lastWidth int // the width the transcript was last printed at
 	bgKnown   bool
 	welcomed  bool
+	intro     *introState // the startup animation; nil when off or over
+	shimmer   int         // the spinner verb's highlight, advanced with the spinner
 
 	// the board: full screen while open; blocks that finish meanwhile wait in held
 	board    *boardState
@@ -154,6 +156,9 @@ func (m *Model) Attach(send func(tea.Msg)) {
 // waits for the terminal's width, and briefly for that answer, so it is drawn in the right theme.
 func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{textarea.Blink, tick(), m.printer}
+	if m.intro != nil {
+		cmds = append(cmds, introTick())
+	}
 	if !m.theme.Forced {
 		cmds = append(cmds, tea.RequestBackgroundColor, tea.Tick(bgWait, func(time.Time) tea.Msg { return evBgWait{} }))
 	} else {
@@ -170,7 +175,7 @@ type evBgWait struct{}
 
 // welcome prints the welcome once the width is known and the theme settled.
 func (m *Model) welcome() tea.Cmd {
-	if m.welcomed || !m.ready || !m.bgKnown {
+	if m.welcomed || !m.ready || !m.bgKnown || m.intro != nil {
 		return nil
 	}
 	m.welcomed = true
@@ -273,6 +278,15 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case evBgWait:
 		m.bgKnown = true
 		return m, m.welcome()
+	case evIntro:
+		if m.intro == nil {
+			return m, nil
+		}
+		if !m.ready || m.stepIntro() {
+			return m, introTick()
+		}
+		m.intro = nil
+		return m, m.welcome()
 	case evTick:
 		if m.busy || m.choice != nil {
 			m.footer = m.host.Footer()
@@ -287,6 +301,7 @@ func (m *Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		var cmd tea.Cmd
 		m.spin, cmd = m.spin.Update(msg)
+		m.shimmer++
 		return m, cmd
 	case tea.KeyPressMsg:
 		return m.key(msg)
@@ -614,6 +629,9 @@ func (m *Model) Render() string {
 	if m.board != nil {
 		return m.boardView()
 	}
+	if m.intro != nil && m.ready {
+		return m.introView()
+	}
 	var parts []string
 	if s := m.stream.String(); m.busy && strings.TrimSpace(s) != "" {
 		parts = append(parts, m.theme.Assistant(s, m.width), "")
@@ -631,7 +649,7 @@ func (m *Model) Render() string {
 		parts = append(parts, m.theme.Choice(m.view, m.width), "")
 	} else if m.busy {
 		tokens := m.footer.Tokens
-		parts = append(parts, m.theme.Spinner(m.spin.View(), m.verb, time.Since(m.turnStart), tokens, m.width))
+		parts = append(parts, m.theme.Spinner(m.spin.View(), m.theme.Shimmer(m.verb, shimmerPhase(m.shimmer, len([]rune(m.verb)))), time.Since(m.turnStart), tokens, m.width))
 	}
 	if m.shortcuts {
 		parts = append(parts, m.theme.Shortcuts(DefaultShortcuts(), m.width))

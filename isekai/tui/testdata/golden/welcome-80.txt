@@ -1,8 +1,8 @@
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│       ▄██▄                                                                   │
-│    ▄▀▀▀█████▄      ✦ isekai v0.1.5                                           │
-│  ▄████████████▄    reincarnated · the world remembers in documents           │
-│  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀                                                              │
+│     ▄▄████▄▄                                                                 │
+│   ▄▀█▀███████▄     ✦ isekai v0.1.5                                           │
+│  ██████████████    reincarnated · the world remembers in documents           │
+│ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀                                                             │
 │                                                                              │
 │ world   /home/monta/kaginari/pfcli                                           │
 │ model   gemini/gemini-3.8-flash                                              │

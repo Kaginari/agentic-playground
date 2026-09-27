@@ -210,7 +210,7 @@ func (m *Model) boardView() string {
 			tabs = append(tabs, t.dim.Render(label))
 		}
 	}
-	title := t.accent.Render("✦ ") + t.tag.Render(m.words.Dist+" board")
+	title := Title(m.words.Dist) + t.tag.Render(" board")
 	status := t.dim.Render("loading…")
 	if b.loaded {
 		status = t.ok.Render("●") + t.dim.Render(" live · "+b.view.At.Format("15:04:05"))

@@ -16,6 +16,13 @@ one place the binary takes third-party code; versions pinned in go.sum.
   scrollback are cleared and the transcript is printed again at the new width — Claude Code's
   answer too. A height-only change reprints nothing; `ctrl+l` reprints on demand; `/clear` empties
   the transcript. The welcome waits for the first size, so it is never drawn at a guessed width.
+- **The intro** — on a real terminal the mascot (isekai's slime, agent-one's agent: half-block
+  sprites, `tui/mascot.go`) drops in on a Harmonica spring, squashes as it lands, blinks, and the
+  welcome box then prints around the very place it landed. About a second; `<PREFIX>NO_INTRO=1`
+  skips it; tests never run it.
+- **Colour in motion** — the title on the mascot's gradient; the spinner's verb shimmers (a soft
+  highlight sweeps across it with each spinner frame); the footer's context is a meter, each cell
+  coloured along green → amber → red.
 - **Welcome** — one framed box at start: the world, the model (and each office's), the board URL,
   the off-list count, "/help for commands".
 - **Your message** — a `>`-prefixed block, dim, as sent.

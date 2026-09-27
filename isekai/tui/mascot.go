@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -13,22 +14,26 @@ import (
 type sprite struct {
 	pixels  []string        // one string per pixel row; '.' is empty
 	palette map[byte]string // pixel → hex colour
+	body    byte            // the pixel an eye becomes when it blinks
+	title   []string        // the title's gradient stops
 	tagline string
 }
 
 var mascots = map[string]sprite{
 	"isekai": {
 		pixels: []string{
-			".......BB.......",
 			"......BBBB......",
-			"....BBLBBBBB....",
+			"....BBBBBBBB....",
 			"...BLLBBBBBBB...",
-			"..BBBBEBBBEBBB..",
+			"..BLLBBBBBBBBB..",
 			".BBBBBEBBBEBBBB.",
-			".BBBBBBBBBBBBBB.",
-			"..SSSSSSSSSSSS..",
+			".BBBBBEBBBEBBBB.",
+			"BBBBBBBBBBBBBBBB",
+			".SSSSSSSSSSSSSS.",
 		},
 		palette: map[byte]string{'B': "#58b7f0", 'L': "#d2f0ff", 'E': "#0d1b2a", 'S': "#2a78b8"},
+		body:    'B',
+		title:   []string{"#2a78b8", "#58b7f0", "#a6e3ff"},
 		tagline: "reincarnated · the world remembers in documents",
 	},
 	"agent-one": {
@@ -43,6 +48,8 @@ var mascots = map[string]sprite{
 			".....F....F.....",
 		},
 		palette: map[byte]string{'A': "#d4af37", 'F': "#7c5cd6", 'W': "#e8e4ff", 'E': "#1a1033"},
+		body:    'W',
+		title:   []string{"#7c5cd6", "#b69cff", "#d4af37"},
 		tagline: "one agent, a whole team · the workspace remembers",
 	},
 }
@@ -50,13 +57,39 @@ var mascots = map[string]sprite{
 // mascotWidth is the sprite's width in cells.
 const mascotWidth = 16
 
+func mascotFor(dist string) sprite {
+	if sp, ok := mascots[dist]; ok {
+		return sp
+	}
+	for _, sp := range mascots {
+		return sp
+	}
+	return sprite{}
+}
+
 // Mascot draws the distribution's sprite as half-block rows, and its tagline.
 func Mascot(dist string) (rows []string, tagline string) {
-	sp, ok := mascots[dist]
-	if !ok {
-		sp = mascots["isekai"]
+	sp := mascotFor(dist)
+	return halfBlocks(sp.pixels, sp.palette), sp.tagline
+}
+
+// Title is the distribution's name on its gradient.
+func Title(dist string) string {
+	sp := mascotFor(dist)
+	var stops []color.Color
+	for _, h := range sp.title {
+		stops = append(stops, lipgloss.Color(h))
 	}
-	px := sp.pixels
+	if len(stops) < 2 {
+		return "✦ " + dist
+	}
+	return Gradient("✦ "+dist, true, stops...)
+}
+
+// halfBlocks draws pixel rows two to a cell: the upper pixel the foreground of ▀, the lower its
+// background.
+func halfBlocks(px []string, palette map[byte]string) []string {
+	var rows []string
 	for y := 0; y+1 < len(px); y += 2 {
 		var sb strings.Builder
 		for x := 0; x < len(px[y]); x++ {
@@ -65,16 +98,16 @@ func Mascot(dist string) (rows []string, tagline string) {
 			case top == '.' && bot == '.':
 				sb.WriteByte(' ')
 			case top == '.':
-				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(sp.palette[bot])).Render("▄"))
+				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(palette[bot])).Render("▄"))
 			case bot == '.':
-				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(sp.palette[top])).Render("▀"))
+				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(palette[top])).Render("▀"))
 			case top == bot:
-				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(sp.palette[top])).Render("█"))
+				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(palette[top])).Render("█"))
 			default:
-				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(sp.palette[top])).Background(lipgloss.Color(sp.palette[bot])).Render("▀"))
+				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(palette[top])).Background(lipgloss.Color(palette[bot])).Render("▀"))
 			}
 		}
 		rows = append(rows, sb.String())
 	}
-	return rows, sp.tagline
+	return rows
 }

@@ -34,6 +34,10 @@ func (a *App) TUI(ctx context.Context) int {
 		return 2
 	}
 	ui := tui.Start(ctx, h, tui.DetectTheme(a.Opt.Env, a.Cfg.Dist.EnvPrefix), h.words, nil, nil)
+	// the mascot drops in unless <PREFIX>NO_INTRO says otherwise
+	if v := a.Opt.Env(a.Cfg.Dist.EnvPrefix + "NO_INTRO"); v == "" || v == "0" || v == "false" {
+		ui.Model.SetIntro(true)
+	}
 	h.attach(ui)
 	return h.run(ui.Run)
 }
@@ -217,14 +221,15 @@ func (h *tuiHost) Footer() tui.FooterView {
 	case tot.Unpriced == 0:
 		cost = fmt.Sprintf("$%.4f", tot.USD)
 	}
-	ctx := "ctx —"
+	ctx, pct, known := "ctx —", 0, false
 	if r := readingOf(h.s); r.Available {
+		pct, known = r.Percent(), true
 		ctx = fmt.Sprintf("ctx %d%%", r.Percent())
 		if r.Stressed() {
 			ctx += " (stress)"
 		}
 	}
-	return tui.FooterView{Model: a.mountModel.Ref.Model, Ctx: ctx, Cost: cost, Live: a.Court.Live(), World: tilde(a.Root, a.Opt.Home), Courts: h.words.Courts, Tokens: tot.Tokens()}
+	return tui.FooterView{Model: a.mountModel.Ref.Model, Ctx: ctx, Cost: cost, Live: a.Court.Live(), World: tilde(a.Root, a.Opt.Home), Courts: h.words.Courts, Tokens: tot.Tokens(), CtxPct: pct, CtxKnown: known}
 }
 
 func (h *tuiHost) Submit(text string) string {
