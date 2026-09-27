@@ -1208,3 +1208,13 @@ Append-only. Newest entries at the bottom. One entry per change.
   - The word map renamed the HTTP `res.Body` to `res.Agent` — the merge conflicted and caught it;
     the map now never renames an HTTP body (the fork's old lesson, third time).
   - A rank with no colour of its own drew a black robot: an unset colour is not black.
+
+### [2026-09-27T13:25:28+02:00] rimuru — the READMEs show the terminal, in screenshots from the UI's own code
+- **Task:** Human: "dont forget to update docs readme maybe take screen of agent-one and isekai's
+  interface".
+- **Files:** README.md (§The binary, the terminal, safety, config per section; the repo tree) ·
+  agent-one/README.md (§The terminal) · docs/screens/ (9 isekai, 6 agent-one).
+- **Gate:** n/a (no orcs). Instruments: every screen written by TestShots from the TUI's own code,
+  rendered by freeze to SVG and by headless Chromium to PNG at 2×, each looked at.
+- **Learned:** freeze's PNG embeds one font without ✦, braille or ⎿; its SVG in a browser falls back
+  per glyph like a real terminal — and at line-height 1.0 the half-block sprites stay solid.

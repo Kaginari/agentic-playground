@@ -78,6 +78,10 @@ the content. The same nine appear as slide 5 of the deck under `presentations/`.
 
 .claude/commands/   # /isekai, /don, /mint, /genesis — the Claude Code slash commands that operate on this convention
 .opencode/commands/ # /isekai, /genesis — the OpenCode port of the same commands (/don and /mint have no OpenCode equivalent)
+
+isekai/             # the binary: one Go engine for both distributions (see "The binary" below)
+agent-one/          # the same convention in plain engineering words, and its engine
+docs/screens/       # screenshots of the terminal UI, rendered from the UI's own code
 ```
 
 - **`/isekai [target-dir]`** reincarnates a directory: it writes `.isekai/isekai.md`,
@@ -148,6 +152,90 @@ convention's own lore or creature system:
   session usage). Source under `presentations/src/` (`npm install` there, then
   `node build.js` writes the deck one level up; `make_icons.js` regenerates the glyphs).
   Rendered through LibreOffice and visually checked slide by slide.
+
+## The binary — `isekai`
+
+The convention also runs as one Go binary, [`isekai/`](isekai/): a coding agent that *is* a world —
+the ranks, the wire, the gate, the memory tiers, the ontology — with a terminal UI in the class of
+Claude Code, built on the Charm libraries (Bubble Tea, Lip Gloss, Bubbles, Glamour, Huh, Harmonica,
+Log, Wish). The same engine ships as [agent-one](agent-one/README.md) in plain engineering words.
+
+```sh
+make build          # bin/isekai and bin/agent-one
+isekai init         # found a world here; on a terminal a short form picks its model
+isekai              # a live session
+```
+
+| Command | What it does |
+|---|---|
+| `isekai` | a live session in the terminal UI |
+| `isekai run "<ask>"` | one ask to its end |
+| `isekai goal --validate "<cmd>" "<objective>"` | work turn after turn until the command passes |
+| `isekai review [range]` | two reviewers on two models, one merged shortlist |
+| `isekai handoff [focus]` | a handoff note for a fresh session |
+| `isekai board [--ssh [addr]]` | the board on the web, and over SSH |
+| `isekai guard check\|test\|install` | the global dangerous-command guard |
+| `isekai --containered …` | the whole binary in a Docker container: the world read-write, the rest read-only |
+| `isekai status` | the honesty rule: every instrument, every hole |
+
+### The terminal
+
+The mascot drops in and the welcome forms around it:
+
+![welcome](docs/screens/isekai-welcome.png)
+
+The model's thinking streams while it arrives and folds when the answer starts; each rank has a face
+and its own verbs:
+
+![thinking](docs/screens/isekai-thinking.png)
+
+At the end of a turn that wrote files, the orc weighs the verdict:
+
+![the gate](docs/screens/isekai-gating.png)
+
+Tool calls are cards with an edge in their class's colour; diffs keep the code's own colours:
+
+![tool cards and a diff](docs/screens/isekai-tools.png)
+
+`ctrl+t` watches every body — the session and each Court, its thinking and its steps as they happen:
+
+![every body](docs/screens/isekai-bodies.png)
+
+`/board` shows the world full screen: the live agents, the reasoned ontology as a graph with each
+creature's knowledge card, the offices, the usage:
+
+![the ontology graph](docs/screens/isekai-board-graph.png)
+
+![the offices](docs/screens/isekai-board-offices.png)
+
+`ctrl+k` opens a fuzzy command palette; toasts slide in when a Court lands or the gate rules:
+
+![palette and toast](docs/screens/isekai-overlay.png)
+
+| Key | |
+|---|---|
+| `enter` · `shift+enter` | send · newline |
+| `/` · `ctrl+k` | commands · the palette |
+| `ctrl+t` | every body, live |
+| `/board` | the board, full screen |
+| `ctrl+o` | expand the last folded block (a thought, a long output) |
+| `esc` | interrupt the turn |
+| `/handoff` · `/review` | a note for the next session · two reviewers |
+
+### Safety, in code
+
+- **The guard** refuses the catastrophic and irreversible before any gate — no approval runs it —
+  and `isekai guard install` wires the same list into Claude Code and OpenCode.
+- **The gate** checks every landing: the right body wrote it, the pre-turn verify lines still pass,
+  the tests were not made easier, the owning doc changed; a fail goes back to the model once.
+- **The sandbox** (bwrap) or **the container** (`--containered`) bounds what a command can reach.
+
+### Config, one file per part
+
+A world's `.isekai/config.yaml` can be split into one file per section beside it — `models.yaml`,
+`providers.yaml`, `rules.yaml`, `guards.yaml` (even just a list of patterns) — and `isekai config
+explain` names the file every value came from. The design docs: [binary](.isekai/canon/binary.md) ·
+[terminal UI](.isekai/canon/tui.md) · [config](.isekai/canon/config.md).
 
 ## Using it elsewhere
 

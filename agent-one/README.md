@@ -12,6 +12,31 @@ same mechanics, same engine — only the names and the voice change.
   (`.isekai/` or `.agent-one/`) — or from the name it was invoked as — and renders every
   role, path, heading and UI string through [`lexicon.json`](lexicon.json).
 
+## The terminal
+
+`agent-one` runs the same terminal UI as isekai in its own words and colours: the robot at the welcome,
+a robot in each role's colour beside the spinner, the domain owner reviewing the change at the gate.
+
+![welcome](../docs/screens/agent-one-welcome.png)
+
+![the gate](../docs/screens/agent-one-gating.png)
+
+`ctrl+t` watches every agent — the orchestrator and each subagent, live:
+
+![every agent](../docs/screens/agent-one-agents.png)
+
+`/board` — the agents, the ontology graph, the roles, the usage:
+
+![the graph](../docs/screens/agent-one-board-graph.png)
+
+![the roles](../docs/screens/agent-one-board-roles.png)
+
+![tool cards](../docs/screens/agent-one-tools.png)
+
+The commands, keys and config are the binary's (see the [root README](../README.md#the-binary--isekai)),
+under `agent-one`: `agent-one init`, `agent-one goal`, `agent-one review`, `agent-one guard`, config in
+`.agent-one/` with one file per section (`guards.yaml`, `rules.yaml`, …).
+
 ## What differs, what stays
 
 | Stays identical (protocol / files) | Rendered through the lexicon |
