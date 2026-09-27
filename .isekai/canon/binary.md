@@ -240,13 +240,21 @@ The throne never chooses its horse: the session (Rimuru) runs on the model the h
 At the end of any turn that wrote files, before the turn is reported done:
 1. **Right slime authored** — every written path maps to the territory of the body that wrote it.
 2. **Traits hold** — each touched creature's `verify` commands (from its doc) run; exit codes are
-   the reading.
+   the reading. The lines that run are the ones the doc held *before* the turn, plus any it added:
+   Vitality makes a body edit its own doc in the same turn, so the post-turn lines alone would let
+   it rewrite the check it is judged by. A pre-turn line the turn removed or changed still runs, and
+   the change is a hole for the gate holder to confirm.
 3. **Duties done** — the commission's `@ASK` is answered (`@S` present, holes named as `@?`).
 4. **Doc truthful** — a change under a territory with no change to its owning doc fails
    (Nature 1). The owning doc is the Slime's doc, else the Orc's.
 
 The verdict (pass / fail + reason) is appended to `log.md` by the binary. A world with no orcs
 records `Gate: n/a (no orcs)` and still runs check 4 against any doc it can find.
+
+**A fail goes back once.** A failed verdict is first sent back to the model, its reasons as the next
+message, and the same turn continues — the whole turn's writes are gated again — up to
+`law.gate.retries` times (default 1; 0 fails at once). Every attempt's verdict is in `log.md`, and
+the answer carries a hole naming each send-back; past the retries the turn fails.
 
 **Every write is seen, whatever tool made it.** A tool that knows its paths reports them
 (`write`, `edit`, `patch`); the shell, a custom tool and an MCP server do not. So the engine

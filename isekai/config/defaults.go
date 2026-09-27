@@ -48,7 +48,7 @@ const defaultsJSON = `{
   "law": {
     "crest":      { "enabled": true },
     "humanGate":  { "enabled": true, "strict": false, "approve": [], "dryRun": false },
-    "gate":       { "enabled": true, "rightAuthor": true, "traitsHold": true, "dutiesDone": true, "docTruthful": true },
+    "gate":       { "enabled": true, "rightAuthor": true, "traitsHold": true, "dutiesDone": true, "docTruthful": true, "retries": 1 },
     "vitality":   { "enabled": true },
     "territory":  { "enabled": true },
     "wire":       { "enabled": true, "cap": 2048, "requireUnsaid": true, "raw": false },

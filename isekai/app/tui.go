@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/Kaginari/agentic-playground/isekai/config"
 	"github.com/Kaginari/agentic-playground/isekai/config/yaml"
 	"github.com/Kaginari/agentic-playground/isekai/gate"
@@ -21,7 +22,6 @@ import (
 	"github.com/Kaginari/agentic-playground/isekai/tui"
 	"github.com/Kaginari/agentic-playground/isekai/wire"
 	"github.com/Kaginari/agentic-playground/isekai/world"
-	tea "charm.land/bubbletea/v2"
 )
 
 // TUI runs the live session as the terminal UI (canon/tui.md): the same engine, sessions,

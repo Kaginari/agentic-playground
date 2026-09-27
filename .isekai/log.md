@@ -1021,3 +1021,14 @@ Append-only. Newest entries at the bottom. One entry per change.
 - **Result:** the welcome opens with a 16×8 half-block sprite — isekai's slime (Rimuru blue, a
   highlight, two eyes), agent-one's agent (a violet frame, a gold antenna) — the title and a tagline
   beside it; under 46 columns the sprite steps aside.
+
+### [2026-09-27T12:04:41+02:00] rimuru — the gate: pre-turn verify lines, and one send-back on a fail
+- **Task:** Human: "takes best things we can add to our harness … fix what need to be fixed" — the
+  Fable study's top two: its @U (a body could rewrite its own verify line in the turn it is judged)
+  and Prime's autonomous gate (a fail goes back to the agent for another attempt).
+- **Files:** {isekai/world,agent-one/engine/workspace}/{gate.go,hooks.go,*_test.go} · loop/loop.go ·
+  config/{schema.go,defaults.go} · app/{world,workspace}.go · canon/binary.md §The gate.
+- **Gate:** n/a (no orcs). Instruments: the rewritten-verify test is red on the old gate, green on
+  the new; the send-back test passes (Vitality fail → the doc fixed in the same turn → pass); vet +
+  full suites green in both engines.
+- **Result:** closes the gap named once at the harness study's entry (named twice now: fixed).

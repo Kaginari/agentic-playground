@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/Kaginari/agent-one/config"
 	"github.com/Kaginari/agent-one/config/yaml"
 	"github.com/Kaginari/agent-one/gate"
@@ -21,7 +22,6 @@ import (
 	"github.com/Kaginari/agent-one/tui"
 	"github.com/Kaginari/agent-one/wire"
 	"github.com/Kaginari/agent-one/workspace"
-	tea "charm.land/bubbletea/v2"
 )
 
 // TUI runs the live session as the terminal UI (canon/tui.md): the same engine, sessions,

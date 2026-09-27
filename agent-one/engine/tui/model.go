@@ -79,7 +79,7 @@ type Model struct {
 
 	// prints is the FIFO of finished blocks; one goroutine hands them to the program in order
 	// (a tea.Println per Update would race the next Update's).
-	prints   chan printItem
+	prints chan printItem
 	// blocks is every finished block as a render at a width: a width change clears the terminal
 	// and prints them again at the new one, as the terminal's own rewrap cannot be trusted.
 	blocks    []func(w int) string
@@ -89,8 +89,8 @@ type Model struct {
 	welcomed  bool
 
 	// the board: full screen while open; blocks that finish meanwhile wait in held
-	board *boardState
-	held  []string
+	board    *boardState
+	held     []string
 	sender   func(tea.Msg)
 	attached chan struct{}
 }

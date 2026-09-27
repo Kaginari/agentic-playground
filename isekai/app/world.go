@@ -138,7 +138,7 @@ func hookOptions(cfg *config.Config, rules []world.Rule) world.HookOptions {
 	h.Recall = world.RecallOptions{Enabled: cfg.Memory.Long.Enabled || cfg.Toolbox.Enabled, Memory: cfg.Memory.Long.Enabled, Toolbox: cfg.Toolbox.Enabled, K: cfg.Memory.Recall.K, Budget: cfg.Toolbox.BudgetTokens}
 	h.Record = world.RecordOptions{Enabled: cfg.Memory.Shared.World.Enabled, Unsaid: cfg.Memory.Shared.World.Enabled, Landed: false}
 	h.Gate = world.GateOptions{Enabled: cfg.Law.Gate.Enabled, RightAuthor: cfg.Law.Gate.RightAuthor, TraitsHold: cfg.Law.Gate.TraitsHold, DutiesDone: cfg.Law.Gate.DutiesDone,
-		DocTruthful: cfg.Law.Gate.DocTruthful || cfg.Law.Vitality.Enabled, Log: cfg.Law.Log.Enabled}
+		DocTruthful: cfg.Law.Gate.DocTruthful || cfg.Law.Vitality.Enabled, Log: cfg.Law.Log.Enabled, Retries: cfg.Law.Gate.Retries}
 	for _, ck := range cfg.Checks("", "") {
 		h.Gate.Checks = append(h.Gate.Checks, world.Check{Name: ck.ID, Command: ck.Command, Timeout: ck.Timeout, Scope: ck.Scope})
 	}

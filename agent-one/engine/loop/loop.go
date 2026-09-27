@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -128,6 +129,9 @@ type Hooks struct {
 	// EndGate runs when the model finishes a turn that wrote files: the Domain owner's gate. It returns
 	// the verdict word for the report and holes; an error fails the turn.
 	EndGate func(ctx context.Context, s *Session, r *Result) (verdict string, holes []string, err error)
+	// GateRetries is how many times a failed end gate goes back to the model within the same
+	// turn, its reasons as the message, before the turn fails (law.gate.retries).
+	GateRetries int
 	// Drain is the compaction seam: called when the context reading crosses the stress line,
 	// before the engine checkpoints. Returning true means the context was drained and the run
 	// may continue; false (or nil hook) means checkpoint.
@@ -213,23 +217,24 @@ type Engine struct {
 
 // Session is a running conversation on an Engine: the messages, the readings, the journal.
 type Session struct {
-	Engine   *Engine
-	RunID    string
-	Journal  *Journal
-	Messages []provider.Message
-	Started  time.Time
-	Turns    int
-	Steps    int
-	Spend    provider.Usage
-	Last     provider.Usage
-	Context  instrument.Context // the session's own goroutine reads it directly; others use Reading
-	ctxMu    sync.RWMutex       // guards Context against readers on other goroutines (status line, board)
-	Wrote    []string           // the writes the gate has yet to see; cleared once a turn's gate ran
-	Ask      string             // the first ask of the session (the commission)
-	failures int
-	base     snapshot // the workspace tree as last stamped (snapshot.go)
-	nowatch  bool     // the tree could not be stamped: shell writes go unseen, the hole named
-	gated    bool     // the last turn's writes passed the end gate
+	Engine    *Engine
+	RunID     string
+	Journal   *Journal
+	Messages  []provider.Message
+	Started   time.Time
+	Turns     int
+	Steps     int
+	Spend     provider.Usage
+	Last      provider.Usage
+	Context   instrument.Context // the session's own goroutine reads it directly; others use Reading
+	ctxMu     sync.RWMutex       // guards Context against readers on other goroutines (status line, board)
+	Wrote     []string           // the writes the gate has yet to see; cleared once a turn's gate ran
+	Ask       string             // the first ask of the session (the commission)
+	failures  int
+	base      snapshot // the workspace tree as last stamped (snapshot.go)
+	nowatch   bool     // the tree could not be stamped: shell writes go unseen, the hole named
+	gated     bool     // the last turn's writes passed the end gate
+	gateTries int      // failed gates sent back to the model this turn
 }
 
 // Result is one turn's outcome.
@@ -454,6 +459,7 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 	r := &Result{RunID: s.RunID, Journal: journalRel(s), Holes: []string{}, Steps: []*StepRecord{}}
 	s.watch(r) // the turn's baseline: every write from here on is seen, whatever tool makes it
 	stepsThisTurn := 0
+	s.gateTries = 0
 	end := func(status string, why string) (*Result, error) {
 		r.Status = status
 		if why != "" {
@@ -533,7 +539,11 @@ func (s *Session) drive(ctx context.Context) (*Result, error) {
 				s.Messages = append(s.Messages, provider.Message{Role: provider.User, Text: "continue"})
 				continue
 			}
-			return s.finish(ctx, r, resp, end)
+			res, err := s.finish(ctx, r, resp, end)
+			if err == errGateRetry {
+				continue // the gate's reasons are the model's next message
+			}
+			return res, err
 		}
 		// each tool call is a step
 		var results []provider.ToolResult
@@ -748,6 +758,9 @@ func (s *Session) step(ctx context.Context, g *gate.Gate, call provider.ToolCall
 	return st, provider.ToolResult{ID: call.ID, Content: out}, "", ""
 }
 
+// errGateRetry tells drive that finish sent a failed gate back to the model.
+var errGateRetry = errors.New("gate retry")
+
 func (s *Session) finish(ctx context.Context, r *Result, resp provider.Response, end func(string, string) (*Result, error)) (*Result, error) {
 	e := s.Engine
 	r.Text = resp.Message.Text
@@ -773,6 +786,7 @@ func (s *Session) finish(ctx context.Context, r *Result, resp provider.Response,
 		}
 	}
 	if e.Hooks.EndGate != nil && len(s.Wrote) > 0 {
+		before := len(r.Holes)
 		verdict, holes, err := e.Hooks.EndGate(ctx, s, r)
 		r.Verdict = verdict
 		r.Wrote = append([]string(nil), s.Wrote...) // what the gate saw (the hook may have narrowed it)
@@ -781,6 +795,16 @@ func (s *Session) finish(ctx context.Context, r *Result, resp provider.Response,
 			r.hole(h)
 		}
 		s.Journal.Log(Event{"t": "gate", "id": "turn", "kind": "end", "verdict": verdict, "wrote": s.Wrote, "holes": holes, "error": errString(err)})
+		if err != nil && s.gateTries < e.Hooks.GateRetries {
+			// the gate's reasons go back to the model once more: it fixes what they name, and
+			// the whole turn's writes are gated again
+			s.gateTries++
+			r.Holes = append(r.Holes[:before], fmt.Sprintf("gate failed and was sent back (%d of %d): %s", s.gateTries, e.Hooks.GateRetries, verdict))
+			s.Journal.Log(Event{"t": "gate", "id": "turn", "kind": "retry", "try": s.gateTries, "verdict": verdict})
+			s.Messages = append(s.Messages, provider.Message{Role: provider.User, Text: fmt.Sprintf(
+				"The gate failed this turn's writes (%d of %d sent back):\n%s\nFix what it names in the same turn — the writes stand as they are — then answer again.", s.gateTries, e.Hooks.GateRetries, verdict)})
+			return nil, errGateRetry
+		}
 		if err != nil {
 			return end(Fail, "end-of-turn gate: "+err.Error())
 		}

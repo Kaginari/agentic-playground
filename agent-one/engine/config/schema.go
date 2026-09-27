@@ -277,6 +277,7 @@ type Gate struct {
 	InvariantsHold bool `json:"invariantsHold"`
 	DutiesDone     bool `json:"dutiesDone"`
 	DocTruthful    bool `json:"docTruthful"`
+	Retries        int  `json:"retries"` // a failed gate goes back to the model this many times per turn
 }
 
 type Wire struct {

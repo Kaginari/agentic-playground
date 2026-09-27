@@ -309,7 +309,9 @@ func (m *Model) slash(line string) tea.Cmd {
 	case "help", "?":
 		items := m.host.Commands()
 		sort.SliceStable(items, func(i, j int) bool { return items[i].Name < items[j].Name })
-		return m.print(func(w int) string { return m.theme.Menu(items, -1, w) + "\n" + m.theme.Shortcuts(DefaultShortcuts(), w) })
+		return m.print(func(w int) string {
+			return m.theme.Menu(items, -1, w) + "\n" + m.theme.Shortcuts(DefaultShortcuts(), w)
+		})
 	case "quit", "exit", "q":
 		m.quit = true
 		return tea.Quit

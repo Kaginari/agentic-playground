@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Kaginari/agentic-playground/isekai/tui"
 	tea "charm.land/bubbletea/v2"
+	"github.com/Kaginari/agentic-playground/isekai/tui"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/teatest/v2"
 )

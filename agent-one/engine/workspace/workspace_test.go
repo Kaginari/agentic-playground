@@ -228,6 +228,7 @@ func noTTY() *gate.Gate {
 func build(m *mock.Provider) Build {
 	h := DefaultHooks()
 	h.Recall = RecallOptions{}
+	h.Gate.Retries = 0 // a failing case fails at once; the retry has its own test
 	return Build{Provider: m, Gate: noTTY(), Hooks: h, Ownership: OwnershipOptions{Enabled: true}, Subagent: SubagentOptions{Enabled: true, Unsaid: true}, Journal: "-"}
 }
 
@@ -323,7 +324,24 @@ func TestGateVerdicts(t *testing.T) {
 	if r, _ = e.Run(context.Background(), "x"); r.Status != loop.Fail || !strings.Contains(r.Verdict, "Invariants hold: zone-auth verify `test ! -f src/auth/BROKEN` exit 1") {
 		t.Fatalf("invariants: %s %q", r.Status, r.Verdict)
 	}
+	// invariants: an agent cannot pass its own gate by rewriting its check — the pre-turn line runs
+	m = mock.New(writeCall("1", "src/auth/t2.go", "t"), writeCall("2", doc, "# zone-auth\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n- **Verify:** `true`\n"), mock.Text("@S DONE\n@U team c\n@E 0"))
+	e = w.Engine("zone-auth", build(m))
+	if r, _ = e.Run(context.Background(), "x"); r.Status != loop.Fail || !strings.Contains(r.Verdict, "zone-auth verify `test ! -f src/auth/BROKEN` exit 1") ||
+		!strings.Contains(strings.Join(r.Holes, "|"), "was removed or changed this turn") {
+		t.Fatalf("a rewritten verify line escaped the gate: %s %q %v", r.Status, r.Verdict, r.Holes)
+	}
 	os.Remove(filepath.Join(dir, "src/auth/BROKEN"))
+	// a failed gate goes back to the model once: it fixes what the gate names, the turn passes
+	m = mock.New(writeCall("1", "src/auth/r.go", "package auth"), mock.Text("@S DONE\n@U team c\n@E 0"),
+		writeCall("2", doc, "# zone-auth\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n- r.go added\n"), mock.Text("@S DONE doc updated\n@U team c\n@E 0"))
+	b0 := build(m)
+	b0.Hooks.Gate.Retries = 1
+	e = w.Engine("zone-auth", b0)
+	r, _ = e.Run(context.Background(), "x")
+	if r.Status != loop.Done || !strings.HasPrefix(r.Verdict, "pass") || !strings.Contains(strings.Join(r.Holes, "|"), "gate failed and was sent back (1 of 1)") {
+		t.Fatalf("gate retry: %s %q %v", r.Status, r.Verdict, r.Holes)
+	}
 	// an injected check fails the turn
 	b = build(mock.New(writeCall("1", "src/auth/u.go", "u"), writeCall("2", doc, "# zone-auth\n- **Owns:** `src/auth/`\n- **Reports to:** domain-security\n"), mock.Text("@S DONE\n@U team c\n@E 0")))
 	b.Hooks.Gate.Checks = []Check{{Name: "gofmt", Command: "echo 'u.go not formatted'; exit 3"}}

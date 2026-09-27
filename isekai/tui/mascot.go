@@ -11,8 +11,8 @@ import (
 // the world is reincarnated as; agent-one its own agent. Each is 16 pixels wide, 8 high: 4 rows.
 
 type sprite struct {
-	pixels  []string          // one string per pixel row; '.' is empty
-	palette map[byte]string   // pixel → hex colour
+	pixels  []string        // one string per pixel row; '.' is empty
+	palette map[byte]string // pixel → hex colour
 	tagline string
 }
 

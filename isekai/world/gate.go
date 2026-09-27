@@ -32,6 +32,7 @@ type GateOptions struct {
 	DocTruthful bool
 	Checks      []Check
 	Log         bool          // append the verdict to log.md
+	Retries     int           // a failed gate goes back to the model this many times per turn
 	Timeout     time.Duration // per verify command; 0 = 120s
 }
 
@@ -57,6 +58,9 @@ func (w *World) Gate(ctx context.Context, opt GateOptions, as string, wrote []st
 	if !opt.Enabled {
 		return Verdict{Word: "off", Holes: []string{"law.gate is off — the turn's writes were not checked"}}
 	}
+	// the verify lines as they stood before the turn: a body edits its own doc in the same turn
+	// (Vitality), so the post-turn lines alone would let it rewrite the check it is judged by
+	before := w.verifyLines()
 	_ = w.Reload() // docs may have changed this turn; the roster is read fresh
 	fail := func(why string) { v.Reasons = append(v.Reasons, why) }
 	orcs := w.GateHolders()
@@ -99,7 +103,19 @@ func (w *World) Gate(ctx context.Context, opt GateOptions, as string, wrote []st
 		}
 		sort.Strings(names)
 		for _, n := range names {
-			for _, cmd := range touched[n].Verify {
+			now := touched[n].Verify
+			cmds := append([]string(nil), before[n]...)
+			for _, c := range before[n] {
+				if !contains(now, c) {
+					v.Holes = append(v.Holes, fmt.Sprintf("%s: %s's verify `%s` was removed or changed this turn — the pre-turn line still ran; the gate holder confirms the change", w.Lex.Checks[1], n, c))
+				}
+			}
+			for _, c := range now {
+				if !contains(cmds, c) {
+					cmds = append(cmds, c)
+				}
+			}
+			for _, cmd := range cmds {
 				if code, tail := w.run(ctx, cmd, opt.Timeout); code != 0 {
 					fail(fmt.Sprintf("%s: %s verify `%s` exit %d%s", w.Lex.Checks[1], n, cmd, code, tail))
 				}
@@ -252,4 +268,15 @@ func firstLine(s string) string {
 		s = s[:120] + "…"
 	}
 	return s
+}
+
+// verifyLines is each creature's verify commands as the roster holds them now.
+func (w *World) verifyLines() map[string][]string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	out := map[string][]string{}
+	for _, c := range w.Creatures {
+		out[c.Name] = append([]string(nil), c.Verify...)
+	}
+	return out
 }

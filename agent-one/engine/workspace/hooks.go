@@ -43,7 +43,7 @@ func DefaultHooks() HookOptions {
 	return HookOptions{
 		Recall: RecallOptions{Enabled: true, Memory: true, Toolbox: true},
 		Record: RecordOptions{Enabled: true, Unsaid: true},
-		Gate:   GateOptions{Enabled: true, RightAuthor: true, InvariantsHold: true, DutiesDone: true, DocTruthful: true, Log: true},
+		Gate:   GateOptions{Enabled: true, RightAuthor: true, InvariantsHold: true, DutiesDone: true, DocTruthful: true, Log: true, Retries: 1},
 		Prompt: DefaultPrompt(),
 	}
 }
@@ -55,6 +55,9 @@ func (w *Workspace) Hooks(opt HookOptions) loop.Hooks {
 		System:   w.System(opt.Prompt),
 		Perceive: func(s *loop.Session) *instrument.Context { w.track(s); return nil },
 		EndGate:  w.EndGate(opt.Gate),
+	}
+	if opt.Gate.Enabled {
+		h.GateRetries = opt.Gate.Retries
 	}
 	if opt.Recall.Enabled {
 		h.Recall = func(ctx context.Context, s *loop.Session, ask string) loop.Recall {
@@ -123,6 +126,9 @@ func MergeHooks(base, over loop.Hooks) loop.Hooks {
 				return append(base.Record(ctx, s, st), over.Record(ctx, s, st)...)
 			}
 		}
+	}
+	if over.GateRetries > out.GateRetries {
+		out.GateRetries = over.GateRetries
 	}
 	if over.EndGate != nil {
 		if base.EndGate == nil {

@@ -32,9 +32,9 @@ type AgentRow struct {
 
 // GraphView is the reasoned ontology's members and the one-hop bonds between them.
 type GraphView struct {
-	Nodes    []GraphNode
-	Note     string // why the graph is empty or partial
-	Summary  string // "6 members · 118 triples · 2 findings"
+	Nodes   []GraphNode
+	Note    string // why the graph is empty or partial
+	Summary string // "6 members · 118 triples · 2 findings"
 }
 
 // GraphNode is one member, its bonds up, and what the ontology knows about it.
