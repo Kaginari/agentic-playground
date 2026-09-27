@@ -11,30 +11,17 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// The cast: every body on screen has a face and a voice. A rank's icon is a two-frame half-block
+// The cast: every agent on screen has a face and a voice. A rank's icon is a two-frame half-block
 // sprite (6 pixels wide, 4 high: two rows) drawn beside the spinner; its verbs are the rank's own —
-// the orc at the gate weighs a verdict, the slime gathers ground truth. The model's thinking shows
-// as it arrives and folds into a block when the answer starts. Every body's steps, text and
-// thinking are kept, so the body view (ctrl+t) can watch the session and each Court.
+// the domain at the gate weighs a verdict, the zone gathers ground truth. The model's thinking shows
+// as it arrives and folds into a block when the answer starts. Every agent's steps, text and
+// thinking are kept, so the agent view (ctrl+t) can watch the session and each Subagent.
 
 // --- icons ---
 
 type icon struct {
 	frames  [2][]string
 	palette map[byte]string
-}
-
-var isekaiIcons = map[string]icon{
-	"slime": {frames: [2][]string{{"..BB..", ".BBBB.", "BEBBEB", "SSSSSS"}, {"......", ".BBBB.", "BEBBEB", "SSSSSS"}},
-		palette: map[byte]string{'B': "#58b7f0", 'E': "#0d1b2a", 'S': "#2a78b8"}},
-	"orc": {frames: [2][]string{{".DDDD.", "GRGGRG", "GGGGGG", "GWGGWG"}, {".DDDD.", "GGGGGG", "GGGGGG", "GWGGWG"}},
-		palette: map[byte]string{'G': "#6fae5a", 'D': "#3f6f33", 'R': "#e06c5f", 'W': "#f2efe6"}},
-	"elf": {frames: [2][]string{{".YYYY.", "YKKKKY", "PEKKEP", ".KKKK."}, {".YYYY.", "YKKKKY", "PKKKKP", ".KKKK."}},
-		palette: map[byte]string{'Y': "#d4af37", 'K': "#f1d3b3", 'P': "#e8c29e", 'E': "#1a1033"}},
-	"kijin": {frames: [2][]string{{"H....H", "RRRRRR", "RERRER", ".RRRR."}, {"H....H", "RRRRRR", "RRRRRR", ".RRRR."}},
-		palette: map[byte]string{'R': "#c53d34", 'H': "#f2efe6", 'E': "#0d1b2a"}},
-	"dark-elf": {frames: [2][]string{{".WWWW.", "WVVVVW", "PEVVEP", ".VVVV."}, {".WWWW.", "WVVVVW", "PVVVVP", ".VVVV."}},
-		palette: map[byte]string{'W': "#e8e4ff", 'V': "#7c5cd6", 'P': "#9a86e8", 'E': "#f2efe6"}},
 }
 
 // robot is agent-one's face for every rank, tinted by the rank's colour.
@@ -53,32 +40,10 @@ func (t Theme) Icon(dist, rank string, frame int) []string {
 		}
 		return halfBlocks(robot[f], map[byte]string{'A': "#d4af37", 'F': col, 'E': "#1a1033"})
 	}
-	key := rank
-	switch rank {
-	case "rimuru", "":
-		key = "slime"
-	case "high-orc":
-		key = "orc"
-	case "high-elf":
-		key = "elf"
-	}
-	ic, ok := isekaiIcons[key]
-	if !ok {
-		ic = isekaiIcons["slime"]
-	}
-	return halfBlocks(ic.frames[f], ic.palette)
+	return halfBlocks(robot[f], map[byte]string{'A': "#d4af37", 'F': "#eaf2ff", 'E': "#1a1033"})
 }
 
 // --- verbs ---
-
-var isekaiVerbs = map[string][]string{
-	"rimuru":   {"Pondering", "Consulting the Great Sage", "Absorbing the context", "Predating the problem", "Reincarnating the plan", "Slime-thinking"},
-	"slime":    {"Gathering ground truth", "Oozing through the zone", "Reading the territory", "Tasting the facts"},
-	"orc":      {"Weighing the verdict", "Guarding the gate", "Grunting at the diff", "Judging the landing", "Sharpening the tusks"},
-	"elf":      {"Weaving the shared mind", "Routing to the orcs", "Braiding the lanes", "Singing the voice"},
-	"kijin":    {"Tending the domain", "Forging", "Keeping the watch"},
-	"dark-elf": {"Auditing the chronicle", "Reading between the verdicts"},
-}
 
 var agentOneVerbs = map[string][]string{
 	"orchestrator": {"Planning", "Orchestrating", "Routing the work", "Thinking it through"},
@@ -89,12 +54,12 @@ var agentOneVerbs = map[string][]string{
 	"auditor":      {"Auditing", "Reading the log"},
 }
 
-// gateRank is the rank whose face the end-of-turn gate wears.
+// gateRank is the rank whose face the end-of-turn gate holds.
 func gateRank(dist string) string {
 	if dist == "agent-one" {
 		return "domain"
 	}
-	return "orc"
+	return "domain"
 }
 
 // Verb is a rank's word for a state: the rank's own for thinking and the gate, the plain one for
@@ -113,17 +78,10 @@ func Verb(dist, rank, state, tool string, seed int) string {
 	case "gating":
 		rank = gateRank(dist)
 	}
-	table := isekaiVerbs
-	if dist == "agent-one" {
-		table = agentOneVerbs
-	}
+	table := agentOneVerbs
 	vs := table[rank]
 	if len(vs) == 0 {
-		if dist == "agent-one" {
-			vs = table["orchestrator"]
-		} else {
-			vs = table["rimuru"]
-		}
+		vs = table["orchestrator"]
 	}
 	h := fnv.New32a()
 	fmt.Fprintf(h, "%s|%s|%d", rank, state, seed)
@@ -165,18 +123,18 @@ func (t Theme) liveThinking(text string, width, lines int) string {
 	return t.dim.Italic(true).Render("∴ thinking") + "\n" + strings.Join(ls, "\n")
 }
 
-// --- every body's log ---
+// --- every agent's log ---
 
-// EvStream is a body's streamed text or thinking (the session's text also arrives as EvDelta).
+// EvStream is a agent's streamed text or thinking (the session's text also arrives as EvDelta).
 type EvStream struct {
-	Body, Kind, Text string
+	Agent, Kind, Text string
 }
 
-// EvBodyStep is a Court's tool step, for its log.
+// EvBodyStep is a Subagent's tool step, for its log.
 type EvBodyStep struct {
-	Body string
-	Tool ToolView
-	End  bool
+	Agent string
+	Tool  ToolView
+	End   bool
 }
 
 type logEntry struct {
@@ -191,20 +149,20 @@ type bodyLog struct {
 	entries     []logEntry
 }
 
-func (m *Model) logOf(body string) *bodyLog {
+func (m *Model) logOf(agent string) *bodyLog {
 	if m.logs == nil {
 		m.logs = map[string]*bodyLog{}
 	}
-	l := m.logs[body]
+	l := m.logs[agent]
 	if l == nil {
 		l = &bodyLog{started: time.Now()}
-		m.logs[body] = l
-		m.logOrder = append(m.logOrder, body)
+		m.logs[agent] = l
+		m.logOrder = append(m.logOrder, agent)
 	}
 	return l
 }
 
-// appendStream adds streamed text to a body's log, joining a run of the same kind.
+// appendStream adds streamed text to a agent's log, joining a run of the same kind.
 func (l *bodyLog) appendStream(kind, text string) {
 	if n := len(l.entries); n > 0 && l.entries[n-1].kind == kind {
 		l.entries[n-1].text += text
@@ -223,15 +181,15 @@ func (l *bodyLog) step(t ToolView, end bool) {
 	l.entries = append(l.entries, logEntry{kind: "tool", tool: t})
 }
 
-// --- the body view (ctrl+t) ---
+// --- the agent view (ctrl+t) ---
 
 type bodyView struct {
 	sel    int
 	scroll int // lines up from the bottom; 0 follows the tail
 }
 
-// bodies are the session and every Court seen, in order.
-func (m *Model) bodies() []string {
+// agents are the session and every Subagent seen, in order.
+func (m *Model) agents() []string {
 	out := []string{m.words.Session()}
 	for _, b := range m.logOrder {
 		if b != m.words.Session() {
@@ -243,10 +201,10 @@ func (m *Model) bodies() []string {
 
 func (m *Model) openBodies() tea.Cmd {
 	m.bview = &bodyView{}
-	bs := m.bodies()
-	// open on the first live Court, if one runs
+	bs := m.agents()
+	// open on the first live Subagent, if one runs
 	for i, b := range bs {
-		if c := m.courts[b]; c != nil && c.State != "done" {
+		if c := m.subagents[b]; c != nil && c.State != "done" {
 			m.bview.sel = i
 			break
 		}
@@ -255,7 +213,7 @@ func (m *Model) openBodies() tea.Cmd {
 }
 
 func (m *Model) bodiesKey(k tea.KeyPressMsg) tea.Cmd {
-	v, n := m.bview, len(m.bodies())
+	v, n := m.bview, len(m.agents())
 	switch k.String() {
 	case "esc", "ctrl+t", "q", "ctrl+c":
 		m.bview = nil
@@ -287,17 +245,17 @@ func (m *Model) bodiesKey(k tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// bodiesView draws the whole screen: a tab per body, the selected body's log, the keys.
+// bodiesView draws the whole screen: a tab per agent, the selected agent's log, the keys.
 func (m *Model) bodiesView() string {
 	t, w, h, v := m.theme, m.width, max(m.height, 8), m.bview
-	bs := m.bodies()
+	bs := m.agents()
 	if v.sel >= len(bs) {
 		v.sel = len(bs) - 1
 	}
 	var tabs []string
 	for i, b := range bs {
 		dot := t.dim.Render("·")
-		if c := m.courts[b]; c != nil && c.State != "done" {
+		if c := m.subagents[b]; c != nil && c.State != "done" {
 			dot = t.accent.Render("●")
 		} else if i == 0 && m.busy {
 			dot = t.accent.Render("●")
@@ -310,26 +268,26 @@ func (m *Model) bodiesView() string {
 		}
 		tabs = append(tabs, dot+label)
 	}
-	head := padBetween(Title(m.words.Dist)+t.tag.Render(" bodies")+"  "+strings.Join(tabs, t.border.Render("│")), t.dim.Render("live "), w)
+	head := padBetween(Title(m.words.Dist)+t.tag.Render(" agents")+"  "+strings.Join(tabs, t.border.Render("│")), t.dim.Render("live "), w)
 	sel := bs[v.sel]
 	rank, state := m.rankOf(sel)
 	ic := t.Icon(m.words.Dist, rank, m.shimmer/4)
 	who := t.rankStyle(rank).Bold(true).Render(sel) + t.dim.Render("  "+rank+" · "+orStr(state, "idle"))
 	card := []string{ic[0] + "  " + who, ic[1] + "  " + t.dim.Render(m.askOf(sel))}
-	var body []string
+	var agent []string
 	if v.sel == 0 {
-		body = m.sessionLines(w)
+		agent = m.sessionLines(w)
 	} else {
-		body = m.logLines(sel, w)
+		agent = m.logLines(sel, w)
 	}
 	room := h - 6
-	end := len(body) - v.scroll
+	end := len(agent) - v.scroll
 	if end < room {
-		end = min(room, len(body))
-		v.scroll = len(body) - end
+		end = min(room, len(agent))
+		v.scroll = len(agent) - end
 	}
 	start := max(0, end-room)
-	view := append([]string(nil), body[start:end]...)
+	view := append([]string(nil), agent[start:end]...)
 	for len(view) < room {
 		view = append(view, "")
 	}
@@ -337,7 +295,7 @@ func (m *Model) bodiesView() string {
 		view[i] = ansi.Truncate(view[i], w, "…")
 	}
 	rule := t.border.Render(strings.Repeat("─", w))
-	keys := " tab next body · ↑↓ scroll · end follow · esc back"
+	keys := " tab next agent · ↑↓ scroll · end follow · esc back"
 	more := ""
 	if v.scroll > 0 {
 		more = fmt.Sprintf("%d lines below ", v.scroll)
@@ -345,28 +303,28 @@ func (m *Model) bodiesView() string {
 	return strings.Join(append(append([]string{head, rule, card[0], card[1], rule}, view...), padBetween(t.dim.Render(keys), t.dim.Render(more), w)), "\n")
 }
 
-func (m *Model) rankOf(body string) (rank, state string) {
-	if body == m.words.Session() {
+func (m *Model) rankOf(agent string) (rank, state string) {
+	if agent == m.words.Session() {
 		st := "idle"
 		if m.busy {
 			st = strings.ToLower(strings.TrimSuffix(m.verb, "…"))
 		}
 		return m.words.Session(), st
 	}
-	if c := m.courts[body]; c != nil {
+	if c := m.subagents[agent]; c != nil {
 		return c.Rank, c.State
 	}
-	if l := m.logs[body]; l != nil {
+	if l := m.logs[agent]; l != nil {
 		return l.rank, orStr(l.state, "done")
 	}
 	return "", ""
 }
 
-func (m *Model) askOf(body string) string {
-	if c := m.courts[body]; c != nil && c.Ask != "" {
+func (m *Model) askOf(agent string) string {
+	if c := m.subagents[agent]; c != nil && c.Ask != "" {
 		return oneLine(c.Ask)
 	}
-	if body == m.words.Session() {
+	if agent == m.words.Session() {
 		return "the session"
 	}
 	return ""
@@ -391,9 +349,9 @@ func (m *Model) sessionLines(w int) []string {
 	return out
 }
 
-// logLines is a Court's log: thinking dim, text as markdown, tool steps as cards.
-func (m *Model) logLines(body string, w int) []string {
-	l := m.logs[body]
+// logLines is a Subagent's log: thinking dim, text as markdown, tool steps as cards.
+func (m *Model) logLines(agent string, w int) []string {
+	l := m.logs[agent]
 	if l == nil || len(l.entries) == 0 {
 		return []string{"", m.theme.dim.Render("  nothing yet — its steps, text and thinking appear here as they happen")}
 	}
@@ -424,7 +382,7 @@ func orStr(s, def string) string {
 	return s
 }
 
-// statusLines is the spinner as the cast draws it: the body's icon beside the verb, its name and
+// statusLines is the spinner as the cast draws it: the agent's icon beside the verb, its name and
 // state under it.
 func (m *Model) statusLines(spinLine string) string {
 	rank := m.words.Session()
@@ -437,9 +395,9 @@ func (m *Model) statusLines(spinLine string) string {
 		sub = rank + " · the " + m.words.Gate + " weighs the turn's writes"
 	}
 	if n := m.liveCourts(); n > 0 {
-		word := m.words.Courts
+		word := m.words.Subagents
 		if n == 1 {
-			word = m.words.Court
+			word = m.words.Subagent
 		}
 		sub += fmt.Sprintf(" · %d %s running — ctrl+t to watch", n, word)
 	}
@@ -448,7 +406,7 @@ func (m *Model) statusLines(spinLine string) string {
 
 func (m *Model) liveCourts() int {
 	n := 0
-	for _, c := range m.courts {
+	for _, c := range m.subagents {
 		if c.State != "done" {
 			n++
 		}

@@ -1199,3 +1199,12 @@ Append-only. Newest entries at the bottom. One entry per change.
   TestGuardPatternsFromConfig; suites green.
 - **Learned:** merging a list appended onto the base node, so a list filled by a file kept the empty
   default's origin — `config explain` would have named "default" for a user's own patterns.
+
+### [2026-09-27T13:21:49+02:00] rimuru — agent-one takes the cast, and config in one file per section
+- **Files:** agent-one/engine/{provider,loop,workspace/hooks.go,config,guard,app,tui/{cast.go,…}}.
+- **Gate:** n/a (no orcs). Instruments: vet + full suite green, the leak test included; the domain
+  owner at the gate, the robot faces and the agent view rendered and looked at.
+- **Learned:**
+  - The word map renamed the HTTP `res.Body` to `res.Agent` — the merge conflicted and caught it;
+    the map now never renames an HTTP body (the fork's old lesson, third time).
+  - A rank with no colour of its own drew a black robot: an unset colour is not black.

@@ -86,6 +86,8 @@ type App struct {
 	Inbox func(s *loop.Session) []string
 	// OnStep sees every tool step start and end (loop.Hooks.Observe); nil is quiet.
 	OnStep func(s *loop.Session, st *loop.StepRecord, phase string)
+	// OnStream sees every agent's streamed text and thinking (loop.Hooks.Stream); nil is quiet.
+	OnStream func(agent, kind, text string)
 	// Notify carries one-line notices for the operator (a config reload); nil prints on Err.
 	Notify func(text string)
 
@@ -303,9 +305,14 @@ func (a *App) Build() workspace.Build {
 	}
 	env := func() tool.Env { return tool.Env{Root: a.Root, WorkspaceDir: cfg.Dist.WorkspaceDir} }
 	mine := loop.Hooks{
-		Decide:   decideHook(a.liveConfig, env),
-		Missing:  a.Missing.Hook(),
-		Guard:    a.guardHook(),
+		Decide:  decideHook(a.liveConfig, env),
+		Missing: a.Missing.Hook(),
+		Guard:   a.guardHook(),
+		Stream: func(s *loop.Session, kind, text string) {
+			if a.OnStream != nil {
+				a.OnStream(agentName(s), kind, text)
+			}
+		},
 		PreTool:  a.Hooks.PreTool,
 		PostTool: a.Hooks.PostTool,
 		Budget:   budgetHook,

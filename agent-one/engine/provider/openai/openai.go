@@ -80,6 +80,10 @@ type message struct {
 	Content    string     `json:"content"`
 	ToolCalls  []toolCall `json:"tool_calls,omitempty"`
 	ToolCallID string     `json:"tool_call_id,omitempty"`
+	// Reasoning is OpenRouter's reasoning text, ReasoningContent the DeepSeek/vLLM name for it;
+	// read for display, never sent back.
+	Reasoning        string `json:"reasoning,omitempty"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
 }
 
 type toolDef struct {
@@ -266,7 +270,7 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 	defer res.Body.Close()
 	var resp provider.Response
 	if stream && res.StatusCode == 200 && strings.HasPrefix(res.Header.Get("content-type"), "text/event-stream") {
-		resp, err = c.readStream(res.Body, req.OnDelta)
+		resp, err = c.readStream(res.Body, req.OnDelta, req.OnThinking)
 		if err != nil {
 			return provider.Response{}, err
 		}
@@ -289,6 +293,11 @@ func (c *Client) Complete(ctx context.Context, req provider.Request) (provider.R
 			return provider.Response{}, fmt.Errorf("openai: no choices in the response")
 		}
 		ch := out.Choices[0]
+		if req.OnThinking != nil {
+			if t := ch.Message.Reasoning + ch.Message.ReasoningContent; t != "" {
+				req.OnThinking(t)
+			}
+		}
 		resp = provider.Response{Model: out.Model, Message: provider.Message{Role: provider.Assistant, Text: ch.Message.Content}, Usage: out.Usage.reading()}
 		for _, tc := range ch.Message.ToolCalls {
 			call := callOf(tc.ID, tc.Function.Name, tc.Function.Arguments)
@@ -414,7 +423,7 @@ func RenderWire(text string) string {
 }
 
 // readStream assembles a streamed chat completion.
-func (c *Client) readStream(r io.Reader, onDelta func(string)) (provider.Response, error) {
+func (c *Client) readStream(r io.Reader, onDelta, onThinking func(string)) (provider.Response, error) {
 	resp := provider.Response{Message: provider.Message{Role: provider.Assistant}}
 	var text strings.Builder
 	calls := map[int]*toolCall{}
@@ -456,6 +465,11 @@ func (c *Client) readStream(r io.Reader, onDelta func(string)) (provider.Respons
 			resp.Usage = ev.Usage.reading()
 		}
 		for _, ch := range ev.Choices {
+			if onThinking != nil {
+				if t := ch.Delta.Reasoning + ch.Delta.ReasoningContent; t != "" {
+					onThinking(t)
+				}
+			}
 			if ch.Delta.Content != "" {
 				text.WriteString(ch.Delta.Content)
 				if onDelta != nil && !c.text() {

@@ -110,5 +110,10 @@ func Refusal(r *Rule) string {
 		"Do not retry it or work around the guard; tell the operator what you meant to do instead."
 }
 
+// AddPatterns adds pattern lines from a named source (config): a bad one is a note, never a crash.
+func (g *Guard) AddPatterns(lines []string, source string) {
+	g.add(strings.Join(lines, "\n"), source)
+}
+
 // DefaultPatterns is the built-in list as text, for the machine-wide file.
 func DefaultPatterns() string { return defaultPatterns }

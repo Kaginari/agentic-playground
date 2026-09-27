@@ -105,9 +105,15 @@ func LoadWith(o Options) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if global, err = rd.sections(global, dist.GlobalDir, layers[0].Node); err != nil {
+		return nil, err
+	}
 	layers = append(layers, global)
 	project, err := rd.dirLayer("project", filepath.Join(root, dist.WorkspaceDir), configNames)
 	if err != nil {
+		return nil, err
+	}
+	if project, err = rd.sections(project, filepath.Join(root, dist.WorkspaceDir), layers[0].Node); err != nil {
 		return nil, err
 	}
 	local, err := rd.dirLayer("local", filepath.Join(root, dist.WorkspaceDir), localNames)
@@ -433,6 +439,12 @@ func normalize(n *yaml.Node) *yaml.Node {
 	if n == nil || n.Kind != yaml.Map {
 		return n
 	}
+	// a guard given as a list is its patterns (guards.yaml may be just the list)
+	if g := n.Get("guard"); g != nil && g.Kind == yaml.List {
+		m := yaml.MapNode(g.File, g.Line)
+		m.Set("patterns", g)
+		n.Set("guard", m)
+	}
 	if m := n.Get("model"); m != nil {
 		models := n.Get("models")
 		if models == nil || models.Kind != yaml.Map {
@@ -552,6 +564,9 @@ func merge(base, over *yaml.Node) *yaml.Node {
 		}
 		return out
 	case base.Kind == yaml.List && over.Kind == yaml.List:
+		if len(base.Items) == 0 {
+			return clone(over) // an empty list takes the origin of the file that filled it
+		}
 		out := clone(base)
 		for _, it := range over.Items {
 			if it.Scalar() && containsScalar(out.Items, it) {
@@ -719,4 +734,62 @@ func sortedKeys[T any](m map[string]T) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// sectionAliases are the file names a section also answers to (guards.yaml is the guard section).
+var sectionAliases = map[string]string{"guards": "guard"}
+
+// sections folds the section files beside a layer's config file into it: <section>.yaml (or .yml,
+// .json) holds one top-level section's value — guards.yaml, rules.yaml, models.yaml, providers.yaml…
+// A section file comes after config.yaml in the same layer, so it wins there; its values keep their
+// own file for `config explain`. The sections are the defaults' top-level keys; an unknown name is
+// not a section and is left alone.
+func (r *reader) sections(l Layer, dir string, defaults *yaml.Node) (Layer, error) {
+	known := map[string]bool{}
+	if defaults != nil {
+		for _, k := range defaults.Keys {
+			known[k] = true
+		}
+	}
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return l, nil
+	}
+	var names []string
+	for _, e := range ents {
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+	seen := map[string]string{}
+	for _, n := range names {
+		ext := strings.ToLower(filepath.Ext(n))
+		if ext != ".yaml" && ext != ".yml" && ext != ".json" {
+			continue
+		}
+		section := strings.TrimSuffix(n, filepath.Ext(n))
+		if a, ok := sectionAliases[section]; ok {
+			section = a
+		}
+		if !known[section] {
+			continue
+		}
+		p := filepath.Join(dir, n)
+		if prev, ok := seen[section]; ok {
+			return l, fmt.Errorf("%s: one file per section — %s and %s both hold %q", dir, prev, n, section)
+		}
+		seen[section] = n
+		node, err := r.file(p)
+		if err != nil {
+			return l, err
+		}
+		wrap := yaml.MapNode(p, 0)
+		wrap.Set(section, node)
+		wrap = normalize(wrap)
+		if l.Present {
+			l.Node = merge(l.Node, wrap)
+		} else {
+			l.Node, l.Present, l.Path = wrap, true, p
+		}
+	}
+	return l, nil
 }

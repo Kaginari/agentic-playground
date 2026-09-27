@@ -59,6 +59,33 @@ func TestShots(t *testing.T) {
 	}
 	shot("busy", strings.Join(busy, "\n\n"))
 	m.busy = false
+	// the cast: thinking as it arrives, the gate at work, the agent view, every rank's face
+	m.Update(EvTurnStart{Text: "shorten the token TTL"})
+	for len(m.prints) > 0 {
+		<-m.prints
+	}
+	m.Update(EvStream{Agent: m.words.Session(), Kind: "thinking", Text: "The TTL lives in src/auth/token.go and the zone owns that zone. Its doc says one hour; the ask says fifteen minutes. I should dispatch the zone rather than write it myself."})
+	shot("thinking", m.Render())
+	m.think.Reset()
+	m.Update(EvState{Agent: m.words.Session(), State: "gating"})
+	shot("gating", m.Render())
+	m.Update(EvSubagent{Subagent: SubagentView{Name: "zone-auth", Rank: "zone", Role: "analyst", Ask: "@ASK draft\nshorten the TTL to 15 minutes", State: "tool"}})
+	m.Update(EvStream{Agent: "zone-auth", Kind: "thinking", Text: "The constant is in token.go; the doc must change in the same turn."})
+	m.Update(EvBodyStep{Agent: "zone-auth", Tool: ToolView{ID: "s1", Name: "read", Summary: "src/auth/token.go", Class: "read", Status: "done", Ms: 2, Output: "package auth\n\nconst ttl = time.Hour"}, End: true})
+	m.Update(EvBodyStep{Agent: "zone-auth", Tool: ToolView{ID: "s2", Name: "edit", Summary: "src/auth/token.go", Class: "write", Status: "running"}})
+	m.Update(EvState{Agent: m.words.Session(), State: "thinking"})
+	shot("subagent-live", m.Render())
+	m.openBodies()
+	shot("agents", m.Render())
+	m.bview = nil
+	var faces []string
+	for _, r := range []string{m.words.Session(), "zone", "domain", "coord", "service", "auditor"} {
+		ic := m.theme.Icon(m.words.Dist, r, 0)
+		faces = append(faces, ic[0]+"  "+r+"\n"+ic[1])
+	}
+	shot("faces", strings.Join(faces, "\n\n"))
+	m.busy = false
+	m.subagents = map[string]*SubagentView{}
 	m.openPalette()
 	m.palette.query = "se"
 	m.Toast("✓ zone-auth done", m.theme.pill("ok"))

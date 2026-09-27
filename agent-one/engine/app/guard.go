@@ -19,7 +19,11 @@ func (a *App) theGuard() *guard.Guard {
 	if home == "" {
 		home, _ = os.UserHomeDir()
 	}
-	return guard.ForHome(home, expandPaths(a.Cfg.Guard.Files, a.Root, home)...)
+	g := guard.ForHome(home, expandPaths(a.Cfg.Guard.Files, a.Root, home)...)
+	if len(a.Cfg.Guard.Patterns) > 0 {
+		g.AddPatterns(a.Cfg.Guard.Patterns, "config "+a.Cfg.Where("guard.patterns"))
+	}
+	return g
 }
 
 // guardHook refuses a bash command the guard matches, before the policy and the gate.

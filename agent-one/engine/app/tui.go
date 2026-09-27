@@ -128,6 +128,13 @@ func (a *App) tuiHost(ctx context.Context) (*tuiHost, error) {
 		h.send(tui.EvDelta{Text: t})
 	}
 	a.OnStep = h.observe
+	a.OnStream = func(agent, kind, text string) {
+		// the session's text arrives as EvDelta; its thinking, and every Subagent's stream, as EvStream
+		if agent == workspace.Orchestrator && kind == "text" {
+			return
+		}
+		h.send(tui.EvStream{Agent: agent, Kind: kind, Text: text})
+	}
 	prevState := a.OnState
 	a.OnState = func(agent, state string) {
 		if prevState != nil {
@@ -474,6 +481,8 @@ func (h *tuiHost) observe(s *loop.Session, st *loop.StepRecord, phase string) {
 		if phase == "start" {
 			h.send(tui.EvState{Agent: agent, State: "tool", Tool: st.Tool})
 		}
+		// the Subagent's own log, for the agent view
+		h.send(tui.EvBodyStep{Agent: agent, Tool: h.toolView(st), End: phase == "end"})
 		return
 	}
 	switch phase {

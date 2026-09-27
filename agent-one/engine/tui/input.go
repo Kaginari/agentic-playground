@@ -25,6 +25,9 @@ func (m *Model) key(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.palette != nil {
 		return m, m.paletteKey(k)
 	}
+	if k.String() == "ctrl+t" {
+		return m, m.openBodies()
+	}
 	if k.String() == "ctrl+k" {
 		m.openPalette()
 		return m, nil
@@ -393,6 +396,10 @@ func (m *Model) expandLast() tea.Cmd {
 		c := *b.subagent
 		c.Expanded = true
 		return m.print(func(w int) string { return m.theme.Subagent(c, w) })
+	case b.thought != nil:
+		th := *b.thought
+		th.expand = true
+		return m.print(func(w int) string { return m.theme.Thought(th, w) })
 	}
 	return nil
 }

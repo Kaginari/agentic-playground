@@ -96,6 +96,9 @@ type Request struct {
 	Tools      []ToolDef
 	MaxTokens  int // 0 means the provider's default
 	OnDelta    func(text string)
+	// OnThinking receives the model's reasoning as it arrives (Anthropic's thinking, OpenRouter's
+	// reasoning); nil ignores it. It is shown, never replayed from here.
+	OnThinking func(text string)
 	Wire       bool
 }
 
