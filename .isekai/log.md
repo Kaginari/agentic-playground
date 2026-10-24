@@ -1230,3 +1230,20 @@ Append-only. Newest entries at the bottom. One entry per change.
   - publish.sh's bare gofmt resolves to the system's old one, which cannot parse generics: run it
     with the project toolchain first on PATH.
   - The leak test read PNG bytes as words — compressed data spelled "oRc"; images are skipped now.
+
+---
+
+### [2026-10-24T15:00:00+02:00] rimuru — paper: a reading of DIKWP MNEMORPH-85, with its math
+- **Task:** Veldora: "check github.com/YucongDuan/DIKWP-MNEMORPH-85", then "explain in a paper.md the concept,
+  what you find good about it, with some math".
+- **Files:** docs/research/dikwp-mnemorph-85/paper.md (new). Source read statically from the v1.0.0 zip
+  (core.py, store.py), never run.
+- **Gate:** n/a (a document, no code). Instruments: none apply.
+- **Result:** done on branch worktree-mnemorph85-paper.
+- **Learned:**
+  - "Mnemorph" was taken on GitHub before Kaginari/mnemorph (2026-10-23): YucongDuan/DIKWP-MNEMORPH(-85)
+    2026-08-20, builtin-pb/Mnemorph-Core 2026-09-26, kai9987kai/Mnemorph 2026-10-07 — two are LLM-memory runtimes.
+  - The repo's code is thin (Ochiai token overlap, concatenation as synthesis); its rules are strong: model output
+    never writes memory, recall reserves a seat for dissent, corrections get a 0.154 score prior, replay loops are
+    hash-detected, consolidation never absorbs dissent, the audit chain logs digests so private deletes keep it whole.
+  - Open (@?): whether Mnemorph keeps its name before any release.
