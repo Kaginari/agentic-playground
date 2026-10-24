@@ -56,21 +56,21 @@ actions and outcomes with a clean lineage.
 
 Fix one carrier $c$. At time $t$ its memory is
 
-$$
+```math
 \mathcal{M}_t = (\mathcal{A}_t,\ \mathcal{T}_t,\ \mathcal{R}_t,\ \mathcal{X}_t,\ \mathcal{O}_t,\ \Sigma_t)
-$$
+```
 
 - $\mathcal{A}_t$, the archive: records $r = (\text{content},\ h = \mathrm{SHA256}(\text{content}),\ t_r,\ \text{scope})$.
 - $\mathcal{T}_t$, traces. Each trace is
   $\tau = (\text{text},\ \text{tags},\ \pi,\ s,\ \kappa,\ t_\tau,\ \text{status},\ r)$ with
-  - polarity $\pi \in \{\text{support},\ \text{counter},\ \text{revise},\ \text{neutral}\}$,
+  - polarity $\pi \in \lbrace \text{support},\ \text{counter},\ \text{revise},\ \text{neutral}\rbrace $,
   - salience $s \in [0,1]$ and confidence $\kappa \in [0,1]$,
-  - status $\in \{\text{active},\ \text{dormant},\ \text{tombstoned}\}$.
+  - status $\in \lbrace \text{active},\ \text{dormant},\ \text{tombstoned}\rbrace $.
 - $\mathcal{R}_t$, past reconstructions; $\mathcal{X}_t$, actions; $\mathcal{O}_t$, observed outcomes.
 - $\Sigma_t$, a hash-linked chain of **self-states** (current values, goals, preferences,
   corrections, world effects), each pointing at its parent.
 
-Let $C = \{\tau : \pi(\tau) \in \{\text{counter}, \text{revise}\}\}$ be the *dissenting* traces and
+Let $C = \lbrace \tau : \pi(\tau) \in \lbrace \text{counter}, \text{revise}\rbrace \rbrace $ be the *dissenting* traces and
 $S^{+} = \mathcal{T} \setminus C$ the *supporting* ones.
 
 ---
@@ -82,18 +82,18 @@ $S^{+} = \mathcal{T} \setminus C$ the *supporting* ones.
 Text is tokenized into a set $T(x)$: Latin words of length $\ge 2$, single CJK characters, and CJK
 bigrams. Similarity is the **Ochiai (cosine-on-sets) coefficient**:
 
-$$
+```math
 \mathrm{sim}(a,b) = \frac{|T(a) \cap T(b)|}{\sqrt{|T(a)|\,|T(b)|}}
-$$
+```
 
 *Example.* A query with 4 tokens and a trace with 9 tokens that share 2:
 $\mathrm{sim} = 2/\sqrt{36} = 0.33$.
 
 ### 3.2 Recency [code]
 
-$$
+```math
 w(\Delta) = 2^{-\Delta / H}, \qquad H = 120 \text{ days}
-$$
+```
 
 A one-year-old trace keeps $w = 2^{-365/120} \approx 0.12$ of a fresh trace's recency.
 
@@ -101,7 +101,7 @@ A one-year-old trace keeps $w = 2^{-365/120} \approx 0.12$ of a fresh trace's re
 
 For query $q$, context $x$ (serialized) and purpose $p$, each active trace gets
 
-$$
+```math
 \boxed{
 \mathrm{score}(\tau) =
 0.42\,\mathrm{sim}(q,\tau)
@@ -112,7 +112,7 @@ $$
 + 0.07\,w
 + 0.10\cdot\mathbf{1}[\tau \in C]
 }
-$$
+```
 
 The six base weights sum to exactly $1.00$; the dissent bonus sits on top.
 
@@ -135,9 +135,9 @@ The six base weights sum to exactly $1.00$; the dissent bonus sits on top.
 
 With a budget of $k$ traces ($k = 6$ by default), plain top-$k$ is replaced by
 
-$$
+```math
 \mathcal{S} = \operatorname{top}_{k-2}(S^{+}) \ \cup\ \{\arg\max_{\tau \in C} \mathrm{score}(\tau)\} \ \cup\ \text{fill to } k \text{ by score}
-$$
+```
 
 **Proposition 1 (dissent guarantee).** If $C \neq \emptyset$, then $|\mathcal{S} \cap C| \ge 1$,
 however low the best dissenting trace scores.
@@ -153,11 +153,11 @@ reserved, and at least one goes to dissent.
 
 Recall also reports what it *left out*:
 
-$$
+```math
 \mathcal{O}_{\text{mit}} = \{\tau \notin \mathcal{S} : \mathrm{score}(\tau) \ge \theta\}, \quad \theta = 0.12,
 \qquad
 \text{coverage} = \frac{|\mathcal{S}|}{|\{\tau : \mathrm{score}(\tau) \ge \theta\}|}
-$$
+```
 
 The packet therefore carries its own *known unknowns*. When no dissenting trace was selected it
 says so in words that refuse a common inference: *"no counter-trace selected; this gap does not mean
@@ -196,13 +196,13 @@ next_required_transition: OBSERVE_WORLD_EFFECT_THEN_RECONSOLIDATE
 
 Formally, writes to $\mathcal{T}$ are a function of observed outcomes, never of model output $y$:
 
-$$
+```math
 \mathcal{T}_{t+1} =
 \begin{cases}
 \mathcal{T}_t \cup \{\tau_{\text{effect}}(o),\ \tau_{\text{corr}}(o)\} & \text{if an outcome } o \text{ of an executed action is observed} \\
 \mathcal{T}_t & \text{otherwise (in particular, for any } y\text{)}
 \end{cases}
-$$
+```
 
 ### 5.2 Why this matters: self-poisoning [model]
 
@@ -211,17 +211,17 @@ $f_t$ of which are wrong. Each step the agent recalls, answers, and writes $m$ n
 own output. An output is wrong if the recall was wrong, or if the model errs (rate $\varepsilon$) on
 a correct recall:
 
-$$
+```math
 \Pr[\text{output wrong}] = f_t + \varepsilon(1 - f_t)
-$$
+```
 
 **Self-writing.** New traces inherit that error rate:
 
-$$
+```math
 f_{t+1} = \frac{N_t f_t + m\big(f_t + \varepsilon(1-f_t)\big)}{N_t + m}
 \quad\Longrightarrow\quad
 f_{t+1} - f_t = \frac{m}{N_t + m}\,\varepsilon\,(1 - f_t) \;>\; 0
-$$
+```
 
 For **any** $\varepsilon > 0$ the error fraction rises monotonically, and its only fixed point is
 $f^{*} = 1$. A memory that stores its own outputs converges to believing its own mistakes. The
@@ -230,9 +230,9 @@ speed depends on $\varepsilon$; the destination does not.
 **World-gated writing.** New traces come from observation with noise $\delta$, independent of what
 the model said:
 
-$$
+```math
 f_{t+1} = \frac{N_t f_t + m\,\delta}{N_t + m} \quad\longrightarrow\quad f^{*} = \delta
-$$
+```
 
 The error floor is now set by *how well you observe*, not by *how often the model is wrong*. That
 is the whole argument for the boundary in two lines. A model that hallucinates 10% of the time
@@ -249,14 +249,14 @@ When an outcome is observed, two traces are written:
 | *(a default observation, for comparison)* | support | 0.6 | 0.7 |
 
 Plug into the query-independent part of the score
-($0.10\,s + 0.07\,\kappa + 0.10\cdot\mathbf{1}[C]$), at equal recency:
+($0.10\ s + 0.07\ \kappa + 0.10\cdot\mathbf{1}[C]$), at equal recency:
 
-$$
+```math
 \text{prior}(\text{correction}) = 0.100 + 0.063 + 0.100 = 0.263
-$$
-$$
+```
+```math
 \text{prior}(\text{default}) = 0.060 + 0.049 + 0 = 0.109
-$$
+```
 
 The correction starts $0.154$ ahead. Dividing by the query weight,
 $0.154 / 0.42 \approx 0.37$: a correction outranks an ordinary memory **even when the ordinary memory
@@ -273,7 +273,7 @@ not a mutable blob.
 
 ### 6.1 The living-memory vector [code]
 
-Each recall evaluates twelve binary dimensions $v \in \{0,1\}^{12}$, each with evidence and "debt"
+Each recall evaluates twelve binary dimensions $v \in \lbrace 0,1\rbrace ^{12}$, each with evidence and "debt"
 strings:
 
 > reconstruction-not-copy · context sensitivity · counter-trace integration · selective forgetting ·
@@ -298,7 +298,7 @@ than terms.
 
 States are decided in a fixed order: pathologies first, then maturity:
 
-$$
+```math
 \text{state} =
 \begin{cases}
 \textsf{MEMORY\_COLONIZATION\_HOLD} & \exists\,\tau \text{ written without authorization} \\
@@ -310,7 +310,7 @@ $$
 \textsf{RECONSTRUCTIVE\_MEMORY} & \|v\|_1 \ge 3 \\
 \textsf{RETRIEVAL\_ASSISTANT} & \text{otherwise}
 \end{cases}
-$$
+```
 
 where $\sigma_i$ is the signature of the $i$-th most recent recall,
 $\sigma = \mathrm{SHA256}(\text{query},\ \text{selected ids},\ \text{core},\ \text{difference},\ \text{purpose})$.
@@ -330,7 +330,7 @@ stop conditions. For example, zombie replay → *interrupt replay and inject one
 counter-trace plus one reality test*.
 
 **Honest note.** Only the pathology rules and $v_{\text{world}}$ are true gates; the maturity rungs
-still use a count $\|v\|_1$, which is a (uniformly weighted) aggregate. The idea in §6.2 is
+still use a count $\Vert v\Vert _1$, which is a (uniformly weighted) aggregate. The idea in §6.2 is
 stronger than the code. Making every rung a conjunction of named gates would close that gap.
 
 ---
@@ -348,9 +348,9 @@ Three modes [code], all authorized and audited:
 **Consolidation** [code] groups active traces by their first tag. For each group $G$ with
 $|G| \ge 2$, ordered by $(s, t)$ descending, it writes one schema trace with
 
-$$
+```math
 \kappa_{\text{schema}} = \min\!\Big(0.95,\ \tfrac{1}{\min(4,|G|)} \textstyle\sum_{i \le 4} \kappa_i\Big)
-$$
+```
 
 and puts traces $G_{3..}$ to sleep, **except corrections, world effects, counters and revisions**.
 
@@ -365,9 +365,9 @@ exempt by construction.
 
 The audit log [code] is a hash chain:
 
-$$
+```math
 e_i = \mathrm{SHA256}\big(\text{type}_i,\ \text{id}_i,\ \text{payload}_i,\ e_{i-1},\ t_i\big), \qquad e_0 = 0^{64}
-$$
+```
 
 with the subtle, correct choice that **payloads store content digests, not content**: a record
 insert logs $h(\text{content})$, and a trace insert logs $h(\text{text})$.
